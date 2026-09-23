@@ -1,6 +1,6 @@
 set curdir=%CD%
 cd picaGL && make && make install && cd ../imgui-picagl && make && make install && cd ../DaedalusX64-3DS
-for %%I in (../*/*.*64) (
+for %%I in (roms/*.*64) (
   copy %%I Source\SysCTR\Resources\romfs
   tools\ctrtool --romfsdir Source\SysCTR\Resources\romfs Source\SysCTR\Resources\romfs.bin
   sh build_daedalus.sh CTR_RELEASE

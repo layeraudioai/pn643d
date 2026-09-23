@@ -11,7 +11,7 @@ FOR %%I in (..\roms\*.*64) DO (
   copy "%%I" "Source\SysCTR\Resources\romfs"
   pause
   echo > "Source\SysCTR\Resources\romfs.bin"
-  tools\3dstool -c --romfs-dir "Source\SysCTR\Resources\romfs" "Source\SysCTR\Resources\romfs.bin"
+  tools\3dstool -c --romfs-dir "Source\SysCTR\Resources\romfs" --file "Source\SysCTR\Resources\romfs.bin" --type romfs
   sh build_daedalus.sh CTR_RELEASE
   copy "daedbuild\DaedalusX64.cia" "dist\%%~nI.cia"
   mkdir "dist\3ds\%%~nI"

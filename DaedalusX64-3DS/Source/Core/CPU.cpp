@@ -653,18 +653,13 @@ void CPU_HANDLE_COUNT_INTERRUPT()
 		{
 			//Todo: Work on VI_INTR_CYCLES should be 62500 * (60/Real game FPS)
 			u32 vertical_sync_reg {Memory_VI_GetRegister( VI_V_SYNC_REG )};
-			const f32 performance_scale = FramerateLimiter_GetPerformanceScale();
 			if (vertical_sync_reg == 0)
 			{
-				VI_INTR_CYCLES = (u32)(62500.0f * performance_scale);
+				VI_INTR_CYCLES = 62500;
 			}
 			else
 			{
-				const u64 base_vi_cycles = (u64)(vertical_sync_reg + 1) *
-					(gVideoRateMatch ? gVISyncRate : 1500u);
-				const u64 scaled_vi_cycles = (u64)((f64)base_vi_cycles * performance_scale);
-				VI_INTR_CYCLES = scaled_vi_cycles > 0xFFFFFFFFu ? 0xFFFFFFFFu :
-					(scaled_vi_cycles == 0 ? 1u : (u32)scaled_vi_cycles);
+				VI_INTR_CYCLES = (vertical_sync_reg+1) * ( gVideoRateMatch ? gVISyncRate : 1500 );
 			}
 
 			// Apply cheatcodes, if enabled

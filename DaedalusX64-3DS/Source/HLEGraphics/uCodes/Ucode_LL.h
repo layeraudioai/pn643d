@@ -107,9 +107,8 @@ void DLParser_TexRect_Last_Legion( MicroCodeCommand command )
 	//
 	// Fetch the next two instructions
 	//
-	if( !DLParser_FetchNextCommand( &command2 ) ||
-		!DLParser_FetchNextCommand( &command3 ) )
-		return;
+	DLParser_FetchNextCommand( &command2 );
+	DLParser_FetchNextCommand( &command3 );
 
 	RDP_TexRect tex_rect;
 	tex_rect.cmd0 = command.inst.cmd0;
@@ -135,17 +134,20 @@ void DLParser_TexRect_Last_Legion( MicroCodeCommand command )
 	//rect_t0 += (((u32)rect_dtdy >> 31) << 5);
 
 	// In Fill/Copy mode the coordinates are inclusive (i.e. add 1<<2 to the w/h)
-	u32 cycle_mode = gRDPOtherMode.cycle_type;
-	if ( cycle_mode >= CYCLE_COPY )
+	//
+	switch ( gRDPOtherMode.cycle_type )
 	{
-		// In copy mode 4 pixels are copied at once.
-		if ( cycle_mode == CYCLE_COPY )
-			rect_dsdx = rect_dsdx >> 2;
-
-		tex_rect.x1 += 4;
-		tex_rect.y1 += 4;
+		case CYCLE_COPY:
+			rect_dsdx = rect_dsdx >> 2;	// In copy mode 4 pixels are copied at once.
+			// NB! Fall through!
+		case CYCLE_FILL:
+			rect_x1 += 4;
+			rect_y1 += 4;
+			break;
+		default:
+			break;
 	}
-	
+
 	s16 rect_s1 = rect_s0 + (rect_dsdx * ( rect_x1 - rect_x0 ) >> 7);
 	s16 rect_t1 = rect_t0 + (rect_dtdy * ( rect_y1 - rect_y0 ) >> 7);
 

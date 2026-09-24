@@ -87,9 +87,9 @@ const u32 NUM_COLOR_TYPES = GREY+1;
 enum EViewportType
 {
 	VT_UNSCALED_4_3 = 0,
+	VT_SCALED_4_3,
 	VT_FULLSCREEN,
 	VT_FULLSCREEN_HD,
-	VT_SCALED_4_3,
 };
 const u32 NUM_VIEWPORT_TYPES = VT_FULLSCREEN_HD+1;
 
@@ -101,7 +101,7 @@ enum ETVType
 
 struct SGlobalPreferences
 {
-	bool						DisplayFramerate;
+	u32							DisplayFramerate;
 #ifdef DAEDALUS_DEBUG_DISPLAYLIST
 	bool						HighlightInexactBlendModes;
 	bool						CustomBlendModes;

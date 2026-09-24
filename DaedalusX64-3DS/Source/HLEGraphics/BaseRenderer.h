@@ -40,11 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SysGL/GL.h"
 #endif
 
-#ifdef DAEDALUS_CTR
-#define HD_SCALE 0.8f
-#else
-#define HD_SCALE 0.754166f
-#endif
+#define HD_SCALE                          0.754166f
 
 class CNativeTexture;
 struct TempVerts;
@@ -56,16 +52,7 @@ struct TextureVtx
 	v3  pos;
 };
 
-struct TriDKR
-{
-    u8	v2, v1, v0, flag;
-    s16	t0, s0;
-    s16	t1, s1;
-    s16	t2, s2;
-};
-DAEDALUS_STATIC_ASSERT( sizeof(TriDKR) == 16 );
-
-//Can't be used for DKR since pointer start as odd and even addresses :( //Corn
+//Can't be used for DKR since pointer start as odd and even addresses //Corn
 struct FiddledVtxDKR
 {
 	s16 y;
@@ -78,7 +65,6 @@ struct FiddledVtxDKR
 	u8 g;
 	u8 r;
 };
-DAEDALUS_STATIC_ASSERT( sizeof(FiddledVtxDKR) == 10 );
 
 struct FiddledVtxPD
 {
@@ -92,7 +78,6 @@ struct FiddledVtxPD
 	s16 tv;
 	s16 tu;
 };
-DAEDALUS_STATIC_ASSERT( sizeof(FiddledVtxPD) == 12 );
 
 struct FiddledVtx
 {
@@ -213,10 +198,7 @@ ALIGNED_TYPE(struct, TnLParams, 16)
 #define X_POS  0x08	//right
 #define Y_POS  0x10	//top
 #define Z_POS  0x20	//near
-
-// Test all, including Z_NEG (far plane)? (TODO: Check No Near Plane microcodes)
-static const u32 CLIP_TEST_FLAGS = ( X_POS | X_NEG | Y_POS | Y_NEG | Z_POS | Z_NEG );
-
+#define CLIP_TEST_FLAGS ( X_POS | X_NEG | Y_POS | Y_NEG | Z_POS | Z_NEG )
 
 enum CycleType
 {
@@ -226,7 +208,6 @@ enum CycleType
 	CYCLE_FILL,
 };
 
-static const u32 kMaxN64Vertices = 80;		// F3DLP.Rej supports up to 80 verts!
 //*****************************************************************************
 //
 //*****************************************************************************
@@ -266,7 +247,7 @@ public:
 	inline void			SetFogColour( c32 colour )				{ mFogColour = colour; }
 #elif defined(DAEDALUS_VITA) || defined (DAEDALUS_CTR)
 	inline void			SetFogMinMax(f32 fog_near, f32 fog_far)	{ glFogf(GL_FOG_START, fog_near); glFogf(GL_FOG_END, fog_far); }
-	inline void			SetFogColour( c32 colour )				{ float fog_clr[4] = {colour.GetRf(), colour.GetGf(), colour.GetBf(), colour.GetAf()}; glFogfv(GL_FOG_COLOR, &fog_clr[0]); }
+	inline void			SetFogColour( c32 colour )				{ float fog_clr[4] = {mFogColour.GetRf(), mFogColour.GetBf(), mFogColour.GetGf(), mFogColour.GetAf()}; glFogfv(GL_FOG_COLOR, &fog_clr[0]); }
 #endif
 
 	// PrimDepth will replace the z value if depth_source=1 (z range 32767-0 while PSP depthbuffer range 0-65535)//Corn
@@ -292,7 +273,7 @@ public:
 	inline void			SetCoordMod( u32 idx, f32 mod )			{ mTnL.CoordMod[idx] = mod; }
 	inline void			SetMux( u64 mux )						{ mMux = mux; }
 
-	inline void			SetTextureScale(float fScaleX, float fScaleY)	{ mTnL.TextureScaleX = fScaleX == 0 ? 1/32.0f : fScaleX; mTnL.TextureScaleY = fScaleY == 0 ? 1/32.0f : fScaleY; }
+	inline void			SetTextureScale(float fScaleX, float fScaleY)	{ mTnL.TextureScaleX = fScaleX; mTnL.TextureScaleY = fScaleY; }
 
 	// TextRect stuff
 	virtual void		TexRect( u32 tile_idx, const v2 & xy0, const v2 & xy1, TexCoord st0, TexCoord st1 ) = 0;
@@ -340,9 +321,8 @@ public:
 	//void				Line3D( u32 v0, u32 v1, u32 width );
 
 	// Returns true if bounding volume is visible within NDC box, false if culled
-	bool				TestVerts( u32 v0, u32 vn ) const;
-	inline f32			GetVtxDepth( u32 i ) const				{ return mVtxProjected[ i ].ProjectedPos.z; }
-	inline f32			GetVtxWeight( u32 i ) const				{ return mVtxProjected[ i ].ProjectedPos.w; }
+	inline bool			TestVerts( u32 v0, u32 vn ) const		{ u32 f=mVtxProjected[v0].ClipFlags; for( u32 i=v0+1; i<=vn; i++ ) f&=mVtxProjected[i].ClipFlags; return f==0; }
+	inline s32			GetVtxDepth( u32 i ) const				{ return (s32)mVtxProjected[ i ].ProjectedPos.z; }
 	inline v4			GetTransformedVtxPos( u32 i ) const		{ return mVtxProjected[ i ].TransformedPos; }
 	inline v4			GetProjectedVtxPos( u32 i ) const		{ return mVtxProjected[ i ].ProjectedPos; }
 	inline u32			GetVtxFlags( u32 i ) const				{ return mVtxProjected[ i ].ClipFlags; }
@@ -382,7 +362,7 @@ protected:
 	inline void			UpdateFogEnable()						{ if(gFogEnabled) mTnL.Flags.Fog ? glEnable(GL_FOG) : glDisable(GL_FOG); }
 	inline void			UpdateShadeModel() {}
 #else
-	inline void			UpdateFogEnable()						{ mTnL.Flags.Fog ? glEnable(GL_FOG) : glDisable(GL_FOG); }
+	inline void			UpdateFogEnable()						{ if(gFogEnabled) mTnL.Flags.Fog ? glEnable(GL_FOG) : glDisable(GL_FOG); }
 	inline void			UpdateShadeModel()						{ glShadeModel( mTnL.Flags.Shade ? GL_SMOOTH : GL_FLAT ); }
 #endif
 	void				UpdateTileSnapshots( u32 tile_idx );
@@ -429,6 +409,7 @@ private:
 	inline void 		PokeWorldProject();
 
 protected:
+	static const u32 kMaxN64Vertices = 80;		// F3DLP.Rej supports up to 80 verts!
 
 	TnLParams			mTnL;
 

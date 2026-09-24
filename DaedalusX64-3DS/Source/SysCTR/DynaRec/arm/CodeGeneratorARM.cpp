@@ -35,7 +35,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "DynaRec/Trace.h"
 #include "OSHLE/ultra_R4300.h"
 
-#define offsetof(type, m) ((size_t)&(((type *)0)->m))
 
 using namespace AssemblyUtils;
 
@@ -1888,7 +1887,7 @@ bool CCodeGeneratorARM::GenerateCACHE( EN64Reg base, s16 offset, u32 cache_op )
 	if(dwCache == 0 && (dwAction == 0 || dwAction == 4))
 	{
 		FlushAllRegisters(mRegisterCache, true);
-		LDR(ArmReg_R0, ArmReg_R12, offsetof(SCPUState, CPU[base]._u32_0));
+		LDR(ArmReg_R0, ArmReg_R12, offsetof(SCPUState, CPU[5]._u32_0));
 		MOV32(ArmReg_R1, offset);
 		ADD(ArmReg_R0, ArmReg_R0, ArmReg_R1);
 		MOV_IMM(ArmReg_R1, 0x20);
@@ -2925,7 +2924,7 @@ void CCodeGeneratorARM::GenerateCFC1( EN64Reg rt, u32 fs )
 	if ( fs == 0 || fs == 31 )
 	{
 		EArmReg regt = GetRegisterNoLoadLo(rt, ArmReg_R0);
-		LDR(regt, ArmReg_R12, offsetof(SCPUState, FPUControl[fs]._s32));
+		LDR(regt, ArmReg_R12, offsetof(SCPUState, FPUControl[5]._s32));
 
 		UpdateRegister(rt, regt, URO_HI_SIGN_EXTEND);
 	}
@@ -2936,6 +2935,6 @@ void CCodeGeneratorARM::GenerateCTC1( u32 fs, EN64Reg rt )
 	if ( fs == 31 )
 	{
 		EArmReg regt = GetRegisterAndLoadLo(rt, ArmReg_R0);
-		STR(regt, ArmReg_R12, offsetof(SCPUState, FPUControl[fs]._u32));
+		STR(regt, ArmReg_R12, offsetof(SCPUState, FPUControl[5]._u32));
 	}
 }

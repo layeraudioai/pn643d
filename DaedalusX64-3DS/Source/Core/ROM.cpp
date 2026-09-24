@@ -426,10 +426,6 @@ void SpecificGameHacks( const ROMHeader & id )
 	case 0x5543:	//Cruisn' USA
 		g_ROM.GameHacks = BODY_HARVEST;
 		break;
-	case 0x4254:	//Mischief Makers
-	case 0x5257:    //Wave race
-		g_ROM.VIHEIGHT_HACK = true;
-		break;
 	default:
 		break;
 	}
@@ -523,7 +519,7 @@ bool ROM_LoadFile(const RomID & rom_id, const RomSettings & settings, const SRom
 	DBGConsole_Msg(0, "SaveType: [G%s]", ROM_GetSaveTypeName( g_ROM.settings.SaveType ) );
 	DBGConsole_Msg(0, "ApplyPatches: [G%s]", gOSHooksEnabled ? "on" : "off");
 	DBGConsole_Msg(0, "Check Texture Hash Freq: [G%d]", gCheckTextureHashFrequency);
-	DBGConsole_Msg(0, "Frame limiter: disabled (adaptive clock scaling enabled)");
+	DBGConsole_Msg(0, "SpeedSync: [G%d]", gSpeedSyncEnabled);
 	DBGConsole_Msg(0, "DynaRec: [G%s]", gDynarecEnabled ? "on" : "off");
 	DBGConsole_Msg(0, "Cheats: [G%s]", gCheatsEnabled ? "on" : "off");
 	#endif

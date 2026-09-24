@@ -82,25 +82,18 @@ static void CheckDSPFirmware()
 			exit(1);
 	}
 }
-
 static void Initialize()
 {
 	romfsInit();
-
 	CheckDSPFirmware();
-	
 	_InitializeSvcHack();
 	
 	APT_CheckNew3DS(&isN3DS);
 	osSetSpeedupEnable(true);
-	
-	gfxInit(GSP_BGR8_OES, GSP_BGR8_OES, true);
 
-	// Put the top LCD into stereoscopic mode. libctru treats wide and stereo
-	// modes as mutually exclusive; enabling stereo here intentionally gives
-	// the 3D display mode priority over New 3DS wide mode.
+	gfxInit(GSP_BGR8_OES, GSP_BGR8_OES, true);
 	gfxSet3D(true);
-	
+
 	pglInit();
 
 	strcpy(gDaedalusExePath, DAEDALUS_CTR_PATH(""));
@@ -112,11 +105,9 @@ static void Initialize()
 	System_Init();
 }
 
-
 void HandleEndOfFrame()
 {
 	shouldQuit = !aptMainLoop();
-	
 	if (shouldQuit)
 	{
 		CPU_Halt("Exiting");

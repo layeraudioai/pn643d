@@ -47,7 +47,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 static const EAudioPluginMode      kDefaultAudioPluginMode      = APM_DISABLED;
 static const ETextureHashFrequency kDefaultTextureHashFrequency = THF_DISABLED;
 #else
-static const EAudioPluginMode      kDefaultAudioPluginMode      = APM_ENABLED_SYNC;
+static const EAudioPluginMode      kDefaultAudioPluginMode      = APM_ENABLED_ASYNC;
 static const ETextureHashFrequency kDefaultTextureHashFrequency = THF_EVERY_FRAME;
 #endif
 
@@ -270,7 +270,7 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 		{
 			preferences.ZoomX = (f32)atof( property->GetValue() );
 		}
-#if defined(DAEDALUS_PSP) || defined(DAEDALUS_CTR)
+#ifdef DAEDALUS_PSP
 		if( section->FindProperty( "Controller", &property ) )
 		{
 			preferences.ControllerIndex = CInputManager::Get()->GetConfigurationFromName( property->GetValue() );
@@ -317,7 +317,7 @@ void IPreferences::OutputSectionDetails( const RomID & id, const SRomPreferences
 	fprintf(fh, "ZoomX=%f\n",                      preferences.ZoomX );
 	fprintf(fh, "MemoryAccessOptimisation=%d\n",   preferences.MemoryAccessOptimisation);
 	fprintf(fh, "CheatsEnabled=%d\n",              preferences.CheatsEnabled);
-#if defined(DAEDALUS_PSP) || defined(DAEDALUS_CTR)
+#ifdef DAEDALUS_PSP
 	fprintf(fh, "Controller=%s\n",                CInputManager::Get()->GetConfigurationName( preferences.ControllerIndex ));
 #endif
 	fprintf(fh, "\n");			// Spacer
@@ -429,7 +429,7 @@ void SGlobalPreferences::Apply() const
 SRomPreferences::SRomPreferences()
 	:	PatchesEnabled( true )
 	,	DynarecEnabled( true )
-	,	DynarecLoopOptimisation( false )
+	,	DynarecLoopOptimisation( true )
 	,	DynarecDoublesOptimisation( true )
 	,	DoubleDisplayEnabled( true )
 	,	CleanSceneEnabled( false )
@@ -437,7 +437,7 @@ SRomPreferences::SRomPreferences()
 	,	AudioRateMatch( false )
 	,	VideoRateMatch( false )
 	,	FogEnabled( false )
-	,   MemoryAccessOptimisation( false )
+	,   MemoryAccessOptimisation( true )
 	,	CheatsEnabled( false )
 //	,	AudioAdaptFrequency( false )
 	,	CheckTextureHashFrequency( kDefaultTextureHashFrequency )
@@ -454,7 +454,7 @@ void SRomPreferences::Reset()
 	PatchesEnabled             = true;
 	SpeedSyncEnabled           = 1;
 	DynarecEnabled             = true;
-	DynarecLoopOptimisation    = false;
+	DynarecLoopOptimisation    = true;
 	DynarecDoublesOptimisation = true;
 	DoubleDisplayEnabled       = true;
 	CleanSceneEnabled          = false;
@@ -462,7 +462,7 @@ void SRomPreferences::Reset()
 	AudioRateMatch             = false;
 	VideoRateMatch             = false;
 	FogEnabled                 = false;
-	MemoryAccessOptimisation   = false;
+	MemoryAccessOptimisation   = true;
 	CheckTextureHashFrequency  = kDefaultTextureHashFrequency;
 	Frameskip                  = FV_DISABLED;
 	AudioEnabled               = kDefaultAudioPluginMode;
@@ -493,7 +493,7 @@ void SRomPreferences::Apply() const
 	gAudioPluginEnabled         = AudioEnabled;
 //	gAdaptFrequency             = AudioAdaptFrequency;
 	gControllerIndex            = ControllerIndex;							//Used during ROM initialization
-#if defined(DAEDALUS_PSP) || defined(DAEDALUS_CTR)
+#ifdef DAEDALUS_PSP
 	CInputManager::Get()->SetConfiguration( ControllerIndex );  //Used after initialization
 #endif
 }

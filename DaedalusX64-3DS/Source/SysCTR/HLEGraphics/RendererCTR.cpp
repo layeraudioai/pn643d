@@ -26,7 +26,6 @@ extern float 	*gVertexBuffer;
 extern uint32_t	*gColorBuffer;
 extern float 	*gTexCoordBuffer;
 extern uint32_t  gVertexCount;
-extern uint32_t  gMaxVertices;
 
 struct ScePspFMatrix4
 {
@@ -35,7 +34,6 @@ struct ScePspFMatrix4
 
 
 ScePspFMatrix4		gProjection;
-
 void sceGuSetMatrix(int type, const ScePspFMatrix4 * mtx)
 {
 	if (type == GL_PROJECTION)
@@ -69,18 +67,20 @@ static void InitBlenderMode()
 
 	switch (active_mode)
 	{
-	case 0x00C0: // ISS 64
-	case 0x0091: // Mace special blend mode
-	case 0x0302: // Bomberman 2 special blend mode
 	case 0x0382: // Mace objects
-	case 0x07C2: // ISS 64
+	case 0x0091: // Mace special blend mode
 	case 0x0C08: // 1080 sky
+	case 0x0F0A: // DK64 blueprints
+	case 0x0302: // Bomberman 2 special blend mode
+	case 0xA500: // Sin and Punishment
+	case 0xCB02: // Battlezone
+	case 0xC800: // Conker's Bad Fur Day
+	case 0x07C2: // ISS 64
+	case 0x00C0: // ISS 64
 	case 0xC302: // ISS 64
 	case 0xC702: // Donald Duck: Quack Attack
-	case 0xC800: // Conker's Bad Fur Day
-	case 0x0F0A: // DK64 blueprints
-	case 0xA500: // Sin and Punishment
 	case 0xFA00: // Bomberman second attack
+	case 0x0010: // Diddy Kong rare logo
 		glDisable(GL_BLEND);
 		break;
 	case 0x55F0: // Bust-A-Move 3 DX
@@ -100,40 +100,33 @@ static void InitBlenderMode()
 		glBlendFunc(GL_ONE, GL_ONE);
 		glEnable(GL_BLEND);
 		break;
-	case 0x0F5A: // Zelda: MM
-	case 0x0FA5: // OOT menu
-	case 0x5055: // Paper Mario intro
-	case 0xAF50: // Zelda: MM
 	case 0xC712: // Pokemon Stadium
+	case 0xAF50: // Zelda: MM
+	case 0x0F5A: // Zelda: MM
+	case 0x0FA5:
+	case 0x5055: // Paper Mario intro
 		glBlendFunc(GL_ZERO, GL_ONE);
 		glEnable(GL_BLEND);
 		break;
-	case 0x0C40: // Extreme-G
-	case 0x0C48: // Star Wars: Shadow of the Empire text and hud
-	case 0x4C40: // Wave Race
 	case 0x5F50:
+	case 0x0C40: // Extreme-G
 		glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
 		glEnable(GL_BLEND);
 		break;
-	case 0x0010: // Diddy Kong rare logo
+	case 0xF550:
+	case 0x0150: // Spiderman
+	case 0x0550: // Bomberman 64
+	case 0x0D18:
 	case 0x0040: // F-Zero X
-	case 0x0050: // A Bug's Life
+	case 0xC810: // AeroGauge
+	case 0x0C18: // StarFox 64 main menu
+	case 0x0050:
 	case 0x0051:
 	case 0x0055:
-	case 0x0150: // Spiderman
-	case 0x0321:
-	case 0x0440: // Bomberman 64
-	case 0x04D0: // Conker's Bad Fur Day
-	case 0x0550: // Bomberman 64
-	case 0x0C18: // StarFox 64 main menu
-	case 0x0F54: // Star Wars racers
-	case 0xC410: // Donald Duck: Quack Attack dust
 	case 0xC440: // Banjo-Kazooie / Banjo-Tooie
-	case 0xC810: // AeroGauge
-	case 0xCB02: // Doom 64 weapons
-	case 0x0D18:
+	case 0x0321:
+	case 0xC410: // Donald Duck: Quack Attack dust
 	case 0x8410: // Paper Mario
-	case 0xF550:
 		if (!(!alpha_cvg_sel || cvg_x_alpha)) glDisable(GL_BLEND);
 		else {
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -154,12 +147,8 @@ static void InitBlenderMode()
 		glEnable(GL_BLEND);
 		break;
 	default:
-		//DBGConsole_Msg(0, "Uncommon blender mode: 0x%04X", active_mode);
-		if (!(!alpha_cvg_sel || cvg_x_alpha)) glDisable(GL_BLEND);
-		else {
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glEnable(GL_BLEND);
-		}
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable(GL_BLEND);
 		break;
 	}
 }
@@ -205,7 +194,9 @@ RendererCTR::~RendererCTR()
 }
 
 void RendererCTR::RestoreRenderStates()
-{	
+{
+	pglSelectScreen(GFX_TOP, GFX_LEFT);
+	
 	// Initialise the device to our default state
 	glEnable(GL_TEXTURE_2D);
 	
@@ -288,11 +279,6 @@ RendererCTR::SBlendStateEntry RendererCTR::LookupBlendState( u64 mux, bool two_c
 
 void RendererCTR::DrawPrimitives(DaedalusVtx * p_vertices, u32 num_vertices, u32 triangle_mode, bool has_texture)
 {
-	if((gVertexCount + num_vertices + 1) > gMaxVertices)
-	{
-		CGraphicsContext::Get()->ResetVertexBuffer();
-	}
-	
 	for (uint32_t i = 0; i < num_vertices; i++)
 	{
 		gVertexBuffer[0] = p_vertices[i].Position.x;
@@ -304,9 +290,9 @@ void RendererCTR::DrawPrimitives(DaedalusVtx * p_vertices, u32 num_vertices, u32
 
 		gColorBuffer[0] = p_vertices[i].Colour.GetColour();
 
-		gVertexBuffer   += 3;
+		gVertexBuffer += 3;
 		gTexCoordBuffer += 2;
-		gColorBuffer    += 1;
+		gColorBuffer += 1;
 	}
 
 
@@ -326,28 +312,37 @@ void RendererCTR::RenderUsingRenderSettings( const CBlendStates * states, Daedal
 	state.PrimitiveColour = mPrimitiveColour;
 	state.EnvironmentColour = mEnvColour;
 
-	if( states->GetNumStates() > 1 )
+	//Avoid copying vertices twice if we already save a copy to render fog //Corn
+	/*DaedalusVtx * p_FogVtx( mVtx_Save );
+	if( mTnL.Flags.Fog )
+	{
+		p_FogVtx = static_cast<DaedalusVtx *>(malloc(num_vertices * sizeof(DaedalusVtx)));
+		memcpy( p_FogVtx, p_vertices, num_vertices * sizeof( DaedalusVtx ) );
+	}
+	else if( states->GetNumStates() > 1 )
 	{
 		memcpy( mVtx_Save, p_vertices, num_vertices * sizeof( DaedalusVtx ) );
-	}
+	}*/
 
-	for( u32 i = 0; i < states->GetNumStates(); ++i )
+	for( u32 i {}; i < states->GetNumStates(); ++i )
 	{
 		const CRenderSettings *		settings( states->GetColourSettings( i ) );
 
 		bool install_texture0( settings->UsesTexture0() || alpha_settings->UsesTexture0() );
 		bool install_texture1( settings->UsesTexture1() || alpha_settings->UsesTexture1() );
 
-		SRenderStateOut out = {};
+		SRenderStateOut out;
+
+		memset( &out, 0, sizeof( out ) );
 
 		settings->Apply( install_texture0 || install_texture1, state, out );
 		alpha_settings->Apply( install_texture0 || install_texture1, state, out );
 
 		// TODO: this nobbles the existing diffuse colour on each pass. Need to use a second buffer...
-		if( i > 0 )
+		/*if( i > 0 )
 		{
-			memcpy( p_vertices, mVtx_Save, num_vertices * sizeof( DaedalusVtx ) );
-		}
+			memcpy( p_vertices, p_FogVtx, num_vertices * sizeof( DaedalusVtx ) );
+		}*/
 
 		if(out.VertexExpressionRGB != nullptr)
 		{
@@ -358,9 +353,9 @@ void RendererCTR::RenderUsingRenderSettings( const CBlendStates * states, Daedal
 			out.VertexExpressionA->ApplyExpressionAlpha( state );
 		}
 
-		bool installed_texture = false;
+		bool installed_texture {false};
 
-		u32 texture_idx;
+		u32 texture_idx {};
 
 		if(install_texture0 || install_texture1)
 		{
@@ -375,7 +370,7 @@ void RendererCTR::RenderUsingRenderSettings( const CBlendStates * states, Daedal
 				break;
 			case PBM_BLEND:
 				tfx = GL_BLEND;
-				float envcolor[4] = { out.TextureFactor.GetRf(), out.TextureFactor.GetGf(), out.TextureFactor.GetBf(), out.TextureFactor.GetAf() };
+				float envcolor[4] = {out.TextureFactor.GetRf(), out.TextureFactor.GetGf(), out.TextureFactor.GetBf(), out.TextureFactor.GetAf()};
 				glTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, envcolor);
 				break;
 			}
@@ -471,7 +466,7 @@ void RendererCTR::RenderUsingCurrentBlendMode(const float (&mat_project)[16], Da
 		}
 		
 		// Enable or Disable ZBuffer test
-		if ( (mTnL.Flags.Zbuffer & gRDPOtherMode.z_cmp) || gRDPOtherMode.z_upd )
+		if ( (mTnL.Flags.Zbuffer & gRDPOtherMode.z_cmp) | gRDPOtherMode.z_upd )
 		{
 			glEnable(GL_DEPTH_TEST);
 		}
@@ -526,12 +521,15 @@ void RendererCTR::RenderUsingCurrentBlendMode(const float (&mat_project)[16], Da
 	if( (gRDPOtherMode.alpha_compare == G_AC_THRESHOLD) && !gRDPOtherMode.alpha_cvg_sel )
 	{
 		u8 alpha_threshold = mBlendColour.GetA();
-		glAlphaFunc((alpha_threshold || g_ROM.ALPHA_HACK) ? GL_GEQUAL : GL_GREATER, mBlendColour.GetAf());
+		float alpha_val = mBlendColour.GetAf();
+		glAlphaFunc( (alpha_threshold | g_ROM.ALPHA_HACK) ? GL_GEQUAL : GL_GREATER, alpha_val);
 		glEnable(GL_ALPHA_TEST);
 	}
 	else if (gRDPOtherMode.cvg_x_alpha)
 	{
-		glAlphaFunc(GL_GEQUAL, 0.04392f);
+		// Going over 0x70 breaks OOT, but going lesser than that makes lines on games visible...ex: Paper Mario.
+		// Also going over 0x30 breaks the birds in Tarzan :(. Need to find a better way to leverage this.
+		glAlphaFunc(GL_GREATER, 0.4392f);
 		glEnable(GL_ALPHA_TEST);
 	}
 	else
@@ -562,11 +560,9 @@ void RendererCTR::RenderUsingCurrentBlendMode(const float (&mat_project)[16], Da
 		blend_entry.OverrideFunction( details );
 
 		bool installed_texture = false;
-
 		if( details.InstallTexture )
 		{
 			int texture_idx = g_ROM.T1_HACK ? 1 : 0;
-
 			if( mBoundTexture[ texture_idx ] )
 			{
 				mBoundTexture[ texture_idx ]->InstallTexture();
@@ -582,11 +578,15 @@ void RendererCTR::RenderUsingCurrentBlendMode(const float (&mat_project)[16], Da
 			glDisable(GL_TEXTURE_2D);
 		}
 		
-
-		details.ColourAdjuster.Process(p_vertices, num_vertices);
-		DrawPrimitives(p_vertices, num_vertices, triangle_mode, installed_texture);
-	}
-	else if( blend_entry.States != nullptr )
+		if ( mTnL.Flags.Fog )
+		{
+		}
+		else
+		{
+			details.ColourAdjuster.Process(p_vertices, num_vertices);
+			DrawPrimitives(p_vertices, num_vertices, triangle_mode, installed_texture);
+		}
+	}else if( blend_entry.States != nullptr )
 	{
 		RenderUsingRenderSettings( blend_entry.States, p_vertices, num_vertices, triangle_mode );
 	}
@@ -648,29 +648,16 @@ void RendererCTR::TexRect(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexCoord
 
 	v2 screen0;
 	v2 screen1;
-	
-	if( gGlobalPreferences.ViewportType == VT_FULLSCREEN_HD )
-	{
-		screen0.x = roundf( roundf( HD_SCALE * xy0.x ) * mN64ToScreenScale.x + 40 );
-		screen0.y = roundf( roundf( xy0.y )            * mN64ToScreenScale.y + mN64ToScreenTranslate.y );
-
-		screen1.x = roundf( roundf( HD_SCALE * xy1.x ) * mN64ToScreenScale.x + 40 ); 
-		screen1.y = roundf( roundf( xy1.y )            * mN64ToScreenScale.y + mN64ToScreenTranslate.y );
-	}
-	else
-	{
-		ConvertN64ToScreen( xy0, screen0 );
-		ConvertN64ToScreen( xy1, screen1 );
-	}
+	ConvertN64ToScreen( xy0, screen0 );
+	ConvertN64ToScreen( xy1, screen1 );
 
 	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
 
 	CNativeTexture *texture = mBoundTexture[0];
+	float scale_x {texture->GetScaleX()};
+	float scale_y {texture->GetScaleY()};
 
-	float scale_x = texture->GetScaleX();
-	float scale_y = texture->GetScaleY();
-
-	DaedalusVtx p_vertices[4];
+	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
 
 	p_vertices[0].Texture.x = uv0.x * scale_x;
 	p_vertices[0].Texture.y = uv0.y * scale_y;
@@ -702,8 +689,9 @@ void RendererCTR::TexRect(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexCoord
 	p_vertices[3].Colour = c32(0xffffffff);
 
 	glEnable(GL_TEXTURE_2D);
-
 	RenderUsingCurrentBlendMode(mScreenToDevice.mRaw, p_vertices, 4, GL_TRIANGLE_STRIP, gRDPOtherMode.depth_source ? false : true);
+
+	free(p_vertices);
 }
 
 void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexCoord st0, TexCoord st1)
@@ -728,15 +716,11 @@ void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexC
 	float scale_x = texture->GetScaleX();
 	float scale_y = texture->GetScaleY();
 
-	DaedalusVtx p_vertices[4];
+	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
+	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
 
 	p_vertices[0].Position.x = screen0.x;
 	p_vertices[0].Position.y = screen0.y;
-	// TexRectFlip uses the same RDP primitive-depth source as TexRect. Keeping
-	// this at zero made flipped textured rectangles fail depth comparisons when
-	// the game selected primitive depth.
-	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
-
 	p_vertices[0].Position.z = depth;
 	p_vertices[0].Colour = c32(0xffffffff);
 	p_vertices[0].Texture.x = uv0.x * scale_x;
@@ -764,8 +748,9 @@ void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexC
 	p_vertices[3].Texture.y = uv1.y * scale_y;
 
 	glEnable(GL_TEXTURE_2D);
-
 	RenderUsingCurrentBlendMode(mScreenToDevice.mRaw, p_vertices, 4, GL_TRIANGLE_STRIP, gRDPOtherMode.depth_source ? false : true);
+
+	free(p_vertices);
 }
 
 void RendererCTR::FillRect(const v2 & xy0, const v2 & xy1, u32 color)
@@ -775,7 +760,7 @@ void RendererCTR::FillRect(const v2 & xy0, const v2 & xy1, u32 color)
 	ScaleN64ToScreen( xy0, screen0 );
 	ScaleN64ToScreen( xy1, screen1 );
 	
-	DaedalusVtx p_vertices[4];
+	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
 	
 	p_vertices[0].Position.x = screen0.x;
 	p_vertices[0].Position.y = screen0.y;
@@ -798,11 +783,12 @@ void RendererCTR::FillRect(const v2 & xy0, const v2 & xy1, u32 color)
 	p_vertices[3].Colour = c32(color);
 	
 	glDisable(GL_TEXTURE_2D);
+
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
 	RenderUsingCurrentBlendMode(mScreenToDevice.mRaw, p_vertices, 4, GL_TRIANGLE_STRIP, true);
-
 	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+	free(p_vertices);
 }
 
 void RendererCTR::Draw2DTexture(f32 x0, f32 y0, f32 x1, f32 y1,
@@ -820,7 +806,7 @@ void RendererCTR::Draw2DTexture(f32 x0, f32 y0, f32 x1, f32 y1,
 	float sx1 = N64ToScreenX(x1);
 	float sy1 = N64ToScreenY(y1);
 
-	DaedalusVtx p_vertices[4];
+	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
 
 	p_vertices[0].Position.x = sx0;
 	p_vertices[0].Position.y = sy0;
@@ -852,6 +838,8 @@ void RendererCTR::Draw2DTexture(f32 x0, f32 y0, f32 x1, f32 y1,
 
 	glEnable(GL_TEXTURE_2D);
 	RenderUsingCurrentBlendMode(mScreenToDevice.mRaw, p_vertices, 4, GL_TRIANGLE_STRIP, true);
+
+	free(p_vertices);
 }
 
 void RendererCTR::Draw2DTextureR(f32 x0, f32 y0, f32 x1, f32 y1, f32 x2,
@@ -863,7 +851,7 @@ void RendererCTR::Draw2DTextureR(f32 x0, f32 y0, f32 x1, f32 y1, f32 x2,
 	float scale_x = texture->GetScaleX();
 	float scale_y = texture->GetScaleY();
 
-	DaedalusVtx p_vertices[4];
+	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
 	
 	p_vertices[0].Position.x = N64ToScreenX(x0);
 	p_vertices[0].Position.y = N64ToScreenY(y0);
@@ -895,6 +883,8 @@ void RendererCTR::Draw2DTextureR(f32 x0, f32 y0, f32 x1, f32 y1, f32 x2,
 	
 	glEnable(GL_TEXTURE_2D);
 	RenderUsingCurrentBlendMode(mScreenToDevice.mRaw, p_vertices, 4, GL_TRIANGLE_FAN, true);
+
+	free(p_vertices);
 }
 
 bool CreateRenderer()

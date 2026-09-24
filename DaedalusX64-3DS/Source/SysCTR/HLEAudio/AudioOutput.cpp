@@ -34,14 +34,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern u32 gSoundSync;
 
-static const u32 DESIRED_OUTPUT_FREQUENCY = 44100;
+static const u32	DESIRED_OUTPUT_FREQUENCY = 44100;
 
-static const u32 CTR_BUFFER_SIZE  = 1024 * 2;
-static const u32 CTR_BUFFER_COUNT = 6;
-static const u32 CTR_NUM_SAMPLES  = 512;
+// Large BUFFER_SIZE creates huge delay on sound //Corn
+static const u32	BUFFER_SIZE  = 1024 * 2;
 
+static const u32	CTR_NUM_SAMPLES = 512;
 
-static ndspWaveBuf waveBuf[CTR_BUFFER_COUNT];
+static ndspWaveBuf waveBuf[2];
 static unsigned int waveBuf_id;
 
 bool audioOpen = false;
@@ -54,19 +54,13 @@ static void audioCallback(void *arg)
 {
 	(void)arg;
 
-	u32 samples_written = 0;
-
 	if(waveBuf[waveBuf_id].status == NDSP_WBUF_DONE)
 	{
-		samples_written = mAudioBuffer->Drain( reinterpret_cast< Sample * >( waveBuf[waveBuf_id].data_pcm16 ), CTR_NUM_SAMPLES );
-
-		if(samples_written != 0)
-			waveBuf[waveBuf_id].nsamples = samples_written;
-
+		mAudioBuffer->Drain( reinterpret_cast< Sample * >( waveBuf[waveBuf_id].data_pcm16 ), CTR_NUM_SAMPLES );
 		DSP_FlushDataCache(waveBuf[waveBuf_id].data_pcm16, CTR_NUM_SAMPLES << 2);
 		ndspChnWaveBufAdd( 0, &waveBuf[waveBuf_id] );
 
-		waveBuf_id = (waveBuf_id + 1) % CTR_BUFFER_COUNT;
+		waveBuf_id = !waveBuf_id;
 	}
 }
 
@@ -77,22 +71,24 @@ static void AudioInit()
 
 	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
 	ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
-	ndspChnSetRate(0, DESIRED_OUTPUT_FREQUENCY);
+	ndspChnSetRate(0, 44100.0f);
 
-	for(u32 i = 0; i < CTR_BUFFER_COUNT; i++)
-	{
-		waveBuf[i].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * 4);
-		waveBuf[i].nsamples = CTR_NUM_SAMPLES;
-		waveBuf[i].status = 0;
+	waveBuf[0].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * 4);
+	waveBuf[0].nsamples = CTR_NUM_SAMPLES;
+	waveBuf[0].status = 0;
+	waveBuf[1].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * 4);
+	waveBuf[1].nsamples = CTR_NUM_SAMPLES;
+	waveBuf[1].status = 0;
 
-		memset(waveBuf[i].data_pcm16, 0, CTR_NUM_SAMPLES * 4);
-
-		ndspChnWaveBufAdd(0, &waveBuf[i]);
-	}
+	memset(waveBuf[0].data_pcm16, 0, CTR_NUM_SAMPLES * 4);
+	memset(waveBuf[1].data_pcm16, 0, CTR_NUM_SAMPLES * 4);
 
 	waveBuf_id = 0;
 
 	ndspSetCallback(&audioCallback, nullptr);
+
+	ndspChnWaveBufAdd(0, &waveBuf[0]);
+	ndspChnWaveBufAdd(0, &waveBuf[1]);
 
 	// Everything OK
 	audioOpen = true;
@@ -104,10 +100,8 @@ static void AudioExit()
 	ndspChnWaveBufClear(0);
 	ndspExit();
 
-	for(u32 i = 0; i < CTR_BUFFER_COUNT; i++)
-	{
-		linearFree((void*)waveBuf[i].data_vaddr);
-	}
+	linearFree((void*)waveBuf[0].data_vaddr);
+	linearFree((void*)waveBuf[1].data_vaddr);
 
 	audioOpen = false;
 }
@@ -116,13 +110,17 @@ AudioOutput::AudioOutput()
 :	mAudioPlaying( false )
 ,	mFrequency( 44100 )
 {
-	mAudioBuffer = new CAudioBuffer( CTR_BUFFER_SIZE );
+	// Allocate audio buffer with malloc_64 to avoid cached/uncached aliasing
+	void * mem = malloc( sizeof( CAudioBuffer ) );
+	mAudioBuffer = new( mem ) CAudioBuffer( BUFFER_SIZE );
 }
 
 AudioOutput::~AudioOutput( )
 {
 	StopAudio();
-	delete mAudioBuffer;
+
+	mAudioBuffer->~CAudioBuffer();
+	free( mAudioBuffer );
 }
 
 void AudioOutput::SetFrequency( u32 frequency )
@@ -141,18 +139,25 @@ void AudioOutput::AddBuffer( u8 *start, u32 length )
 	u32 num_samples = length / sizeof( Sample );
 
 	u32 output_freq = DESIRED_OUTPUT_FREQUENCY;
-
-	/*if (gAudioRateMatch)
+	if (gAudioRateMatch)
 	{
-		if (gSoundSync > DESIRED_OUTPUT_FREQUENCY * 2)	
-			output_freq = DESIRED_OUTPUT_FREQUENCY * 2;	//limit upper rate
-		else if (gSoundSync < DESIRED_OUTPUT_FREQUENCY)
-			output_freq = DESIRED_OUTPUT_FREQUENCY;	//limit lower rate
-		else
-			output_freq = gSoundSync;
-	}*/
+		if (gSoundSync > 88200)	output_freq = 88200;	//limit upper rate
+		else if (gSoundSync < DESIRED_OUTPUT_FREQUENCY)	output_freq = DESIRED_OUTPUT_FREQUENCY;	//limit lower rate
+	}
 
-	mAudioBuffer->AddSamples( reinterpret_cast< const Sample * >( start ), num_samples, mFrequency, output_freq );
+	switch( gAudioPluginEnabled )
+	{
+	case APM_DISABLED:
+		break;
+
+	case APM_ENABLED_ASYNC:
+		mAudioBuffer->AddSamples( reinterpret_cast< const Sample * >( start ), num_samples, mFrequency, output_freq );
+		break;
+
+	case APM_ENABLED_SYNC:
+		mAudioBuffer->AddSamples( reinterpret_cast< const Sample * >( start ), num_samples, mFrequency, output_freq );
+		break;
+	}
 }
 
 void AudioOutput::StartAudio()

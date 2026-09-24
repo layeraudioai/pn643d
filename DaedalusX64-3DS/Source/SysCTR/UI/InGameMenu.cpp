@@ -23,6 +23,7 @@
 #include "System/System.h"
 #include "Test/BatchTest.h"
 #include "Utility/IO.h"
+#include "Utility/FramerateLimiter.h"
 #include "Utility/Preferences.h"
 #include "Utility/Profiler.h"
 #include "Utility/Thread.h"
@@ -30,18 +31,16 @@
 #include "Utility/ROMFile.h"
 #include "Utility/Timer.h"
 
-extern uint8_t aspectRatio;
 extern float gCurrentFramerate;
 extern EFrameskipValue gFrameskipValue;
 extern RomInfo g_ROM;
 
-static uint64_t timer;
 static uint8_t currentPage = 0;
 
 static void ExecSaveState(int slot)
 {
 	IO::Filename full_path;
-	sprintf(full_path, "%s%s.ss%ld", DAEDALUS_CTR_PATH("SaveStates/"), g_ROM.settings.GameName.c_str(), slot);
+	sprintf(full_path, "%s%s.ss%d", DAEDALUS_CTR_PATH("SaveStates/"), g_ROM.settings.GameName.c_str(), slot);
 
 	CPU_RequestSaveState(full_path);
 }
@@ -49,146 +48,425 @@ static void ExecSaveState(int slot)
 static void LoadSaveState(int slot)
 {
 	IO::Filename full_path;
-	sprintf(full_path, "%s%s.ss%ld", DAEDALUS_CTR_PATH("SaveStates/"), g_ROM.settings.GameName.c_str(), slot);
+	sprintf(full_path, "%s%s.ss%d", DAEDALUS_CTR_PATH("SaveStates/"), g_ROM.settings.GameName.c_str(), slot);
 
 	CPU_RequestLoadState(full_path);
 }
 
+static bool SaveStateExists(int slot)
+{
+	IO::Filename full_path;
+	sprintf(full_path, "%s%s.ss%d", DAEDALUS_CTR_PATH("SaveStates/"), g_ROM.settings.GameName.c_str(), slot);
+
+	return IO::File::Exists(full_path);
+}
+
 static void DrawSaveStatePage()
 {
+	ImGui_Impl3DS_NewFrame();
+	ImGui::SetNextWindowPos( ImVec2(0, 0) );
+	ImGui::SetNextWindowSize( ImVec2(320, 240) );
+
+	ImGui::Begin("Save state", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
+
 	char buttonString[20];
 
-	UI::DrawHeader("Save state");
+	float buttonWidth = ImGui::GetContentRegionAvailWidth();
 
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 5; i++)
 	{
 		sprintf(buttonString, "Save slot: %i", i);
 
-		if(UI::DrawButton(10, 22 + (54 * i), 300, 44, buttonString))
+		if(ImGui::ColoredButton(buttonString, SaveStateExists(i) ? 0.16f : 0.40f, ImVec2(buttonWidth, 30)))
 		{
 			ExecSaveState(i);
 		}
 	}
 
-	if(UI::DrawButton(10, 184, 300, 44, "Back"))
-		currentPage = 0;
+	if(ImGui::ColoredButton("Cancel", 0, ImVec2(buttonWidth, 30))) currentPage = 0;
+
+	ImGui::End();
+	ImGui::Render();
+
+	ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 }
 
 static void DrawLoadStatePage()
 {
+	ImGui_Impl3DS_NewFrame();
+	ImGui::SetNextWindowPos( ImVec2(0, 0) );
+	ImGui::SetNextWindowSize( ImVec2(320, 240) );
+
+	ImGui::Begin("Load state", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
+
 	char buttonString[20];
 
-	UI::DrawHeader("Load state");
-
-	for(int i = 0; i < 3; i++)
+	float buttonWidth = ImGui::GetContentRegionAvailWidth();
+	
+	for(int i = 0; i < 5; i++)
 	{
 		sprintf(buttonString, "Load slot: %i", i);
 
-		if(UI::DrawButton(10, 22 + (54 * i), 300, 44, buttonString))
+		if( SaveStateExists(i) )
 		{
-			LoadSaveState(i);
+			if(ImGui::ColoredButton(buttonString, SaveStateExists(i) ? 0.40f : 0.0f, ImVec2(buttonWidth, 30)))
+			{
+				LoadSaveState(i);
+			}
+		}
+		else
+		{
+			ImGui::Button(buttonString, ImVec2(buttonWidth, 30));
 		}
 	}
 
-	if(UI::DrawButton(10, 184, 300, 44, "Back"))
-		currentPage = 0;
+	if(ImGui::ColoredButton("Cancel", 0, ImVec2(buttonWidth, 30))) currentPage = 0;
+
+	ImGui::End();
+	ImGui::Render();
+
+	ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 }
 
-static void DrawConfirmPage()
+static void HelpMarker(const char* desc)
 {
-	UI::DrawHeader("Close ROM: Are you sure?");
+	ImGui::SameLine();
+	ImGui::SetCursorPosX(284);
+    ImGui::TextDisabled("(?)");
 
-	if(UI::DrawToggle(10,  22, 300, 99, "YES", false))
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
+
+static SRomPreferences romPreferences;
+
+void UI::LoadRomPreferences(RomID mRomID)
+{
+	CPreferences::Get()->GetRomPreferences( mRomID, &romPreferences );
+}
+
+bool UI::DrawOptionsPage(RomID mRomID)
+{
+	currentPage = 3;
+
+	int currentSelection = 0;
+
+	ImGui_Impl3DS_NewFrame();
+	ImGui::SetNextWindowPos( ImVec2(0, 0) );
+	ImGui::SetNextWindowSize( ImVec2(320, 240) );
+
+	ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
+	ImGui::PushItemWidth(-1);
+	ImGui::Spacing();
+
+	ImGui::BeginTabBar("Tabs", ImGuiTabBarFlags_None);
+
+	if (ImGui::BeginTabItem("Core"))
 	{
-		currentPage = 0;
-		 CPU_Halt("Exiting");
+		ImGui::Text("Dynamic Recompilation");
+		ImGui::Checkbox("##DynaRec", &romPreferences.DynarecEnabled);
+		ImGui::SameLine();
+		ImGui::Text(romPreferences.DynarecEnabled ? "Enabled" : "Disabled");
+
+		ImGui::Spacing();
+
+		ImGui::Text("Dynarec Loop Optimizations");
+		HelpMarker("Enable loop optimizations for better performance\n Can cause freezes!!!");
+		ImGui::Checkbox("##loopopt", (bool*)&romPreferences.DynarecLoopOptimisation);
+		ImGui::SameLine();
+		ImGui::Text(romPreferences.DynarecLoopOptimisation ? "Enabled" : "Disabled");
+
+		ImGui::Spacing();
+
+		ImGui::Text("Dynarec Memory Access Optimizations");
+		HelpMarker("Enable memory access optimizations for better performance\n Can cause freezes!!!");
+		ImGui::Checkbox("##memaccess", (bool*)&romPreferences.MemoryAccessOptimisation);
+		ImGui::SameLine();
+		ImGui::Text(romPreferences.MemoryAccessOptimisation ? "Enabled" : "Disabled");
+
+		ImGui::Spacing();
+
+		ImGui::Text("Framerate Cap: Removed");
+		ImGui::Text("Sync: %.2f%%", (double)(FramerateLimiter_GetSync() * 100.0f));
+
+		ImGui::EndTabItem();
 	}
 
-	if(UI::DrawButton(10, 131, 300, 99, "NO"))
+	if (ImGui::BeginTabItem("Audio"))
 	{
-		currentPage = 0;
+		const char* audioOptions[] = { "Disabled", "Asynchronous", "Synchronous" };
+		ImGui::Text("Audio Plugin");
+		currentSelection = (int)romPreferences.AudioEnabled;
+		ImGui::Combo("##audio_combo", &currentSelection, audioOptions, 3);
+		romPreferences.AudioEnabled = EAudioPluginMode(currentSelection);
+
+		ImGui::EndTabItem();
+	}
+
+	if (ImGui::BeginTabItem("Video"))
+	{
+		ImGui::Text("Sync Video Rate");
+		HelpMarker("Speeds up video logic to match framerate.");
+		ImGui::Checkbox("##VideoRateMatch", &romPreferences.VideoRateMatch);
+		ImGui::SameLine();
+		ImGui::Text(romPreferences.VideoRateMatch ? "Enabled" : "Disabled");
+
+		ImGui::Spacing();
+
+		const char* hashOptions[] = { "Disabled", "Every frame", "Every 2 frames", "Every 4 frames", "Every 8 frames", "Every 16 frames", "Every 32 frames" };
+		ImGui::Text("Texture Hash Check Frequency");
+		HelpMarker( "Frequency in which to check for texture changes.\n"
+					"Disabled is the fastest, but can cause graphical glitches.\n");
+		currentSelection = (int)romPreferences.CheckTextureHashFrequency;
+		ImGui::Combo("##hash_frequency", &currentSelection, hashOptions, NUM_THF);
+		romPreferences.CheckTextureHashFrequency = ETextureHashFrequency(currentSelection);
+
+		ImGui::Spacing();
+
+		const char* frameskipOptions[] = { "Disabled", "Auto 1", "Auto 2", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+		ImGui::Text("Frameskip");
+		currentSelection = (int)romPreferences.Frameskip;
+		ImGui::Combo("##frameskip_combo", &currentSelection, frameskipOptions, NUM_FRAMESKIP_VALUES);
+		romPreferences.Frameskip = EFrameskipValue(currentSelection);
+
+		ImGui::Spacing();
+
+		const char* viewporOptions[] = { "4:3", "Widescreen (Streteched)", "Widescreen (Hack)" };
+		ImGui::Text("Aspect Ratio");
+		currentSelection = (int)gGlobalPreferences.ViewportType;
+		ImGui::Combo("##viewport_combo", &currentSelection, viewporOptions, 3);
+		gGlobalPreferences.ViewportType = EViewportType(currentSelection);
+
+		ImGui::EndTabItem();
+	}
+
+	if (ImGui::BeginTabItem("Input"))
+	{
+		if(ImGui::BeginCombo("Configuration", CInputManager::Get()->GetConfigurationName(romPreferences.ControllerIndex)) )
+		{
+			for( unsigned i = 0; i < CInputManager::Get()->GetNumConfigurations(); i++ )
+			{
+				const bool isSelected = (romPreferences.ControllerIndex == i);
+
+				if( ImGui::Selectable(CInputManager::Get()->GetConfigurationName(i), isSelected) )
+                    romPreferences.ControllerIndex = i;
+			}
+
+			ImGui::EndCombo();
+		}
+
+		ImGui::Text(CInputManager::Get()->GetConfigurationDescription(romPreferences.ControllerIndex) );
+
+		ImGui::EndTabItem();
 	}
 	
-}
-
-static void DrawOptionsPage()
-{
-	SRomPreferences	preferences;
-
-	CPreferences::Get()->GetRomPreferences( g_ROM.mRomID, &preferences );
-
-	char frameskipString[30];
-
-	sprintf(frameskipString, "Frameskip: %s", Preferences_GetFrameskipDescription( preferences.Frameskip ));
-
-	UI::DrawHeader("Options");
-
-	if(UI::DrawToggle(10,  22, 145, 62, "Toggle Audio", preferences.AudioEnabled == APM_ENABLED_ASYNC))
+	if (ImGui::BeginTabItem("Misc"))
 	{
-		preferences.AudioEnabled = (preferences.AudioEnabled == APM_ENABLED_ASYNC ? APM_DISABLED : APM_ENABLED_ASYNC);
-		preferences.SpeedSyncEnabled = (preferences.AudioEnabled == APM_ENABLED_ASYNC ? false : true);
+		ImGui::Text("Display FPS");
+		ImGui::Checkbox("##DisplayFPS", (bool*)&gGlobalPreferences.DisplayFramerate);
+		ImGui::SameLine();
+		ImGui::Text(gGlobalPreferences.DisplayFramerate ? "Enabled" : "Disabled");
+
+		
+		ImGui::Spacing();
+
+		// Cheats
+		ImGui::Text("Enable Cheats");
+		ImGui::Checkbox("##EnableCheats", &romPreferences.CheatsEnabled);
+		ImGui::SameLine();
+		ImGui::Text(romPreferences.CheatsEnabled ? "Enabled" : "Disabled");
+
+		if (romPreferences.CheatsEnabled)
+		{
+			ImGui::Text("Cheats");
+			RomSettings settings;
+			std::string mRomName;
+			if (CRomSettingsDB::Get()->GetSettings(mRomID, &settings))
+			{
+				mRomName = settings.GameName;
+			}
+			// ImGui::Text(mRomName.c_str());
+
+			// show cheats dropdown
+			CheatCodes_Read(mRomName.c_str(), "Daedalus.cht", mRomID.CountryID);
+
+			// Loaded Cheats
+			ImGui::Text("Loaded Cheats");
+			if (codegroupcount > 0)
+			{
+				char *empt = strdup("");
+				char *cheatNames[codegroupcount] = {empt};
+				char *unloadedCheatNames[codegroupcount] = {empt};
+				int numCheats = 0;
+
+				for (u32 i = 0; i < codegroupcount; ++i)
+				{
+					std::string cheatStr = std::to_string(i) + ". " + codegrouplist[i].name + " - " + codegrouplist[i].note;
+					if (codegrouplist[i].active)
+					{
+						cheatNames[i] = strdup(cheatStr.c_str());
+						numCheats++;
+					}
+					else
+					{
+						unloadedCheatNames[i] = strdup(cheatStr.c_str());
+					}
+				}
+
+				int selectedCheat = -1;
+				ImGui::Combo("##cheat_list", &selectedCheat, cheatNames, numCheats); // Display up to 5 cheats at once
+
+				// Toggle Cheat Status
+				if (selectedCheat != -1)
+				{
+					codegrouplist[selectedCheat].active = false;
+					CheatCodes_Disable(selectedCheat);
+					selectedCheat = -1;
+				}
+
+				// unslelected cheats
+				int unSelectedCheat = -1;
+				ImGui::Combo("##unselected_cheat_list", &unSelectedCheat, unloadedCheatNames, codegroupcount - numCheats); // Display up to 5 cheats at once
+
+				// Toggle Cheat Status
+				if (unSelectedCheat != -1)
+				{
+					codegrouplist[unSelectedCheat].active = true;
+					CheatCodes_Apply(unSelectedCheat, IN_GAME);
+					unSelectedCheat = -1;
+				}
+
+				char str[10];
+				ImGui::Text(itoa(numCheats, str, 10));
+				char str2[10];
+				ImGui::Text(itoa(codegroupcount - numCheats, str2, 10));
+			}
+			else
+			{
+				ImGui::Text("No cheats found.");
+			}
+		}
+
+		ImGui::EndTabItem();
 	}
 
-	if(UI::DrawButton(165,  22, 145, 62, "Aspect Ratio"))
+	ImGui::EndTabBar();
+	ImGui::Spacing();
+	ImGui::Separator();
+
+	int buttonWidth = (ImGui::GetContentRegionAvailWidth() - 6) / 2;
+
+	if( ImGui::Button("Cancel", ImVec2(buttonWidth, 30)) )
 	{
-		aspectRatio = !aspectRatio;
+		currentPage = 0;
 	}
 
-	if(UI::DrawButton(10,  94, 300, 62, frameskipString))
-	{
-		preferences.Frameskip = (EFrameskipValue) (preferences.Frameskip + 1);
+	ImGui::SameLine(0, 4);
 
-		if(preferences.Frameskip > FV_2)
-			preferences.Frameskip = FV_DISABLED;
-	}
-
-	if(UI::DrawButton(10, 166, 300, 62, "Back"))
+	if( ImGui::Button("Save", ImVec2(buttonWidth, 30)) )
 	{
+		CPreferences::Get()->SetRomPreferences( mRomID, romPreferences );
 		CPreferences::Get()->Commit();
+	
 		currentPage = 0;
 	}
-	
-	CPreferences::Get()->SetRomPreferences( g_ROM.mRomID, preferences );
 
-	preferences.Apply();
+	ImGui::PopItemWidth();
+	ImGui::End();
+	ImGui::Render();
+
+	ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+	
+	romPreferences.Apply();
+
+	return currentPage == 3;
+}
+
+static void showFPS()
+{
+	ImGui::SetNextWindowPos( ImVec2(250,0) );
+	ImGui::SetNextWindowSize( ImVec2(70, 22) );
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 2)); 
+	ImGui::BeginTooltip();
+	ImGui::Text("FPS: %.2f", gCurrentFramerate);
+	ImGui::End();
+	ImGui::PopStyleVar();
 }
 
 static void DrawMainPage()
 {
-	char titleString[20];
+	ImGui_Impl3DS_NewFrame();
 
-	sprintf(titleString, "FPS: %.2f", gCurrentFramerate);
-	UI::DrawHeader(titleString);
+	ImGui::SetNextWindowPos( ImVec2(0, 0) );
+	ImGui::SetNextWindowSize( ImVec2(320, 240) );
 
-	if((osGetTime() - timer) > 5000)
+	ImGui::Begin("Menu", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus);
+
+	if( ImGui::Button("Save State", ImVec2(ImGui::GetContentRegionAvailWidth(), 60)) ) currentPage = 1;
+	if( ImGui::Button("Load State", ImVec2(ImGui::GetContentRegionAvailWidth(), 60)) ) currentPage = 2;
+
+	int buttonWidth = (ImGui::GetContentRegionAvailWidth() - 6) / 2;
+	if( ImGui::ColoredButton("Close ROM", 0.02f, ImVec2(buttonWidth, 60)) )  ImGui::OpenPopup("Are you sure?");
+	ImGui::SameLine();
+	if( ImGui::ColoredButton("Options",   0.55f, ImVec2(buttonWidth, 60)) )
 	{
-		if(keysHeld() & KEY_TOUCH)
-		{
-			timer = osGetTime();
-		}
-		return;
+		UI::LoadRomPreferences( g_ROM.mRomID );
+		currentPage = 3;
 	}
 
-	if(UI::DrawButton(10,  22, 300, 62, "Save State")) currentPage = 1;
-	if(UI::DrawButton(10,  94, 300, 62, "Load State")) currentPage = 2;
-	if(UI::DrawButton(10,  166, 145, 62, "Close ROM")) currentPage = 3;
-	if(UI::DrawButton(165, 166, 145, 62, "Options"))   currentPage = 4;
+	ImVec2 center(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f);
+
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+    if (ImGui::BeginPopupModal("Are you sure?", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove))
+    {
+        ImGui::Text("Any unsaved progress will be lost\n\n");
+
+        if (ImGui::Button("OK", ImVec2(120, 0)))
+        { 
+        	currentPage = 0;
+	 		CPU_Halt("Exiting");
+	 		ImGui::CloseCurrentPopup();
+        }
+        ImGui::SetItemDefaultFocus();
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+        {
+        	ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+
+	ImGui::End();
+
+	if(gGlobalPreferences.DisplayFramerate)
+		showFPS();
+
+	ImGui::Render();
+	ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 }
 
 void UI::DrawInGameMenu()
 {
 	UI::RestoreRenderState();
-	glClear(GL_COLOR_BUFFER_BIT);
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	switch(currentPage)
 	{
 		case 0: DrawMainPage(); break;
 		case 1: DrawSaveStatePage(); break;
 		case 2: DrawLoadStatePage(); break;
-		case 3: DrawConfirmPage(); break;
-		case 4: DrawOptionsPage(); break;
+		case 3: DrawOptionsPage(g_ROM.mRomID); break;
 	}
 
-	pglSwapBuffers();
 	pglSelectScreen(GFX_TOP, GFX_LEFT);
 }

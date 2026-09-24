@@ -73,6 +73,10 @@ class CNativeTexture : public CRefCounted
 		inline f32						GetScaleY() const				{ return mScale.y; }
 #endif
 
+#if defined(DAEDALUS_GL) || defined(DAEDALUS_VITA) || defined(DAEDALUS_CTR)
+		inline GLuint					GetTextureId() const			{ return mTextureId; }
+#endif
+
 		u32								GetBytesRequired() const;
 		bool							HasData() const;				// If we run out of texture memory, this will return true
 

@@ -5,9 +5,15 @@ set curdir=%CD%
 
 echo compile and install dependencies
 cd picaGL && make && make install && cd ../imgui-picagl && make && make install && cd ../DaedalusX64-3DS
-
+mkdir Source\SysCTR\Resources\romfs\Roms
 FOR %%I in (..\roms\*.*64) DO (
+    del "Source\SysCTR\Resources\romfs\Roms\*.*64"
     del daedbuild\CMakeCache.txt 2>nul
+    copy Source\SysCTR\Resources\template2.rsf Source\SysCTR\Resources\template.rsf
+    tools\3dstool -c --romfs-dir Source\SysCTR\Resources\romfs --file Source\SysCTR\Resources\romfs.bin --type romfs
+    sh build_daedalus.sh CTR_RELEASE
+    copy daedbuild\DaedalusX64.3dsx Source\SysCTR\Resources\romfs
+    del daedbuild\DaedalusX64.3dsx
     set "hex=%%~nI"
     for %%C in (
         G H I J K L M N O P Q R S T U V W X Y Z
@@ -25,13 +31,7 @@ FOR %%I in (..\roms\*.*64) DO (
     set "hex=!hex:}=!"
     set "tid=0x!hex:~0,5!"
     echo %%~nI TID=!tid!
-    del "Source\SysCTR\Resources\romfs\Roms\*.*64"
-    tools\3dstool -c --romfs-dir "Source\SysCTR\Resources\romfs" --file "Source\SysCTR\Resources\romfs.bin" --type romfs
-    sh build_daedalus.sh CTR_RELEASE
-    copy daedbuild\DaedalusX64.3dsx Source\SysCTR\Resources\romfs
-    mkdir "Source\SysCTR\Resources\romfs\Roms\"
-    copy "%%I" "Source\SysCTR\Resources\romfs\Roms\" >nul
-
+    copy "%%I" Source\SysCTR\Resources\romfs\Roms
     (
     for /f "delims=" %%L in (Source\SysCTR\Resources\template2.rsf) do (
       set "line=%%L"
@@ -42,18 +42,11 @@ FOR %%I in (..\roms\*.*64) DO (
     )
     ) > Source\SysCTR\Resources\template.rsf
     tools\3dstool -c --romfs-dir "Source\SysCTR\Resources\romfs" --file "Source\SysCTR\Resources\romfs.bin" --type romfs
-pause
-
     sh build_daedalus.sh CTR_RELEASE
-
     copy "daedbuild\DaedalusX64.cia" "dist\%%~nI.cia"
-
     mkdir "dist\3ds\%%~nI" 2>nul
-
     copy "daedbuild\DaedalusX64.3dsx" "dist\3ds\%%~nI\%%~nI.3dsx"
-
     del "Source\SysCTR\Resources\romfs\Roms\%%~nxI"
-
     echo %%~nI done
 )
 

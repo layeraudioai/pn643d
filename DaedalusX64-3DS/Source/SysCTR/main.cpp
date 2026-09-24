@@ -85,11 +85,11 @@ static void CheckDSPFirmware()
 
 static void Initialize()
 {
+	romfsInit();
+
 	CheckDSPFirmware();
 	
 	_InitializeSvcHack();
-
-	romfsInit();
 	
 	APT_CheckNew3DS(&isN3DS);
 	osSetSpeedupEnable(true);

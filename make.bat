@@ -13,7 +13,8 @@ FOR %%I in (..\roms\*.*64) DO (
     tools\3dstool -c --romfs-dir Source\SysCTR\Resources\romfs --file Source\SysCTR\Resources\romfs.bin --type romfs
     sh build_daedalus.sh CTR_RELEASE
     copy daedbuild\DaedalusX64.3dsx Source\SysCTR\Resources\romfs
-    del daedbuild\DaedalusX64.3dsx
+    del daedbuild\DaedalusX64.*
+    del Source\SysCTR\Resources\romfs\DaedalusX64.3dsx
     set "hex=%%~nI"
     for %%C in (
         G H I J K L M N O P Q R S T U V W X Y Z

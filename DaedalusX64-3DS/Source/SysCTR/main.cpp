@@ -134,9 +134,8 @@ int main(int argc, char* argv[])
 	while(shouldQuit == false)
 	{
 		std::string rom = UI::DrawRomSelector();
-		sprintf(fullpath, "%s%s", DAEDALUS_CTR_PATH("Roms/"), rom.c_str());
-
-		System_Open(fullpath);
+        std::string full_rom_path = "romfs:/Roms/" + rom;
+		System_Open(full_rom_path.c_str());
 		CPU_Run();
 		System_Close();
 	}

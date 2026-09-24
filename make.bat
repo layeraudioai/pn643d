@@ -53,7 +53,7 @@ FOR %%I IN (..\roms\*.*64) DO (
 
     copy "daedbuild\DaedalusX64.3dsx" "dist\3ds\%%~nI\%%~nI.3dsx"
 
-    del "Source\SysCTR\Resources\romfs\%%~nxI"
+    del "Source\SysCTR\Resources\romfs\Roms\%%~nxI"
 
     echo %%~nI done
 )

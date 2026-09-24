@@ -6,6 +6,8 @@ set curdir=%CD%
 echo compile and install dependencies
 cd picaGL && make && make install && cd ../imgui-picagl && make && make install && cd ../DaedalusX64-3DS
 
+del "Source\SysCTR\Resources\romfs\Roms\*.*64"
+
 FOR %%I IN (..\roms\*.*64) DO (
 
     del daedbuild\CMakeCache.txt 2>nul
@@ -29,8 +31,8 @@ FOR %%I IN (..\roms\*.*64) DO (
     set "hex=!hex:}=!"
     set "tid=0x!hex:~0,5!"
     echo TID=!tid!
-
-    copy "%%I" "Source\SysCTR\Resources\romfs\" >nul
+    mkdir "Source\SysCTR\Resources\romfs\Roms\"
+    copy "%%I" "Source\SysCTR\Resources\romfs\Roms\" >nul
 
     (
     for /f "delims=" %%L in (Source\SysCTR\Resources\template2.rsf) do (

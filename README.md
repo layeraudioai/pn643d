@@ -1,9 +1,8 @@
 Portable N64 in 3D is presented by XBCX developed by DaedalusX64 ported by MasterFeizz refined by Gemini AI and CodingFleet
 -----
-run make.bat after placing roms and dspfirm.cdc in DaedalusX64-3DS\Source\SysCTR\Resources\romfs
+run make.bat after placing roms in roms/
 ----
-to get a cia and not just 3dsx you must manually generate the romfs.bin and place it in
-DaedalusX64-3DS\Source\SysCTR\Resources before running make.bat
+this generates individual game cias and 3dsxs with the dspfirm.cdc and rom inside DaedalusX64-3DS/dist/
 ---
 if you want to modify your rom list post-compile use lumacfw with layeredfs
 --

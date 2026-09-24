@@ -239,5 +239,9 @@ std::string UI::DrawRomSelector()
 
 	ImGui_Impl3DS_EnableGamepad(false);
 
-	return roms.at(currentItem).mFilename;
+
+	std::string full_path = DAEDALUS_CTR_PATH("Roms/");
+	full_path += roms.at(currentItem).mFilename;
+
+	return full_path;
 }

@@ -41,7 +41,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define RSP_AUDIO_INTR_CYCLES     1
 
-#define DEFAULT_FREQUENCY 44100	// Taken from Mupen64 : )
+#define DEFAULT_FREQUENCY 32000	// Taken from Mupen64 : )
 
 extern bool isN3DS;
 // FIXME: Hack!

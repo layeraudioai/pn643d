@@ -34,7 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern u32 gSoundSync;
 
-static const u32	DESIRED_OUTPUT_FREQUENCY = 44100;
+static const u32	DESIRED_OUTPUT_FREQUENCY = 32000;
 
 // Large BUFFER_SIZE creates huge delay on sound //Corn
 static const u32	BUFFER_SIZE  = 1024 * 2;
@@ -108,7 +108,7 @@ static void AudioExit()
 
 AudioOutput::AudioOutput()
 :	mAudioPlaying( false )
-,	mFrequency( 44100 )
+,	mFrequency( 32000 )
 {
 	// Allocate audio buffer with malloc_64 to avoid cached/uncached aliasing
 	void * mem = malloc( sizeof( CAudioBuffer ) );

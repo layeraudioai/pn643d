@@ -655,7 +655,7 @@ void CPU_HANDLE_COUNT_INTERRUPT()
 			u32 vertical_sync_reg {Memory_VI_GetRegister( VI_V_SYNC_REG )};
 			if (vertical_sync_reg == 0)
 			{
-				VI_INTR_CYCLES = 62500;
+				VI_INTR_CYCLES = 162500;
 			}
 			else
 			{

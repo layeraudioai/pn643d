@@ -11,7 +11,7 @@
 
 cmake_minimum_required(VERSION 3.7)
 set(CMAKE_CXX_STANDARD 14)
-project (DaedalusX64)
+project (${PROJECT_NAME})
 
 enable_language(ASM)
 
@@ -364,9 +364,9 @@ if (CTR_RELEASE)
 	set(APP_SMDH "${PROJECT_SOURCE_DIR}/SysCTR/Resources/daedalus.smdh")
 	set(APP_BANNER "${PROJECT_SOURCE_DIR}/SysCTR/Resources/banner.bnr")
 	set(APP_AUDIO "${PROJECT_SOURCE_DIR}/SysCTR/Resources/audio_silent.wav")
-	set(APP_RSF "${PROJECT_SOURCE_DIR}/SysCTR/Resources/template.rsf")
-	set(APP_ROMFS_DIR "${PROJECT_SOURCE_DIR}/SysCTR/Resources/RomFS")
-	set(APP_ROMFS_BIN "${PROJECT_SOURCE_DIR}/SysCTR/Resources/romfs.bin")
+	set(APP_RSF "${PROJECT_SOURCE_DIR}/SysCTR/Resources/${PROJECT_NAME}.rsf")
+	set(APP_ROMFS_DIR "${PROJECT_SOURCE_DIR}/SysCTR/Resources/${PROJECT_NAME}")
+	set(APP_ROMFS_BIN "${PROJECT_SOURCE_DIR}/SysCTR/Resources/${PROJECT_NAME}.bin")
 
 	add_custom_command(
 		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.3dsx

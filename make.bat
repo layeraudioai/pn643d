@@ -1,54 +1,84 @@
-@ECHO OFF
-setlocal EnableDelayedExpansion
+@echo off
+setlocal enabledelayedexpansion
 
-set curdir=%CD%
+:: Set maximum parallel jobs (adjust as needed, e.g., 4 or 8)
+set /a max=12
 
-echo compile and install dependencies
-cd picaGL && make && make install && cd ../imgui-picagl && make && make install && cd ../DaedalusX64-3DS
-mkdir Source\SysCTR\Resources\romfs\Roms
-FOR %%I in (..\roms\*.*64) DO (
-    del "Source\SysCTR\Resources\romfs\Roms\*.*64"
-    del daedbuild\CMakeCache.txt 2>nul
-    copy Source\SysCTR\Resources\template2.rsf Source\SysCTR\Resources\template.rsf
-    tools\3dstool -c --romfs-dir Source\SysCTR\Resources\romfs --file Source\SysCTR\Resources\romfs.bin --type romfs
-    sh build_daedalus.sh CTR_RELEASE
-    copy daedbuild\DaedalusX64.3dsx Source\SysCTR\Resources\romfs
-    del daedbuild\DaedalusX64.*
-    del Source\SysCTR\Resources\romfs\DaedalusX64.3dsx
-    set "hex=%%~nI"
-    for %%C in (
-        G H I J K L M N O P Q R S T U V W X Y Z
-        g h i j k l m n o p q r s t u v w x y z
-        - _ . , ' ! @ # $ %% ^ + = \ / [ ] { }
-    ) do (
-        set "hex=!hex:%%C=!"
-    )
-    set hex=!hex: =!
-    set "hex=!hex:(=!"
-    set "hex=!hex:)=!"
-    set "hex=!hex:[=!"
-    set "hex=!hex:]=!"
-    set "hex=!hex:{=!"
-    set "hex=!hex:}=!"
-    set "tid=0x!hex:~0,5!"
-    echo %%~nI TID=!tid!
-    copy "%%I" Source\SysCTR\Resources\romfs\Roms
-    (
-    for /f "delims=" %%L in (Source\SysCTR\Resources\template2.rsf) do (
-      set "line=%%L"
-      for %%a in (!tid!) do (
-        set "line=!line:0xDAED3=%%a!"
-      )
-      echo !line!
-    )
-    ) > Source\SysCTR\Resources\template.rsf
-    tools\3dstool -c --romfs-dir "Source\SysCTR\Resources\romfs" --file "Source\SysCTR\Resources\romfs.bin" --type romfs
-    sh build_daedalus.sh CTR_RELEASE
-    copy "daedbuild\DaedalusX64.cia" "dist\%%~nI.cia"
-    mkdir "dist\3ds\%%~nI" 2>nul
-    copy "daedbuild\DaedalusX64.3dsx" "dist\3ds\%%~nI\%%~nI.3dsx"
-    del "Source\SysCTR\Resources\romfs\Roms\%%~nxI"
-    echo %%~nI done
+echo ========================================
+echo Starting DaedalusX64 ROM Conversion
+echo Source ROMs directory: roms\
+echo Maximum %max% parallel jobs
+echo ========================================
+
+if not exist roms (
+    echo Error: 'roms\' directory not found!
+    exit /b 1
 )
 
-cd "%curdir%"
+if not exist daed\rom_locks mkdir daed\rom_locks
+del /q daed\rom_locks\* 2>nul
+
+:: Count total ROMs
+set /a romcount=0
+for %%R in (roms\*) do (
+    set /a romcount=!romcount!+1
+)
+
+if %romcount% equ 0 (
+    echo Error: No ROM files found in 'roms\' directory!
+    exit /b 1
+)
+
+set /a completed=0
+
+for %%R in (roms\*) do (
+    set "rom_file=%%R"
+    set "folder_name=%%~nR"
+
+    call :wait_for_slot
+
+    echo [START] Converting: !folder_name! ^(Launched: !completed!/!romcount!^)
+    cd daed
+    start /B romconvert.bat "..\!rom_file!" "!folder_name!"
+    cd ..
+
+    set /a completed=!completed!+1
+
+    :: Brief pause to allow background process to initialize and create lock file
+    sleep 0.0%RANDOM%
+)
+
+echo ========================================
+echo All ROM conversion jobs launched. Waiting for completion...
+echo ========================================
+
+:wait_all_loop
+set /a count=0
+for %%L in (daed\rom_locks\*) do (
+    set /a count=!count!+1
+)
+
+if !count! GTR 0 (
+    echo [WAITING] !count! background conversion jobs still running...
+    sleep 1.%RANDOM%
+    goto wait_all_loop
+)
+
+echo ========================================
+echo All ROM conversions completed successfully!
+echo ========================================
+endlocal
+goto :eof
+
+:wait_for_slot
+clear
+set /a count=0
+for %%L in (daed\rom_locks\*) do (
+    set /a count=!count!+1
+)
+if !count! GEQ !max! (
+    echo [THROTTLE] !count!/!max! jobs running. Waiting for a slot...
+    sleep 0.%RANDOM%
+    goto wait_for_slot
+)
+exit /b

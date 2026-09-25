@@ -45,7 +45,7 @@ for %%R in (roms\*) do (
     set /a completed=!completed!+1
 
     :: Brief pause to allow background process to initialize and create lock file
-    sleep 0.0%RANDOM%
+    sleep 0.4%RANDOM%
 )
 
 echo ========================================
@@ -60,7 +60,7 @@ for %%L in (daed\rom_locks\*) do (
 
 if !count! GTR 0 (
     echo [WAITING] !count! background conversion jobs still running...
-    sleep 1.%RANDOM%
+    sleep 1.1%RANDOM%
     goto wait_all_loop
 )
 
@@ -78,7 +78,7 @@ for %%L in (daed\rom_locks\*) do (
 )
 if !count! GEQ !max! (
     echo [THROTTLE] !count!/!max! jobs running. Waiting for a slot...
-    sleep 0.%RANDOM%
+    sleep 2.4%RANDOM%
     goto wait_for_slot
 )
 exit /b

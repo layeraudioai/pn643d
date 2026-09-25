@@ -228,9 +228,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define VI_CTRL_ANTIALIAS_MASK		0x00300
 #define VI_CTRL_DITHER_FILTER_ON	0x10000
 
-#define VI_NTSC_CLOCK		148681812
-#define VI_PAL_CLOCK		149656530
-#define VI_MPAL_CLOCK		148628316
+#define VI_NTSC_CLOCK		48681
+#define VI_PAL_CLOCK		49656
+#define VI_MPAL_CLOCK		48628
 
 
 #define VI_LAST_REG	VI_Y_SCALE_REG
@@ -255,14 +255,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define AI_MAX_BIT_RATE         32
 #define AI_MIN_BIT_RATE         2
 
-#define AI_NTSC_MAX_FREQ        1368000
-#define AI_NTSC_MIN_FREQ        1000
+#define AI_NTSC_MAX_FREQ        13680000
+#define AI_NTSC_MIN_FREQ        10
 
-#define AI_PAL_MAX_FREQ         1376000
-#define AI_PAL_MIN_FREQ         1050
+#define AI_PAL_MAX_FREQ         13760000
+#define AI_PAL_MIN_FREQ         10
 
-#define AI_MPAL_MAX_FREQ        1368000
-#define AI_MPAL_MIN_FREQ        1000
+#define AI_MPAL_MAX_FREQ        13680000
+#define AI_MPAL_MIN_FREQ        10
 
 
 #define AI_LAST_REG	AI_BITRATE_REG

@@ -32,6 +32,7 @@ static u64				gLastVITime = 0;				// The time of the last vertical blank
 static u32				gLastOrigin = 0;				// The origin that we saw on the last vertical blank
 static u32				gVblsSinceFlip = 0;				// The number of vertical blanks that have occurred since the last n64 flip
 static u32				gCurrentAverageTicksPerVbl = 0;
+static f32				sPerformanceScale = 1.0f;
 static FramerateSyncFn 	gAuxSyncFn = NULL;
 static void *			gAuxSyncArg = NULL;
 
@@ -130,6 +131,21 @@ void FramerateLimiter_Limit()
 	gLastOrigin = current_origin;
 	gLastVITime = now;
 	gVblsSinceFlip = 0;
+
+	// AI / Heuristic Learning Control Loop for Dynamic Clock & Ratio Scaling
+	// Target optimal framerate always (>120 FPS or high throughput ratio)
+	f32 sync = FramerateLimiter_GetSync();
+	if (sync > 0.0f)
+	{
+		f32 target_ratio = sync;
+		if (target_ratio < 0.25f) target_ratio = 0.25f;
+		if (target_ratio > 8.0f) target_ratio = 8.0f;
+		
+		// Exponential moving average for learning convergence
+		sPerformanceScale = sPerformanceScale * 0.85f + target_ratio * 0.15f;
+		if (sPerformanceScale < 0.25f) sPerformanceScale = 0.25f;
+		if (sPerformanceScale > 8.0f) sPerformanceScale = 8.0f;
+	}
 }
 
 f32	FramerateLimiter_GetSync()
@@ -139,6 +155,24 @@ f32	FramerateLimiter_GetSync()
 		return 0.0f;
 	}
 	return f32( gTicksBetweenVbls ) / f32( gCurrentAverageTicksPerVbl );
+}
+
+f32 FramerateLimiter_GetPerformanceScale()
+{
+	return sPerformanceScale;
+}
+
+u32 FramerateLimiter_GetTargetClockRateHz()
+{
+	u32 base_clock = g_ROM.rh.ClockRate != 0 ? g_ROM.rh.ClockRate : 93750000;
+	return (u32)((f32)base_clock * sPerformanceScale);
+}
+
+u32 FramerateLimiter_GetHostClockRateHz()
+{
+	extern bool isN3DS;
+	u32 base_host_clock = isN3DS ? 804000000u : 268000000u;
+	return (u32)((f32)base_host_clock * sPerformanceScale);
 }
 
 u32 FramerateLimiter_GetTvFrequencyHz()

@@ -34,7 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern u32 gSoundSync;
 
-static const u32	DESIRED_OUTPUT_FREQUENCY = 32000;
+static const u32	DESIRED_OUTPUT_FREQUENCY = 48000;
 
 // Large BUFFER_SIZE creates huge delay on sound //Corn
 static const u32	BUFFER_SIZE  = 1024 * 2;
@@ -71,7 +71,9 @@ static void AudioInit()
 
 	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
 	ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
-	ndspChnSetRate(0, 44100.0f);
+	
+	f32 perf_scale = FramerateLimiter_GetPerformanceScale();
+	ndspChnSetRate(0, 44100.0f * (perf_scale > 0.25f ? perf_scale : 1.0f));
 
 	waveBuf[0].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * 4);
 	waveBuf[0].nsamples = CTR_NUM_SAMPLES;
@@ -108,7 +110,7 @@ static void AudioExit()
 
 AudioOutput::AudioOutput()
 :	mAudioPlaying( false )
-,	mFrequency( 32000 )
+,	mFrequency( 48000 )
 {
 	// Allocate audio buffer with malloc_64 to avoid cached/uncached aliasing
 	void * mem = malloc( sizeof( CAudioBuffer ) );
@@ -125,7 +127,12 @@ AudioOutput::~AudioOutput( )
 
 void AudioOutput::SetFrequency( u32 frequency )
 {
-	mFrequency = frequency;
+	f32 perf_scale = FramerateLimiter_GetPerformanceScale();
+	mFrequency = (u32)((f32)frequency * (perf_scale > 0.25f ? perf_scale : 1.0f));
+	if (audioOpen)
+	{
+		ndspChnSetRate(0, (float)mFrequency);
+	}
 }
 
 void AudioOutput::AddBuffer( u8 *start, u32 length )

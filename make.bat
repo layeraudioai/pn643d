@@ -17,7 +17,7 @@ if not exist roms (
 
 if not exist daed\rom_locks mkdir daed\rom_locks
 del /q daed\rom_locks\* 2>nul
-
+:top
 :: Count total ROMs
 set /a romcount=0
 for %%R in (roms\*) do (
@@ -41,13 +41,13 @@ for %%R in (roms\*) do (
     cd daed
     start /B romconvert.bat "..\!rom_file!" "!folder_name!"
     cd ..
-
     set /a completed=!completed!+1
 
     :: Brief pause to allow background process to initialize and create lock file
     sleep 0.4%RANDOM%
+    move "!rom_file!" used
 )
-
+goto top
 echo ========================================
 echo All ROM conversion jobs launched. Waiting for completion...
 echo ========================================

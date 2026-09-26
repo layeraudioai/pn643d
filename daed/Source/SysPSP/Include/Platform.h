@@ -61,6 +61,8 @@ enum PspModel
 #define DAEDALUS_ATTRIBUTE_PURE   __attribute__((pure))
 #define DAEDALUS_ATTRIBUTE_CONST   __attribute__((const))
 
+#ifndef __has_feature
 #define __has_feature(x) 0
+#endif
 
 #endif // SYSPSP_INCLUDE_PLATFORM_H_

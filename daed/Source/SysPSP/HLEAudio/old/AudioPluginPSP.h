@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2005 StrmnNrmn
+Copyright (C) 2007 StrmnNrmn
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -17,30 +17,36 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
-#include "stdafx.h"
-#include "Utility/Timing.h"
+#ifndef SYSPSP_HLEAUDIO_AUDIOPLUGINPSP_H_
+#define SYSPSP_HLEAUDIO_AUDIOPLUGINPSP_H_
 
-#include <3ds.h>
+#include "Plugins/AudioPlugin.h"
 
-#define TICKS_PER_SEC 268123480.0
+class AudioOutput;
 
-namespace NTiming {
-
-bool GetPreciseFrequency( u64 * p_freq )
+class CAudioPluginPsp : public CAudioPlugin
 {
-	*p_freq = TICKS_PER_SEC;
-	return true;
-}
+private:
+	CAudioPluginPsp();
+public:
+	static CAudioPluginPsp *		Create();
 
-bool GetPreciseTime( u64 * p_time )
-{
-	*p_time = svcGetSystemTick();
-	return true;
-}
 
-u64 ToMilliseconds( u64 ticks )
-{
-	return ticks / TICKS_PER_SEC;
-}
+	virtual ~CAudioPluginPsp();
+	virtual bool			StartEmulation();
+	virtual void			StopEmulation();
 
-} // NTiming
+	virtual void			DacrateChanged( int SystemType );
+	virtual void			LenChanged();
+	virtual u32				ReadLength();
+	virtual EProcessResult	ProcessAList();
+
+//			void			SetAdaptFrequecy( bool adapt );
+
+private:
+	AudioOutput *			mAudioOutput;
+};
+
+
+#endif // SYSPSP_HLEAUDIO_AUDIOPLUGINPSP_H_
+

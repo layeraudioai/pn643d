@@ -1,8 +1,8 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Set maximum parallel jobs (adjust as needed, e.g., 4 or 8)
-set /a max=12
+
+set /a max=3
 
 echo ========================================
 echo Starting DaedalusX64 ROM Conversion
@@ -18,7 +18,6 @@ if not exist roms (
 if not exist daed\rom_locks mkdir daed\rom_locks
 del /q daed\rom_locks\* 2>nul
 :top
-:: Count total ROMs
 set /a romcount=0
 for %%R in (roms\*) do (
     set /a romcount=!romcount!+1
@@ -42,12 +41,8 @@ for %%R in (roms\*) do (
     start /B romconvert.bat "..\!rom_file!" "!folder_name!"
     cd ..
     set /a completed=!completed!+1
-
-    :: Brief pause to allow background process to initialize and create lock file
-    sleep 0.4%RANDOM%
-    move "!rom_file!" used
 )
-goto top
+
 echo ========================================
 echo All ROM conversion jobs launched. Waiting for completion...
 echo ========================================
@@ -60,25 +55,22 @@ for %%L in (daed\rom_locks\*) do (
 
 if !count! GTR 0 (
     echo [WAITING] !count! background conversion jobs still running...
-    sleep 1.1%RANDOM%
     goto wait_all_loop
 )
 
 echo ========================================
 echo All ROM conversions completed successfully!
 echo ========================================
+pause
+
 endlocal
-goto :eof
 
 :wait_for_slot
-clear
 set /a count=0
 for %%L in (daed\rom_locks\*) do (
     set /a count=!count!+1
 )
 if !count! GEQ !max! (
     echo [THROTTLE] !count!/!max! jobs running. Waiting for a slot...
-    sleep 2.4%RANDOM%
     goto wait_for_slot
 )
-exit /b

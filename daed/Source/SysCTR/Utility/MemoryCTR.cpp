@@ -10,8 +10,6 @@ extern "C" {
 int __stacksize__ = 2 * 1024 * 1024;
 }
 
-static int hack3dsSvcInitialized = 0;
-
 static unsigned int s1, s2, s3, s0;
 
 //-----------------------------------------------------------------------------
@@ -74,6 +72,5 @@ int _InitializeSvcHack(void)
 				return 0;
 		}
 
-		hack3dsSvcInitialized = 1;
 		return 1;
 }

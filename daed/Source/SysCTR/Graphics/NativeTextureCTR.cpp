@@ -380,7 +380,7 @@ void CNativeTexture::SetData( void * data, void * palette )
 			}
 			break;
 		default:
-			printf("Unsupported texture format used %ld\n", mTextureFormat);
+			printf("Unsupported texture format used %d\n", mTextureFormat);
 			break;
 		}
 	}

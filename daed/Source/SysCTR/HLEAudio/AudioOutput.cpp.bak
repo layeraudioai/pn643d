@@ -19,7 +19,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "stdafx.h"
-
 #include "AudioOutput.h"
 
 #include <stdio.h>
@@ -27,16 +26,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <3ds.h>
 
-#include "SysCTR/HLEAudio/AudioOutput.h"
-
 #include "Config/ConfigOptions.h"
 #include "Debug/DBGConsole.h"
 #include "HLEAudio/AudioBuffer.h"
 #include "Utility/FramerateLimiter.h"
 #include "Utility/Thread.h"
 
-static const u32	DESIRED_OUTPUT_FREQUENCY = 44100;
-u32	gSoundSync = 44100;
+extern u32 gSoundSync;
+
+static const u32	DESIRED_OUTPUT_FREQUENCY = 48000;
+
 // Large BUFFER_SIZE creates huge delay on sound //Corn
 static const u32	BUFFER_SIZE  = 1024 * 2;
 
@@ -111,7 +110,7 @@ static void AudioExit()
 
 AudioOutput::AudioOutput()
 :	mAudioPlaying( false )
-,	mFrequency( 44100 )
+,	mFrequency( 48000 )
 {
 	// Allocate audio buffer with malloc_64 to avoid cached/uncached aliasing
 	void * mem = malloc( sizeof( CAudioBuffer ) );
@@ -128,7 +127,12 @@ AudioOutput::~AudioOutput( )
 
 void AudioOutput::SetFrequency( u32 frequency )
 {
-	mFrequency = frequency;
+	f32 perf_scale = FramerateLimiter_GetPerformanceScale();
+	mFrequency = (u32)((f32)frequency * (perf_scale > 0.25f ? perf_scale : 1.0f));
+	if (audioOpen)
+	{
+		ndspChnSetRate(0, (float)mFrequency);
+	}
 }
 
 void AudioOutput::AddBuffer( u8 *start, u32 length )
@@ -142,27 +146,10 @@ void AudioOutput::AddBuffer( u8 *start, u32 length )
 	u32 num_samples = length / sizeof( Sample );
 
 	u32 output_freq = DESIRED_OUTPUT_FREQUENCY;
-	if (gSoundSync >= 11025 && gSoundSync <= 88200)
+	if (gAudioRateMatch)
 	{
-		output_freq = gSoundSync;
-	}
-	else
-	{
-		f32 perf_scale = FramerateLimiter_GetPerformanceScale();
-		if (perf_scale < 0.25f) perf_scale = 0.25f;
-		if (perf_scale > 4.0f) perf_scale = 4.0f;
-		output_freq = (u32)(44100.0f * perf_scale);
-	}
-
-	u32 input_freq = mFrequency;
-	if (input_freq > output_freq)
-	{
-		output_freq = input_freq;
-	}
-
-	if (audioOpen)
-	{
-		ndspChnSetRate(0, (float)output_freq);
+		if (gSoundSync > 88200)	output_freq = 88200;	//limit upper rate
+		else if (gSoundSync < DESIRED_OUTPUT_FREQUENCY)	output_freq = DESIRED_OUTPUT_FREQUENCY;	//limit lower rate
 	}
 
 	switch( gAudioPluginEnabled )
@@ -171,8 +158,11 @@ void AudioOutput::AddBuffer( u8 *start, u32 length )
 		break;
 
 	case APM_ENABLED_ASYNC:
+		mAudioBuffer->AddSamples( reinterpret_cast< const Sample * >( start ), num_samples, mFrequency, output_freq );
+		break;
+
 	case APM_ENABLED_SYNC:
-		mAudioBuffer->AddSamples( reinterpret_cast< const Sample * >( start ), num_samples, input_freq, output_freq );
+		mAudioBuffer->AddSamples( reinterpret_cast< const Sample * >( start ), num_samples, mFrequency, output_freq );
 		break;
 	}
 }

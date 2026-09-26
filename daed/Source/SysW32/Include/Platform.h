@@ -32,7 +32,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define __PRETTY_FUNCTION__ __FUNCTION__
 #define _CRT_SECURE_NO_DEPRECATE
 #define _DO_NOT_DECLARE_INTERLOCKED_INTRINSICS_IN_MEMORY
+#ifndef __has_feature
 #define __has_feature(x) 0
+#endif
 
 
 #define DAEDALUS_ENABLE_DYNAREC

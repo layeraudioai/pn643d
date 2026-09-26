@@ -24,6 +24,8 @@ void ADDMIXER( AudioHLECommand command)
 
 	s16 *inp  = (s16 *)(gAudioHLEState.Buffer + InBuffer);
 	s16 *outp = (s16 *)(gAudioHLEState.Buffer + OutBuffer);
+	(void)inp;
+	(void)outp;
 	for (u32 cntr = 0; cntr < Count; cntr+=2)
 	{
 		//s32 temp = Saturate<s16>( *outp + *inp );

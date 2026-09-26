@@ -36,6 +36,7 @@ bool	PatchJumpLong( CJumpLocation jump, CCodeLabel target )
 	u32* p_jump_addr( reinterpret_cast< u32* >( jump.GetWritableU8P() ) );
 
 	u32 address = target.GetTargetU32();
+	(void)address;
 
 	s32 offset = jump.GetOffset(target) - 8;
 	

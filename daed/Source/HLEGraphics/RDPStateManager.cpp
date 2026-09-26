@@ -565,6 +565,8 @@ void CRDPStateManager::LoadTlut(const SetLoadTile & load)
 	const RDP_Tile & rdp_tile {mTiles[tile_idx]};
 
 	u32 count {((lrs - uls)>>2) + 1};
+	(void)lrt;
+	(void)count;
 
 	#ifdef DAEDALUS_DEBUG_DISPLAYLIST
 	DAEDALUS_USE(count);

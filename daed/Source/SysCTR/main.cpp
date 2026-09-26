@@ -118,8 +118,6 @@ extern u32 __ctru_heap_size;
 
 int main(int argc, char* argv[])
 {
-	char fullpath[512];
-
 	Initialize();
 	
 	while(shouldQuit == false)

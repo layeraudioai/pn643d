@@ -281,7 +281,6 @@ void DLParser_GBI1_MoveWord( MicroCodeCommand command )
 				u8 r = ((value>>24)&0xFF);
 				u8 g = ((value>>16)&0xFF);
 				u8 b = ((value>>8)&0xFF);
-				u8 a = 255;
 				gRenderer->SetLightCol(light_idx, r, g, b);
 			}
 		}

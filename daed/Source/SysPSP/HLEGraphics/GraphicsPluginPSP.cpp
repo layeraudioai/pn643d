@@ -193,11 +193,19 @@ void CGraphicsPluginImpl::UpdateScreen()
 		const f32 Fsync = FramerateLimiter_GetSync();
 
 		//Calc sync rates for audio and game speed //Corn
-		const f32 inv_Fsync {1.0f / Fsync};
-		gSoundSync = {(u32)(44100.0f * inv_Fsync)};
-		gVISyncRate = {(u32)(1500.0f * inv_Fsync)};
-		if( gVISyncRate > 4000 ) gVISyncRate = 4000;
-		else if ( gVISyncRate < 1500 ) gVISyncRate = 1500;
+		if (Fsync > 0.01f)
+		{
+			const f32 inv_Fsync {1.0f / Fsync};
+			gSoundSync = {(u32)(44100.0f * inv_Fsync)};
+			gVISyncRate = {(u32)(1500.0f * inv_Fsync)};
+			if( gVISyncRate > 4000 ) gVISyncRate = 4000;
+			else if ( gVISyncRate < 1500 ) gVISyncRate = 1500;
+		}
+		else
+		{
+			gSoundSync = 44100;
+			gVISyncRate = 1500;
+		}
 
 		if(!gFrameskipActive)
 		{

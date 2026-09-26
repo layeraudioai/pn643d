@@ -1047,7 +1047,7 @@ void CCodeGeneratorARM::GenerateExceptionHander( ExceptionHandlerFn p_exception_
 
 	RET();
 
-	for (int i = 0; i < exception_handler_jumps.size(); i++)
+	for (size_t i = 0; i < exception_handler_jumps.size(); i++)
 	{
 		CJumpLocation	jump(exception_handler_jumps[i]);
 		InsertLiteralPool(false);

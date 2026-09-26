@@ -41,7 +41,7 @@ static uint8_t currentPage = 0;
 static void ExecSaveState(int slot)
 {
 	IO::Filename full_path;
-	sprintf(full_path, "%s%s.ss%ld", DAEDALUS_CTR_PATH("SaveStates/"), g_ROM.settings.GameName.c_str(), slot);
+	sprintf(full_path, "%s%s.ss%d", DAEDALUS_CTR_PATH("SaveStates/"), g_ROM.settings.GameName.c_str(), slot);
 
 	CPU_RequestSaveState(full_path);
 }
@@ -49,7 +49,7 @@ static void ExecSaveState(int slot)
 static void LoadSaveState(int slot)
 {
 	IO::Filename full_path;
-	sprintf(full_path, "%s%s.ss%ld", DAEDALUS_CTR_PATH("SaveStates/"), g_ROM.settings.GameName.c_str(), slot);
+	sprintf(full_path, "%s%s.ss%d", DAEDALUS_CTR_PATH("SaveStates/"), g_ROM.settings.GameName.c_str(), slot);
 
 	CPU_RequestLoadState(full_path);
 }

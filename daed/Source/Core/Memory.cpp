@@ -636,7 +636,7 @@ void MemoryUpdateSPStatus( u32 flags )
 
 	// If !HALT && !BROKE
 
-	bool start_rsp = false, stop_rsp = false;
+	bool start_rsp = false;
 	u32	clr_bits = 0, set_bits = 0;
 
 	if (flags & SP_CLR_HALT)
@@ -647,7 +647,6 @@ void MemoryUpdateSPStatus( u32 flags )
 	else if (flags & SP_SET_HALT)
 	{
 		set_bits |= SP_STATUS_HALT;
-		stop_rsp = true;
 	}
 
 	if (flags & SP_SET_INTR)	// Shouldn't ever set this?
@@ -685,6 +684,7 @@ void MemoryUpdateSPStatus( u32 flags )
 	set_bits |= (flags & SP_SET_SIG7) >> 10;
 
 	u32 new_status = Memory_SP_SetRegisterBits( SP_STATUS_REG, ~clr_bits, set_bits );
+	(void)new_status;
 
 	//
 	// We execute the task here, after we've written to the SP status register.

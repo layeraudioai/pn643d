@@ -758,6 +758,7 @@ void	CAssemblyWriterARM::MOV32(EArmReg reg, u32 imm)
 CJumpLocation CAssemblyWriterARM::BX_IMM( CCodeLabel target, EArmCond cond )
 {
 	u32 address( target.GetTargetU32() );
+	(void)address;
 
 	CJumpLocation jump_location( mpAssemblyBuffer->GetJumpLocation() );
 
@@ -796,7 +797,7 @@ void CAssemblyWriterARM::InsertLiteralPool(bool branch)
 
 	if(branch) B( (literals->size() - 1) * 4 );
 
-	for (int i = 0; i < literals->size(); i++)
+	for (size_t i = 0; i < literals->size(); i++)
 	{
 		uint32_t *op =  (uint32_t*)(*literals)[i].Target.GetTarget();
 		uint32_t offset = mpAssemblyBuffer->GetLabel().GetTargetU32() - (uint32_t)op;

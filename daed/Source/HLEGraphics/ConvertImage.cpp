@@ -182,9 +182,6 @@ static void ConvertGenericYUVBlocks( const TextureDestInfo & dsti, const Texture
 	const u8 *	src  = g_pu8RamBase;
 	u32			src_offset = ti.GetLoadAddress();
 	
-	u32 width = ti.GetWidth();
-	u32 height = ti.GetHeight();
-	
 	u32 *mb = (u32*)(src + src_offset);
 	
 	//yuv macro block contains 16x16 texture.

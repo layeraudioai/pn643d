@@ -62,11 +62,17 @@ bool FramerateLimiter_Reset()
 
 	if(NTiming::GetPreciseFrequency(&frequency))
 	{
+		u32 tv_type = g_ROM.TvType;
+		if (tv_type >= sizeof(gTvFrequencies) / sizeof(u32))
+		{
+			tv_type = 0;
+		}
+
 		#ifdef DAEDALUS_ENABLE_ASSERTS
-		DAEDALUS_ASSERT(g_ROM.TvType <= sizeof(gTvFrequencies) / sizeof(u32), "Unknown TV type: %d", g_ROM.TvType);
+		DAEDALUS_ASSERT(tv_type < sizeof(gTvFrequencies) / sizeof(u32), "Unknown TV type: %d", g_ROM.TvType);
 		#endif
 
-		gTicksBetweenVbls = (u32)(frequency / (u64)gTvFrequencies[ g_ROM.TvType ]);
+		gTicksBetweenVbls = (u32)(frequency / (u64)gTvFrequencies[ tv_type ]);
 		gTicksPerSecond = (u32)frequency;
 	}
 	else
@@ -177,5 +183,10 @@ u32 FramerateLimiter_GetHostClockRateHz()
 
 u32 FramerateLimiter_GetTvFrequencyHz()
 {
-	return gTvFrequencies[ g_ROM.TvType ];
+	u32 tv_type = g_ROM.TvType;
+	if (tv_type >= sizeof(gTvFrequencies) / sizeof(u32))
+	{
+		tv_type = 0;
+	}
+	return gTvFrequencies[ tv_type ];
 }

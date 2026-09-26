@@ -9,7 +9,7 @@
 #Options
 # PSP_RELEASE - Builds PSP Release
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.16)
 set(CMAKE_CXX_STANDARD 14)
 project (${PROJECT_NAME})
 
@@ -317,7 +317,7 @@ if (CTR_RELEASE)
 
 	include_directories(${DEVKITPRO}/libctru/include ${DEVKITPRO}/picaGL/include ${DEVKITPRO}/portlibs/3ds/include)
 
-	add_definitions("-DDAEDALUS_CTR" "-D_3DS")
+	add_definitions("-DDAEDALUS_CTR" "-D__3DS__")
 
 	# Build Daedalus Lib
 	add_library(daedalus STATIC

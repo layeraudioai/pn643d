@@ -132,7 +132,7 @@ std::string UI::DrawRomSelector()
 		glClear(GL_COLOR_BUFFER_BIT);
 		glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
 
-		for(int i = 0; i < roms.size(); i++)
+		for(int i = 0; i < (int)roms.size(); i++)
 		{
 			if(cursor == i)
 			{
@@ -152,7 +152,7 @@ std::string UI::DrawRomSelector()
 		if(hidKeysDown() & KEY_A)
 			return roms.at(cursor).mFilename;
 
-		if((hidKeysDown() & KEY_DOWN) && cursor != roms.size() - 1)
+		if((hidKeysDown() & KEY_DOWN) && cursor != (int)roms.size() - 1)
 			cursor++;
 
 		if((hidKeysDown() & KEY_UP) && cursor != 0)

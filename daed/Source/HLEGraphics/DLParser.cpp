@@ -663,6 +663,7 @@ void RDP_MoveMemLight(u32 light_idx, const N64Light *light)
 	s8 dir_z = light->dir_z;
 
 	bool valid = (dir_x | dir_y | dir_z) != 0;
+	(void)valid;
 		#ifdef DAEDALUS_ENABLE_ASSERTS
 	DAEDALUS_USE(valid);
 

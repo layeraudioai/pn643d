@@ -8,4 +8,4 @@ if you want to modify your rom list post-compile use lumacfw with layeredfs
 --
 send complaints to bscarell@gmail.com
 -
-https://github.com/layeraudioai/pn643d
+[https://github.com/layeraudioai/pn643d](https://github.com/layeraudioai/pn643d/tree/main2)

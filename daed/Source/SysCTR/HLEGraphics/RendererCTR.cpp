@@ -653,7 +653,7 @@ void RendererCTR::TexRect(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexCoord
 	ConvertN64ToScreen( xy0, screen0 );
 	ConvertN64ToScreen( xy1, screen1 );
 
-	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
+	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth *666 : 0.0f;
 
 	CNativeTexture *texture = mBoundTexture[0];
 	float scale_x {texture->GetScaleX()};
@@ -726,7 +726,7 @@ void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexC
 	//float scale_z = texture->GetScaleZ();
 
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
-	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
+	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth * 666 : 0.0f;
 
 	p_vertices[0].Position.x = screen0.x;
 	p_vertices[0].Position.y = screen0.y;
@@ -774,7 +774,7 @@ void RendererCTR::FillRect(const v2 & xy0, const v2 & xy1, u32 color)
 	ScaleN64ToScreen( xy1, screen1 );
 	
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
-	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
+	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth * 666 : 0.0f;
 
 	p_vertices[0].Position.x = screen0.x;
 	p_vertices[0].Position.y = screen0.y;
@@ -822,7 +822,7 @@ void RendererCTR::Draw2DTexture(f32 x0, f32 y0, f32 x1, f32 y1,
 	float sy1 = N64ToScreenY(y1);
 
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
-	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
+	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth * 666 : 0.0f;
 
 	p_vertices[0].Position.x = sx0;
 	p_vertices[0].Position.y = sy0;
@@ -873,7 +873,7 @@ void RendererCTR::Draw2DTextureR(f32 x0, f32 y0, f32 x1, f32 y1, f32 x2,
 	//float scale_z = texture->GetScaleZ();
 
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
-	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
+	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth * 666 : 0.0f;
 	p_vertices[0].Position.x = N64ToScreenX(x0);
 	p_vertices[0].Position.y = N64ToScreenY(y0);
 	p_vertices[0].Position.z = depth;

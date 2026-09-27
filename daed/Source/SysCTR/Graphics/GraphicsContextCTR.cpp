@@ -19,8 +19,8 @@
 
 extern void HandleEndOfFrame();
 
-#define SCR_WIDTH 400
-#define SCR_HEIGHT 240
+#define SCR_WIDTH 420
+#define SCR_HEIGHT 266
 
 #define MAX_INDEXES 0xFFFF
 

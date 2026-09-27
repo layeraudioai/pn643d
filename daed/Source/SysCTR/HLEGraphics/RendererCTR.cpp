@@ -614,7 +614,7 @@ void RendererCTR::RenderTriangles(DaedalusVtx *p_vertices, u32 num_vertices, boo
 		{
 			float scale_x = texture->GetScaleX();
 			float scale_y = texture->GetScaleY();
-			float scale_z = texture->GetScaleZ();
+			//float scale_z = texture->GetScaleZ();
 				
 			// Hack to fix the sun in Zelda OOT/MM
 			if( g_ROM.ZELDA_HACK && (gRDPOtherMode.L == 0x0c184241) )
@@ -628,7 +628,7 @@ void RendererCTR::RenderTriangles(DaedalusVtx *p_vertices, u32 num_vertices, boo
 			{
 				p_vertices[i].Texture.x = (p_vertices[i].Texture.x * scale_x - (mTileTopLeft[ 0 ].s  / 4.f * scale_x));
 				p_vertices[i].Texture.y = (p_vertices[i].Texture.y * scale_y - (mTileTopLeft[ 0 ].t  / 4.f * scale_y));
-				p_vertices[i].Texture.z = (p_vertices[i].Texture.z * scale_z - (mTileTopLeft[ 0 ].t  / 4.f * scale_y));
+				//p_vertices[i].Texture.z = (p_vertices[i].Texture.z * scale_z - (mTileTopLeft[ 0 ].t  / 4.f * scale_y));
 			}	
 		}
 	}

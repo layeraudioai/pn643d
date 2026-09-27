@@ -1,5 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
+
 if not exist roms (
     echo Error: 'roms\' directory not found!
     exit /b 1

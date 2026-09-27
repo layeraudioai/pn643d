@@ -5,6 +5,7 @@ import glob
 import subprocess
 import re
 import random
+import shutil
     
 def get_random_rom_audio(rom_path, output_dir):
     default_audio = "Source/SysCTR/Resources/audio_silent.wav"
@@ -185,11 +186,12 @@ def process_rom(rom_path, output_dir, folder_name):
     smdh_out = os.path.join(output_dir, sys.argv[3] + ".smdh")
     audio_wav = get_random_rom_audio(sys.argv[1], output_dir)
     bannertool = "Tools/bannertool.exe"
-
+    audioout = output_dir+"/"+output_dir+".wav";
+    os.rename(audio_wav, audioout)
     cmd_banner = [
         bannertool, "makebanner",
         "-i", temp_banner_png,
-        "-a", audio_wav,
+        "-a", audioout,
         "-o", banner_out
     ]
     print("Running:", " ".join(cmd_banner))

@@ -56,6 +56,7 @@ setlocal enabledelayedexpansion
     copy %1% "!foldername!\romfs\Roms\!foldername!.*64"
     Tools\additionals\u64aap -a -g -d -f -l -n -k -i %1% -o "!foldername!\romfs\Roms\!foldername!.z64"
     python Tools\generate_romdb_prefs.py %1% "!foldername!" "!foldername!\romfs"
+    copy Source\SysCtr\Resources\audio.wav "!foldername!/!foldername!.wav"
     python Tools\generate_banner_smdh.py %1% "!foldername!" "!foldername!"
     tools\3dstool -c --type romfs --romfs-dir "!foldername!\romfs" --file "!foldername!\!foldername!.bin" 
     sh build_daedalus.sh CTR_RELEASE "!foldername!" 
@@ -63,7 +64,5 @@ setlocal enabledelayedexpansion
     mkdir "dist\3ds\!foldername!" 
     move "!foldername!\!foldername!.3dsx" "dist\3ds\!foldername!\!foldername!.3dsx"  
     echo !foldername! done
-    del "rom_locks\!foldername!"
-    move "..\!rom_file!" ..\used
     del "rom_locks\!foldername!"
 exit

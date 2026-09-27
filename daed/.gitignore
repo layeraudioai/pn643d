@@ -28,7 +28,6 @@ Source/SysCTR/Resources/romfs/*
 Source/SysCTR/Resources/*/*.*64
 Source/SysCTR/Resources/*/dspfirm.cdc
 Source/SysCTR/Resources/*/Roboto-Medium.ttf
-Tools/*.exe
 */*/*/*.bin
 Tools/*.a3a
 Tools/*.bin

@@ -361,21 +361,21 @@ if (CTR_RELEASE)
 	set(APP_DESCRIPTION "${PROJECT_NAME} port for 3DS")
 	set(APP_AUTHOR "MasterFeizz")
 
-	if(EXISTS "${PROJECT_SOURCE_DIR}/SysCTR/Resources/${PROJECT_NAME}.smdh")
-		set(APP_SMDH "${PROJECT_SOURCE_DIR}/SysCTR/Resources/${PROJECT_NAME}.smdh")
+	if(EXISTS "${PROJECT_NAME}/${PROJECT_NAME}.smdh")
+		set(APP_SMDH "${PROJECT_NAME}/${PROJECT_NAME}.smdh")
 	else()
 		set(APP_SMDH "${PROJECT_SOURCE_DIR}/SysCTR/Resources/daedalus.smdh")
 	endif()
 
-	if(EXISTS "${PROJECT_SOURCE_DIR}/SysCTR/Resources/${PROJECT_NAME}.bnr")
-		set(APP_BANNER "${PROJECT_SOURCE_DIR}/SysCTR/Resources/${PROJECT_NAME}.bnr")
+	if(EXISTS "${PROJECT_NAME}/${PROJECT_NAME}.bnr")
+		set(APP_BANNER "${PROJECT_NAME}/${PROJECT_NAME}.bnr")
 	else()
 		set(APP_BANNER "${PROJECT_SOURCE_DIR}/SysCTR/Resources/banner.bnr")
 	endif()
 	set(APP_AUDIO "${PROJECT_SOURCE_DIR}/SysCTR/Resources/audio_silent.wav")
-	set(APP_RSF "${PROJECT_SOURCE_DIR}/SysCTR/Resources/${PROJECT_NAME}.rsf")
-	set(APP_ROMFS_DIR "${PROJECT_SOURCE_DIR}/SysCTR/Resources/${PROJECT_NAME}")
-	set(APP_ROMFS_BIN "${PROJECT_SOURCE_DIR}/SysCTR/Resources/${PROJECT_NAME}.bin")
+	set(APP_RSF "${PROJECT_NAME}/${PROJECT_NAME}.rsf")
+	set(APP_ROMFS_DIR "${PROJECT_NAME}/${PROJECT_NAME}")
+	set(APP_ROMFS_BIN "${PROJECT_NAME}/${PROJECT_NAME}.bin")
 
 	add_custom_command(
 		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.3dsx

@@ -4,6 +4,64 @@ import struct
 import glob
 import subprocess
 import re
+import random
+
+def compile_n64sfxdump():
+    exe_path = os.path.join("n64sfxdump", "n64sfxdump.exe")
+    if os.path.exists(exe_path):
+        return True
+    
+    print("Compiling n64sfxdump...")
+    vcvars_candidates = [
+        r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat",
+        r"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat",
+        r"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat",
+        r"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat",
+        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat",
+        r"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat"
+    ]
+    
+    vcvars = None
+    for c in vcvars_candidates:
+        if os.path.exists(c):
+            vcvars = c
+            break
+            
+    if not vcvars:
+        print("Warning: Could not find vcvarsall.bat to compile n64sfxdump.")
+        return False
+        
+    try:
+        cmd = f'cmd.exe /c ""{vcvars}" x64 && cd n64sfxdump && cl /std:c++17 /EHsc main.cpp albank.cpp rom.cpp vadpcm.cpp wav.cpp /Fe:n64sfxdump.exe"'
+        subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if os.path.exists(exe_path):
+            print("n64sfxdump compiled successfully.")
+            return True
+    except Exception as e:
+        print(f"Failed to compile n64sfxdump: {e}")
+    return False
+
+def get_random_rom_audio(rom_path, output_dir):
+    default_audio = "Source/SysCTR/Resources/audio_silent.wav"
+    if not compile_n64sfxdump():
+        return default_audio
+        
+    exe_path = os.path.join("n64sfxdump", "n64sfxdump.exe")
+    wavs_dir = os.path.join(output_dir, "extracted_wavs")
+    os.makedirs(wavs_dir, exist_ok=True)
+    
+    try:
+        print(f"Dumping WAVs from ROM using n64sfxdump...")
+        subprocess.run([exe_path, rom_path, wavs_dir], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        wav_files = glob.glob(os.path.join(wavs_dir, "*.wav"))
+        if wav_files:
+            chosen = random.choice(wav_files)
+            print(f"Picked random banner audio from ROM ({len(wav_files)} available): {os.path.basename(chosen)}")
+            return chosen
+    except Exception as e:
+        print(f"Error dumping WAVs with n64sfxdump: {e}")
+        
+    return default_audio
 
 def sanitize(name):
     return re.sub(r'[^a-zA-Z0-9]', '', name).lower()
@@ -162,7 +220,7 @@ def process_rom(rom_path, output_dir, folder_name):
 
     banner_out = os.path.join(output_dir, sys.argv[3] + ".bnr")
     smdh_out = os.path.join(output_dir, sys.argv[3] + ".smdh")
-    audio_wav = "Source/SysCTR/Resources/audio_silent.wav"
+    audio_wav = get_random_rom_audio(sys.argv[1], output_dir)
     bannertool = "Tools/bannertool.exe"
 
     cmd_banner = [

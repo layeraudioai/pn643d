@@ -85,6 +85,7 @@ elif [ "$1" = "CTR_RELEASE" ]; then
   cd "$PWD/$2"
   cmake -D"PROJECT_NAME=$2" -D"$1=1" ../Source -DCMAKE_TOOLCHAIN_FILE=../Tools/3dstoolchain.cmake -G "Unix Makefiles"
   make -j4
+  wait
   rm rom_locks/"$2"
 
 elif [ "$1" = "LINUX_RELEASE" ] || [ "$1" = "MAC_RELEASE" ]; then

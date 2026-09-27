@@ -20,15 +20,13 @@ setlocal enabledelayedexpansion
     set "foldername=!foldername:&=!"
     touch "rom_locks\!foldername!"
     
-    del "Source\SysCTR\Resources\!foldername!\Roms\*.*64" 
+    del "Source\SysCTR\Resources\!foldername!\romfs\Roms\*.*64" 
     del "!foldername!\CMakeCache.txt" 
-    copy Source\SysCTR\Resources\template2.rsf "Source\SysCTR\Resources\!foldername!.rsf" 
-    python Tools\generate_romdb_prefs.py %1% "!foldername!"
-    xcopy Source\SysCTR\Resources\romfs\ "Source\SysCTR\Resources\!foldername!\" /E /Y 
-    if exist Data\roms.ini copy Data\roms.ini "Source\SysCTR\Resources\!foldername!\roms.ini" /Y
-    if exist rom.db copy rom.db "Source\SysCTR\Resources\!foldername!\rom.db" /Y
-    if exist preferences.ini copy preferences.ini "Source\SysCTR\Resources\!foldername!\preferences.ini" /Y
-    tools\3dstool -c --type romfs --romfs-dir "Source\SysCTR\Resources\!foldername!" --file "Source\SysCTR\Resources\!foldername!.bin" 
+    copy Source\SysCTR\Resources\template2.rsf "!foldername!\!foldername!.rsf" 
+    xcopy Source\SysCTR\Resources\romfs\ "!foldername!\romfs\" /E /Y 
+    if exist Data\roms.ini copy Data\roms.ini "!foldername!\romfs\roms.ini" /Y
+    python Tools\generate_romdb_prefs.py %1% "!foldername!" "!foldername!\romfs"
+    tools\3dstool -c --type romfs --romfs-dir "!foldername!\romfs" --file "!foldername!\!foldername!.bin" 
     set "hex=!foldername!"
     for %%C in (
         G H I J K L M N O P Q R S T U V W X Y Z
@@ -46,7 +44,7 @@ setlocal enabledelayedexpansion
     set "hex=!hex:}=!"
     set "tid=0x!hex:~0,5!"
     echo !foldername! TID=!tid!
-    Tools\additionals\u64aap -a -g -d -f -l -n -k -i %1% -o "Source\SysCTR\Resources\!foldername!\Roms\!foldername!.z64"
+    Tools\additionals\u64aap -a -g -d -f -l -n -k -i %1% -o "!foldername!\romfs\Roms\!foldername!.z64"
     (
     for /f "delims=" %%L in (Source\SysCTR\Resources\template2.rsf) do (
       set "line=%%L"
@@ -58,16 +56,16 @@ setlocal enabledelayedexpansion
       )
       echo !line!
     )
-    ) > Source\SysCTR\Resources\!foldername!.rsf
-    python Tools\generate_banner_smdh.py %1% "Source\SysCTR\Resources" "!foldername!"
-    tools\3dstool -c --type romfs --romfs-dir "Source\SysCTR\Resources\!foldername!" --file "Source\SysCTR\Resources\!foldername!.bin" 
+    ) > !foldername!\!foldername!.rsf
+    python Tools\generate_banner_smdh.py %1% "!foldername!" "!foldername!"
+    tools\3dstool -c --type romfs --romfs-dir "!foldername!\romfs" --file "!foldername!\!foldername!.bin" 
     sh build_daedalus.sh CTR_RELEASE "!foldername!" 
     move "!foldername!\!foldername!.cia" "dist\!foldername!.cia" 
     mkdir "dist\3ds\!foldername!" 
     move "!foldername!\!foldername!.3dsx" "dist\3ds\!foldername!\!foldername!.3dsx" 
-    del "Source\SysCTR\Resources\!foldername!\Roms\!foldername!.*64" 
+    del "!foldername!\Roms\!foldername!.*64" 
     echo !foldername! done
     del "rom_locks\!foldername!"
     move "..\!rom_file!" ..\used
     del "rom_locks\!foldername!"
-exit /b
+exit

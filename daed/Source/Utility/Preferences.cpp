@@ -125,7 +125,7 @@ IPreferences::IPreferences()
 #ifdef DAEDALUS_CTR
 	if (strncmp(mFilename.c_str(), "romfs:/", 7) == 0)
 	{
-		IO::Path::Combine( mFilename, gDaedalusExePath, "preferences.ini" );
+		 IO::Path::Combine((char*)mFilename.c_str(), gDaedalusExePath, "preferences.ini" );
 	}
 #endif
 }

@@ -621,7 +621,7 @@ void RendererCTR::RenderTriangles(DaedalusVtx *p_vertices, u32 num_vertices, boo
 			{
 				scale_x *= 0.5f;
 				scale_y *= 0.5f;
-				scale_z *= 1.5f;
+				//scale_z *= 1.5f;
 			}
 				
 			for (u32 i = 0; i < num_vertices; ++i)

@@ -38,10 +38,12 @@ static void *			gAuxSyncArg = NULL;
 
 static const u32		gTvFrequencies[] =
 {
-	1500,		// OS_TV_PAL,
-	2600,		// OS_TV_NTSC,
-	1500		// OS_TV_MPAL
+	240,		// OS_TV_PAL,
+	240,		// OS_TV_NTSC,
+	240		// OS_TV_MPAL
 };
+
+extern float gMaxFPS;
 
 void FramerateLimiter_SetAuxillarySyncFunction(FramerateSyncFn fn, void * arg)
 {
@@ -72,8 +74,10 @@ bool FramerateLimiter_Reset()
 		DAEDALUS_ASSERT(tv_type < sizeof(gTvFrequencies) / sizeof(u32), "Unknown TV type: %d", g_ROM.TvType);
 		#endif
 
-		gTicksBetweenVbls = (u32)(frequency / (u64)gTvFrequencies[ tv_type ]);
-		gTicksPerSecond = (u32)frequency;
+		u32 target_fps = (gMaxFPS > 0.0f) ? (u32)gMaxFPS : gTvFrequencies[ tv_type ];
+		if (target_fps == 0) target_fps = 60;
+		gTicksBetweenVbls = (u32)(frequency / (u64)target_fps);
+		gTicksPerSecond = (u32)(frequency * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f));
 	}
 	else
 	{
@@ -123,8 +127,8 @@ void FramerateLimiter_Limit()
 
 		if( gSpeedSyncEnabled == 2 ) required_ticks = required_ticks << 1;	// Slow down to 1/2 speed //Corn
 
-		// FIXME the constant here will need to be adjusted for different platforms.
-		s32	delay_ticks = required_ticks - elapsed_ticks - 50;	//Remove ~50 ticks for additional processing
+		// If MaxFPS is high (>120), bypass sleep delay to allow high framerates up to 250+ FPS
+		s32	delay_ticks = (gMaxFPS > 120.0f) ? 0 : (required_ticks - elapsed_ticks - 50);	//Remove ~50 ticks for additional processing
 
 		if( delay_ticks > 0 )
 		{
@@ -170,7 +174,7 @@ f32 FramerateLimiter_GetPerformanceScale()
 
 u32 FramerateLimiter_GetTargetClockRateHz()
 {
-	u32 base_clock = g_ROM.rh.ClockRate != 0 ? g_ROM.rh.ClockRate : 93750000;
+	u32 base_clock = (gMaxFPS > 120.0f) ? 20000000u : 30000000u;
 	return (u32)((f32)base_clock * sPerformanceScale);
 }
 
@@ -188,5 +192,5 @@ u32 FramerateLimiter_GetTvFrequencyHz()
 	{
 		tv_type = 0;
 	}
-	return gTvFrequencies[ tv_type ];
+	return (gMaxFPS > 0.0f) ? (u32)gMaxFPS : gTvFrequencies[ tv_type ];
 }

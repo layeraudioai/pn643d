@@ -287,6 +287,7 @@ void RendererCTR::DrawPrimitives(DaedalusVtx * p_vertices, u32 num_vertices, u32
 		
 		gTexCoordBuffer[0] = p_vertices[i].Texture.x;
 		gTexCoordBuffer[1] = p_vertices[i].Texture.y;
+		//gTexCoordBuffer[2] = p_vertices[i].Texture.z;
 
 		gColorBuffer[0] = p_vertices[i].Colour.GetColour();
 
@@ -331,9 +332,7 @@ void RendererCTR::RenderUsingRenderSettings( const CBlendStates * states, Daedal
 		bool install_texture0( settings->UsesTexture0() || alpha_settings->UsesTexture0() );
 		bool install_texture1( settings->UsesTexture1() || alpha_settings->UsesTexture1() );
 
-		SRenderStateOut out;
-
-		memset( &out, 0, sizeof( out ) );
+		SRenderStateOut out{};
 
 		settings->Apply( install_texture0 || install_texture1, state, out );
 		alpha_settings->Apply( install_texture0 || install_texture1, state, out );
@@ -615,18 +614,21 @@ void RendererCTR::RenderTriangles(DaedalusVtx *p_vertices, u32 num_vertices, boo
 		{
 			float scale_x = texture->GetScaleX();
 			float scale_y = texture->GetScaleY();
+			float scale_z = texture->GetScaleZ();
 				
 			// Hack to fix the sun in Zelda OOT/MM
 			if( g_ROM.ZELDA_HACK && (gRDPOtherMode.L == 0x0c184241) )
 			{
 				scale_x *= 0.5f;
 				scale_y *= 0.5f;
+				scale_z *= 1.5f;
 			}
 				
 			for (u32 i = 0; i < num_vertices; ++i)
 			{
 				p_vertices[i].Texture.x = (p_vertices[i].Texture.x * scale_x - (mTileTopLeft[ 0 ].s  / 4.f * scale_x));
 				p_vertices[i].Texture.y = (p_vertices[i].Texture.y * scale_y - (mTileTopLeft[ 0 ].t  / 4.f * scale_y));
+				p_vertices[i].Texture.z = (p_vertices[i].Texture.z * scale_z - (mTileTopLeft[ 0 ].t  / 4.f * scale_y));
 			}	
 		}
 	}
@@ -656,6 +658,7 @@ void RendererCTR::TexRect(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexCoord
 	CNativeTexture *texture = mBoundTexture[0];
 	float scale_x {texture->GetScaleX()};
 	float scale_y {texture->GetScaleY()};
+	float scale_z {texture->GetScaleZ()};
 
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
 
@@ -667,6 +670,11 @@ void RendererCTR::TexRect(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexCoord
 	p_vertices[2].Texture.y = uv1.y * scale_y;
 	p_vertices[3].Texture.x = uv1.x * scale_x;
 	p_vertices[3].Texture.y = uv1.y * scale_y;
+	
+	p_vertices[0].Texture.z = uv0.z * scale_z;
+	p_vertices[1].Texture.z = uv1.z * scale_z;
+	p_vertices[2].Texture.z = uv0.z * scale_z;
+	p_vertices[3].Texture.z = uv1.z * scale_z;
 	
 	p_vertices[0].Position.x = screen0.x;
 	p_vertices[0].Position.y = screen0.y;
@@ -715,6 +723,7 @@ void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexC
 
 	float scale_x = texture->GetScaleX();
 	float scale_y = texture->GetScaleY();
+	float scale_z = texture->GetScaleZ();
 
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
 	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
@@ -725,6 +734,7 @@ void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexC
 	p_vertices[0].Colour = c32(0xffffffff);
 	p_vertices[0].Texture.x = uv0.x * scale_x;
 	p_vertices[0].Texture.y = uv0.y * scale_y;
+	//p_vertices[0].Texture.z = uv0.z * scale_z;
 
 	p_vertices[1].Position.x = screen1.x;
 	p_vertices[1].Position.y = screen0.y;
@@ -732,6 +742,7 @@ void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexC
 	p_vertices[1].Colour = c32(0xffffffff);
 	p_vertices[1].Texture.x = uv0.x * scale_x;
 	p_vertices[1].Texture.y = uv1.y * scale_y;
+	//p_vertices[1].Texture.z = uv0.z * scale_z;
 
 	p_vertices[2].Position.x = screen0.x;
 	p_vertices[2].Position.y = screen1.y;
@@ -739,6 +750,7 @@ void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexC
 	p_vertices[2].Colour = c32(0xffffffff);
 	p_vertices[2].Texture.x = uv1.x * scale_x;
 	p_vertices[2].Texture.y = uv0.y * scale_y;
+	//p_vertices[2].Texture.z = uv1.z * scale_z;
 
 	p_vertices[3].Position.x = screen1.x;
 	p_vertices[3].Position.y = screen1.y;
@@ -746,6 +758,7 @@ void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexC
 	p_vertices[3].Colour = c32(0xffffffff);
 	p_vertices[3].Texture.x = uv1.x * scale_x;
 	p_vertices[3].Texture.y = uv1.y * scale_y;
+	//p_vertices[3].Texture.z = uv1.z * scale_z;
 
 	glEnable(GL_TEXTURE_2D);
 	RenderUsingCurrentBlendMode(mScreenToDevice.mRaw, p_vertices, 4, GL_TRIANGLE_STRIP, gRDPOtherMode.depth_source ? false : true);
@@ -761,25 +774,26 @@ void RendererCTR::FillRect(const v2 & xy0, const v2 & xy1, u32 color)
 	ScaleN64ToScreen( xy1, screen1 );
 	
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
-	
+	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
+
 	p_vertices[0].Position.x = screen0.x;
 	p_vertices[0].Position.y = screen0.y;
-	p_vertices[0].Position.z = 0.0f;
+	p_vertices[0].Position.z = depth;
 	p_vertices[0].Colour = c32(color);
 
 	p_vertices[1].Position.x = screen1.x;
 	p_vertices[1].Position.y = screen0.y;
-	p_vertices[1].Position.z = 0.0f;
+	p_vertices[1].Position.z = depth;
 	p_vertices[1].Colour = c32(color);
 
 	p_vertices[2].Position.x = screen0.x;
 	p_vertices[2].Position.y = screen1.y;
-	p_vertices[2].Position.z = 0.0f;
+	p_vertices[2].Position.z = depth;
 	p_vertices[2].Colour = c32(color);
 
 	p_vertices[3].Position.x = screen1.x;
 	p_vertices[3].Position.y = screen1.y;
-	p_vertices[3].Position.z = 0.0f;
+	p_vertices[3].Position.z = depth;
 	p_vertices[3].Colour = c32(color);
 	
 	glDisable(GL_TEXTURE_2D);
@@ -799,6 +813,7 @@ void RendererCTR::Draw2DTexture(f32 x0, f32 y0, f32 x1, f32 y1,
 
 	float scale_x = texture->GetScaleX();
 	float scale_y = texture->GetScaleY();
+	float scale_z = texture->GetScaleZ();
 	
 	float sx0 = N64ToScreenX(x0);
 	float sy0 = N64ToScreenY(y0);
@@ -807,34 +822,39 @@ void RendererCTR::Draw2DTexture(f32 x0, f32 y0, f32 x1, f32 y1,
 	float sy1 = N64ToScreenY(y1);
 
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
+	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
 
 	p_vertices[0].Position.x = sx0;
 	p_vertices[0].Position.y = sy0;
-	p_vertices[0].Position.z = 0.0f;
+	p_vertices[0].Position.z = depth;
 	p_vertices[0].Colour = c32(0xffffffff);
 	p_vertices[0].Texture.x = u0 * scale_x;
 	p_vertices[0].Texture.y = v0 * scale_y;
+	//p_vertices[0].Texture.z = u0 * scale_z;
 
 	p_vertices[1].Position.x = sx1;
 	p_vertices[1].Position.y = sy0;
-	p_vertices[1].Position.z = 0.0f;
+	p_vertices[1].Position.z = depth;
 	p_vertices[1].Colour = c32(0xffffffff);
 	p_vertices[1].Texture.x = u1 * scale_x;
 	p_vertices[1].Texture.y = v0 * scale_y;
+	//p_vertices[1].Texture.z = u1 * scale_z;
 
 	p_vertices[2].Position.x = sx0;
 	p_vertices[2].Position.y = sy1;
-	p_vertices[2].Position.z = 0.0f;
+	p_vertices[2].Position.z = depth;
 	p_vertices[2].Colour = c32(0xffffffff);
 	p_vertices[2].Texture.x = u0 * scale_x;
 	p_vertices[2].Texture.y = v1 * scale_y;
+	//p_vertices[2].Texture.z = u0 * scale_z;
 
 	p_vertices[3].Position.x = sx1;
 	p_vertices[3].Position.y = sy1;
-	p_vertices[3].Position.z = 0.0f;
+	p_vertices[3].Position.z = depth;
 	p_vertices[3].Colour = c32(0xffffffff);
 	p_vertices[3].Texture.x = u1 * scale_x;
 	p_vertices[3].Texture.y = v1 * scale_y;
+	//p_vertices[3].Texture.z = u1 * scale_z;
 
 	glEnable(GL_TEXTURE_2D);
 	RenderUsingCurrentBlendMode(mScreenToDevice.mRaw, p_vertices, 4, GL_TRIANGLE_STRIP, true);
@@ -850,37 +870,42 @@ void RendererCTR::Draw2DTextureR(f32 x0, f32 y0, f32 x1, f32 y1, f32 x2,
 	
 	float scale_x = texture->GetScaleX();
 	float scale_y = texture->GetScaleY();
+	float scale_z = texture->GetScaleZ();
 
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
-	
+	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
 	p_vertices[0].Position.x = N64ToScreenX(x0);
 	p_vertices[0].Position.y = N64ToScreenY(y0);
-	p_vertices[0].Position.z = 0.0f;
+	p_vertices[0].Position.z = depth;
 	p_vertices[0].Colour = c32(0xffffffff);
 	p_vertices[0].Texture.x = 0.0f;
 	p_vertices[0].Texture.y = 0.0f;
+	//p_vertices[0].Texture.z = 0.0f;
 
 	p_vertices[1].Position.x = N64ToScreenX(x1);
 	p_vertices[1].Position.y = N64ToScreenY(y1);
-	p_vertices[1].Position.z = 0.0f;
+	p_vertices[1].Position.z = depth;
 	p_vertices[1].Colour = c32(0xffffffff);
 	p_vertices[1].Texture.x = s * scale_x;
 	p_vertices[1].Texture.y = 0.0f;
+	//p_vertices[1].Texture.z = s * scale_z;
 
 	p_vertices[2].Position.x = N64ToScreenX(x2);
 	p_vertices[2].Position.y = N64ToScreenY(y2);
-	p_vertices[2].Position.z = 0.0f;
+	p_vertices[2].Position.z = depth;
 	p_vertices[2].Colour = c32(0xffffffff);
 	p_vertices[2].Texture.x = s * scale_x;
 	p_vertices[2].Texture.y = t * scale_y;
+	//p_vertices[2].Texture.z = s * scale_z;
 
 	p_vertices[3].Position.x = N64ToScreenX(x3);
 	p_vertices[3].Position.y = N64ToScreenY(y3);
-	p_vertices[3].Position.z = 0.0f;
+	p_vertices[3].Position.z = depth;
 	p_vertices[3].Colour = c32(0xffffffff);
 	p_vertices[3].Texture.x = 0.0f;
 	p_vertices[3].Texture.y = t * scale_y;
-	
+	//p_vertices[3].Texture.z = 0.0f * scale_z;
+
 	glEnable(GL_TEXTURE_2D);
 	RenderUsingCurrentBlendMode(mScreenToDevice.mRaw, p_vertices, 4, GL_TRIANGLE_FAN, true);
 

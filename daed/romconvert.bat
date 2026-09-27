@@ -55,6 +55,7 @@ setlocal enabledelayedexpansion
       echo !line!
     )
     ) > Source\SysCTR\Resources\!foldername!.rsf
+    python Tools\generate_banner_smdh.py %1% "Source\SysCTR\Resources" "!foldername!"
     tools\3dstool -c --type romfs --romfs-dir "Source\SysCTR\Resources\!foldername!" --file "Source\SysCTR\Resources\!foldername!.bin" 
     sh build_daedalus.sh CTR_RELEASE "!foldername!" 
     move "!foldername!\!foldername!.cia" "dist\!foldername!.cia" 
@@ -64,5 +65,6 @@ setlocal enabledelayedexpansion
     echo !foldername! done
     del "rom_locks\!foldername!"
     move "..\!rom_file!" ..\used
+    del "rom_locks\!foldername!"
 
     

@@ -228,9 +228,19 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define VI_CTRL_ANTIALIAS_MASK		0x00300
 #define VI_CTRL_DITHER_FILTER_ON	0x10000
 
-#define VI_NTSC_CLOCK		48681812
-#define VI_PAL_CLOCK		49656530
-#define VI_MPAL_CLOCK		48628316
+extern float gMaxFPS;
+
+inline u32 Get_VI_NTSC_CLOCK() { return (u32)(48681812.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+inline u32 Get_VI_PAL_CLOCK()  { return (u32)(49656530.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+inline u32 Get_VI_MPAL_CLOCK() { return (u32)(48628316.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+
+inline u32 Get_AI_NTSC_MAX_FREQ() { return (u32)(4860000.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+inline u32 Get_AI_PAL_MAX_FREQ()  { return (u32)(4965000.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+inline u32 Get_AI_MPAL_MAX_FREQ() { return (u32)(4860000.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+
+#define VI_NTSC_CLOCK		Get_VI_NTSC_CLOCK()
+#define VI_PAL_CLOCK		Get_VI_PAL_CLOCK()
+#define VI_MPAL_CLOCK		Get_VI_MPAL_CLOCK()
 
 
 #define VI_LAST_REG	VI_Y_SCALE_REG
@@ -255,14 +265,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define AI_MAX_BIT_RATE         32
 #define AI_MIN_BIT_RATE         2
 
-#define AI_NTSC_MAX_FREQ        486000
-#define AI_NTSC_MIN_FREQ        3000
+#define AI_NTSC_MAX_FREQ        Get_AI_NTSC_MAX_FREQ()
+#define AI_NTSC_MIN_FREQ        1000
 
-#define AI_PAL_MAX_FREQ         496500
-#define AI_PAL_MIN_FREQ         3050
+#define AI_PAL_MAX_FREQ         Get_AI_PAL_MAX_FREQ()
+#define AI_PAL_MIN_FREQ         1050
 
-#define AI_MPAL_MAX_FREQ        486000
-#define AI_MPAL_MIN_FREQ        3000
+#define AI_MPAL_MAX_FREQ        Get_AI_MPAL_MAX_FREQ()
+#define AI_MPAL_MIN_FREQ        1000
 
 
 #define AI_LAST_REG	AI_BITRATE_REG

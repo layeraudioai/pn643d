@@ -41,6 +41,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //#define DAEDALUS_FRAMERATE_ANALYSIS
 
 extern bool gFrameskipActive;
+extern float gMaxFPS;
 
 u32		gVISyncRate = 1500;
 bool	gTakeScreenshot = false;
@@ -199,13 +200,17 @@ void CGraphicsPluginImpl::UpdateScreen()
 			const f32 inv_Fsync = 1.0f / Fsync;
 			gSoundSync = (u32)(44100.0f * inv_Fsync);
 			gVISyncRate = (u32)(1500.0f * inv_Fsync);
-			if( gVISyncRate > 4000 ) gVISyncRate = 4000;
-			else if ( gVISyncRate < 1500 ) gVISyncRate = 1500;
+			
+			u32 max_vi = (gMaxFPS > 0.0f) ? (u32)(1500.0f * (gMaxFPS / 60.0f)) : 4000u;
+			if (max_vi < 4000u) max_vi = 4000u;
+			
+			if( gVISyncRate > max_vi ) gVISyncRate = max_vi;
+			else if ( gVISyncRate < 300 ) gVISyncRate = 300;
 		}
 		else
 		{
 			gSoundSync = 44100;
-			gVISyncRate = 1500;
+			gVISyncRate = (gMaxFPS > 0.0f) ? (u32)(1500.0f * (gMaxFPS / 60.0f)) : 1500u;
 		}
 		
 		if(!gFrameskipActive)

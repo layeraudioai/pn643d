@@ -118,9 +118,9 @@ static void DrawOptionsPage()
 	CPreferences::Get()->GetRomPreferences( g_ROM.mRomID, &preferences );
 
 	char frameskipString[30];
-
+	char framerateString[30];
 	sprintf(frameskipString, "Frameskip: %s", Preferences_GetFrameskipDescription( preferences.Frameskip ));
-
+	sprintf(framerateString, "Max FPS: %.0f", preferences.MaxFPS);
 	UI::DrawHeader("Options");
 
 	if(UI::DrawToggle(10,  22, 145, 62, "Toggle Audio", preferences.AudioEnabled == APM_ENABLED_ASYNC))
@@ -134,12 +134,20 @@ static void DrawOptionsPage()
 		aspectRatio = !aspectRatio;
 	}
 
-	if(UI::DrawButton(10,  94, 300, 62, frameskipString))
+	if(UI::DrawButton(10,  94, 145, 62, frameskipString))
 	{
 		preferences.Frameskip = (EFrameskipValue) (preferences.Frameskip + 1);
 
 		if(preferences.Frameskip > FV_2)
 			preferences.Frameskip = FV_DISABLED;
+	}
+
+	if(UI::DrawButton(165,  94, 145, 62, framerateString))
+	{
+		if(preferences.MaxFPS > 240.0f)
+			preferences.MaxFPS = 15.0f;
+		else
+			preferences.MaxFPS += 15.0f;
 	}
 
 	if(UI::DrawButton(10, 166, 300, 62, "Back"))

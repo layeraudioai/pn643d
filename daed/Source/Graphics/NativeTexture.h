@@ -71,6 +71,9 @@ class CNativeTexture : public CRefCounted
 #if defined(DAEDALUS_PSP) || defined(DAEDALUS_VITA) || defined(DAEDALUS_CTR)
 		inline f32						GetScaleX() const				{ return mScale.x; }
 		inline f32						GetScaleY() const				{ return mScale.y; }
+#ifdef DAEDALUS_CTR
+		inline f32						GetScaleZ() const				{ return mScale.z; }
+#endif
 #endif
 
 		u32								GetBytesRequired() const;

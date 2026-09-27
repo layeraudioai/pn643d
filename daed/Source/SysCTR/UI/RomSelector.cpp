@@ -149,7 +149,7 @@ std::string UI::DrawRomSelector()
 		pglSwapBuffers();
 		UI::ClearSecondScreen(GFX_TOP);
 
-		if(hidKeysDown() & KEY_A)
+		//if(hidKeysDown() & KEY_A)
 			return roms.at(cursor).mFilename;
 
 		if((hidKeysDown() & KEY_DOWN) && cursor != (int)roms.size() - 1)

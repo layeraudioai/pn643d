@@ -73,8 +73,7 @@ static void AudioInit()
 	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
 	ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
 	
-	f32 perf_scale = FramerateLimiter_GetPerformanceScale();
-	ndspChnSetRate(0, 44100.0f * (perf_scale > 0.25f ? perf_scale : 1.0f));
+	ndspChnSetRate(0, 44100.0f);
 
 	waveBuf[0].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * 4);
 	waveBuf[0].nsamples = CTR_NUM_SAMPLES;
@@ -142,27 +141,11 @@ void AudioOutput::AddBuffer( u8 *start, u32 length )
 	u32 num_samples = length / sizeof( Sample );
 
 	u32 output_freq = DESIRED_OUTPUT_FREQUENCY;
-	if (gSoundSync >= 11025 && gSoundSync <= 88200)
-	{
-		output_freq = gSoundSync;
-	}
-	else
-	{
-		f32 perf_scale = FramerateLimiter_GetPerformanceScale();
-		if (perf_scale < 0.25f) perf_scale = 0.25f;
-		if (perf_scale > 4.0f) perf_scale = 4.0f;
-		output_freq = (u32)(44100.0f * perf_scale);
-	}
-
 	u32 input_freq = mFrequency;
-	if (input_freq > output_freq)
-	{
-		output_freq = input_freq;
-	}
 
 	if (audioOpen)
 	{
-		ndspChnSetRate(0, (float)output_freq);
+		ndspChnSetRate(0, (float)DESIRED_OUTPUT_FREQUENCY);
 	}
 
 	switch( gAudioPluginEnabled )

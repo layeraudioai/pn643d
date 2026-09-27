@@ -149,11 +149,12 @@ struct SRomPreferences
 //	bool						AudioAdaptFrequency;
 	ETextureHashFrequency		CheckTextureHashFrequency;
 	EFrameskipValue				Frameskip;
+	float						MaxFPS;
 	EAudioPluginMode			AudioEnabled;
 	f32							ZoomX;
 	u32							SpeedSyncEnabled;
 	u32							ControllerIndex;
-//	u32							PAD1;	//Some Bug in GCC that require to pad the struct some times...(?)
+//	u32							PAD1;	//Some Bug in GCC that require to pad the struct some times...(?) 
 
 	SRomPreferences();
 

@@ -60,6 +60,7 @@ static EFrameskipValue			GetFrameskipValueFromInt( u32 value );
 
 extern EFrameskipValue			gFrameskipValue;
 extern f32 						gZoomX;
+float							gMaxFPS = 240.0f;
 
 SGlobalPreferences				gGlobalPreferences;
 
@@ -270,6 +271,10 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 		{
 			preferences.ZoomX = (f32)atof( property->GetValue() );
 		}
+		if( section->FindProperty( "MaxFPS", &property ) )
+		{
+			preferences.MaxFPS = (f32)atoi( property->GetValue() );
+		}
 #ifdef DAEDALUS_PSP
 		if( section->FindProperty( "Controller", &property ) )
 		{
@@ -315,6 +320,7 @@ void IPreferences::OutputSectionDetails( const RomID & id, const SRomPreferences
 	fprintf(fh, "Frameskip=%d\n",                  GetFrameskipValueAsInt( preferences.Frameskip ) );
 	fprintf(fh, "AudioEnabled=%d\n",               preferences.AudioEnabled);
 	fprintf(fh, "ZoomX=%f\n",                      preferences.ZoomX );
+	fprintf(fh, "MaxFPS=%d\n",                     (int)preferences.MaxFPS );
 	fprintf(fh, "MemoryAccessOptimisation=%d\n",   preferences.MemoryAccessOptimisation);
 	fprintf(fh, "CheatsEnabled=%d\n",              preferences.CheatsEnabled);
 #ifdef DAEDALUS_PSP
@@ -434,17 +440,18 @@ SRomPreferences::SRomPreferences()
 	,	DoubleDisplayEnabled( true )
 	,	CleanSceneEnabled( false )
 	,	ClearDepthFrameBuffer( false )
-	,	AudioRateMatch( false )
-	,	VideoRateMatch( false )
+	,	AudioRateMatch( true )
+	,	VideoRateMatch( true )
 	,	FogEnabled( false )
 	,   MemoryAccessOptimisation( true )
 	,	CheatsEnabled( false )
 //	,	AudioAdaptFrequency( false )
 	,	CheckTextureHashFrequency( kDefaultTextureHashFrequency )
 	,	Frameskip( FV_DISABLED )
-	,	AudioEnabled( kDefaultAudioPluginMode )
+	,	AudioEnabled( APM_ENABLED_ASYNC )
 	,	ZoomX( 1.0f )
-	,	SpeedSyncEnabled( 1 )
+	,	MaxFPS( 250.0f )
+	,	SpeedSyncEnabled( 0 )
 	,	ControllerIndex( 0 )
 {
 }
@@ -452,22 +459,23 @@ SRomPreferences::SRomPreferences()
 void SRomPreferences::Reset()
 {
 	PatchesEnabled             = true;
-	SpeedSyncEnabled           = 1;
+	SpeedSyncEnabled           = 0;
 	DynarecEnabled             = true;
 	DynarecLoopOptimisation    = true;
 	DynarecDoublesOptimisation = true;
 	DoubleDisplayEnabled       = true;
 	CleanSceneEnabled          = false;
 	ClearDepthFrameBuffer	   = false;
-	AudioRateMatch             = false;
-	VideoRateMatch             = false;
+	AudioRateMatch             = true;
+	VideoRateMatch             = true;
 	FogEnabled                 = false;
 	MemoryAccessOptimisation   = true;
 	CheckTextureHashFrequency  = kDefaultTextureHashFrequency;
 	Frameskip                  = FV_DISABLED;
-	AudioEnabled               = kDefaultAudioPluginMode;
+	AudioEnabled               = APM_ENABLED_ASYNC;
 	//AudioAdaptFrequency      = false;
 	ZoomX                      = 1.0f;
+	MaxFPS                     = 250.0f;
 	CheatsEnabled              = false;
 	ControllerIndex            = 0;
 }
@@ -489,6 +497,7 @@ void SRomPreferences::Apply() const
 	gMemoryAccessOptimisation   = g_ROM.settings.MemoryAccessOptimisation || MemoryAccessOptimisation;
 	gFrameskipValue             = Frameskip;
 	gZoomX                      = ZoomX;
+	gMaxFPS                     = MaxFPS;
 	gCheatsEnabled              = g_ROM.settings.CheatsEnabled || CheatsEnabled;
 	gAudioPluginEnabled         = AudioEnabled;
 //	gAdaptFrequency             = AudioAdaptFrequency;

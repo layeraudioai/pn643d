@@ -8,7 +8,7 @@ import random
 import shutil
     
 def get_random_rom_audio(rom_path, output_dir):
-    default_audio = "Source/SysCTR/Resources/audio_silent.wav"
+    default_audio = "Source/SysCTR/Resources/audio.wav"
         
     exe_path = "Tools/n64sfxdump.exe"
     wavs_dir = os.path.join(output_dir, "extracted_wavs")
@@ -187,7 +187,7 @@ def process_rom(rom_path, output_dir, folder_name):
     audio_wav = get_random_rom_audio(sys.argv[1], output_dir)
     bannertool = "Tools/bannertool.exe"
     audioout = output_dir+"/"+output_dir+".wav";
-    os.rename(audio_wav, audioout)
+    os.replace(audio_wav, audioout)
     cmd_banner = [
         bannertool, "makebanner",
         "-i", temp_banner_png,

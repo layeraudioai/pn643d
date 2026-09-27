@@ -104,33 +104,33 @@ std::string UI::DrawRomSelector()
 	
 	UI::RestoreRenderState();
 
-	if(roms.empty())
-	{
-		glClear(GL_COLOR_BUFFER_BIT);
+	//if(roms.empty())
+	//{
+		//glClear(GL_COLOR_BUFFER_BIT);
 
-		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-		DrawText( 4, 12, "No ROMs found!");
+		//glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+		//DrawText( 4, 12, "No ROMs found!");
 
-		pglSwapBuffers();
-		UI::ClearSecondScreen(GFX_TOP);
+		//pglSwapBuffers();
+		//UI::ClearSecondScreen(GFX_TOP);
 
-		while(aptMainLoop())
-		{
-			hidScanInput();
+		//while(aptMainLoop())
+		//{
+		//	hidScanInput();
 
-			if(hidKeysDown() == KEY_START)
-				exit(1);
-		}
-	}
+		//	if(hidKeysDown() == KEY_START)
+		//		exit(1);
+		//}
+	//}
 
 
-	while(aptMainLoop())
-	{
+	//while(aptMainLoop())
+	//{
 
-		hidScanInput();
+		//hidScanInput();
 
-		glClear(GL_COLOR_BUFFER_BIT);
-		glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
+		//glClear(GL_COLOR_BUFFER_BIT);
+		//glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
 
 		/*for(int i = 0; i < (int)roms.size(); i++)
 		{
@@ -146,10 +146,11 @@ std::string UI::DrawRomSelector()
 
 		UI::DrawHeader("Rom Selector");
 
+		//if(hidKeysDown() & KEY_A)*/
+
 		pglSwapBuffers();
 		UI::ClearSecondScreen(GFX_TOP);
 
-		//if(hidKeysDown() & KEY_A)*/
 		return roms.at(cursor).mFilename;
 /*
 		if((hidKeysDown() & KEY_DOWN) && cursor != (int)roms.size() - 1)
@@ -166,4 +167,5 @@ std::string UI::DrawRomSelector()
 	}
 
 	return nullptr;*/
+	//}
 }

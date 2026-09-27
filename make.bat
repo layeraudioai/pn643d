@@ -7,7 +7,7 @@ if not exist roms (
 if not exist daed\rom_locks mkdir daed\rom_locks
 del /q daed\rom_locks\* 2>nul
 
-set /a max=%RANDOM%/1000
+set /a max=32
 
 echo ========================================
 echo Starting DaedalusX64 ROM Conversion
@@ -29,7 +29,7 @@ for %%R in (roms\*) do (
 
     echo [START] Converting: !folder_name! ^(Launched: !completed!/!romcount!^)
     cd daed
-    start /B romconvert.bat "..\!rom_file!" "!folder_name!"
+    start romconvert.bat "..\!rom_file!" "!folder_name!"
     cd ..
     set /a completed=!completed!+1
 

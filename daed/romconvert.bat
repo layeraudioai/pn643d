@@ -23,7 +23,11 @@ setlocal enabledelayedexpansion
     del "Source\SysCTR\Resources\!foldername!\Roms\*.*64" 
     del "!foldername!\CMakeCache.txt" 
     copy Source\SysCTR\Resources\template2.rsf "Source\SysCTR\Resources\!foldername!.rsf" 
+    python Tools\generate_romdb_prefs.py %1% "!foldername!"
     xcopy Source\SysCTR\Resources\romfs\ "Source\SysCTR\Resources\!foldername!\" /E /Y 
+    if exist Data\roms.ini copy Data\roms.ini "Source\SysCTR\Resources\!foldername!\roms.ini" /Y
+    if exist rom.db copy rom.db "Source\SysCTR\Resources\!foldername!\rom.db" /Y
+    if exist preferences.ini copy preferences.ini "Source\SysCTR\Resources\!foldername!\preferences.ini" /Y
     tools\3dstool -c --type romfs --romfs-dir "Source\SysCTR\Resources\!foldername!" --file "Source\SysCTR\Resources\!foldername!.bin" 
     set "hex=!foldername!"
     for %%C in (
@@ -66,5 +70,4 @@ setlocal enabledelayedexpansion
     del "rom_locks\!foldername!"
     move "..\!rom_file!" ..\used
     del "rom_locks\!foldername!"
-
-    
+exit /b

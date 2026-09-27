@@ -106,8 +106,28 @@ IPreferences::IPreferences()
 :	mDirty( false )
 {
 	IO::Filename ini_filename;
+#ifdef DAEDALUS_CTR
+	IO::Path::Combine( ini_filename, "romfs:/", "preferences.ini" );
+	FILE * fh = fopen( ini_filename, "rb" );
+	if ( fh != NULL )
+	{
+		fclose( fh );
+	}
+	else
+	{
+		IO::Path::Combine( ini_filename, gDaedalusExePath, "preferences.ini" );
+	}
+#else
 	IO::Path::Combine( ini_filename, gDaedalusExePath, "preferences.ini" );
+#endif
 	OpenPreferencesFile( ini_filename );
+
+#ifdef DAEDALUS_CTR
+	if (strncmp(mFilename.c_str(), "romfs:/", 7) == 0)
+	{
+		IO::Path::Combine( mFilename, gDaedalusExePath, "preferences.ini" );
+	}
+#endif
 }
 
 IPreferences::~IPreferences()

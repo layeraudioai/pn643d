@@ -175,7 +175,20 @@ template<> bool	CSingleton< CRomDB >::Create()
 	mpInstance = new IRomDB();
 
 	IO::Filename romdb_filename;
+#ifdef DAEDALUS_CTR
+	IO::Path::Combine( romdb_filename, "romfs:/", "rom.db" );
+	FILE * fh = fopen( romdb_filename, "rb" );
+	if ( fh != NULL )
+	{
+		fclose( fh );
+	}
+	else
+	{
+		IO::Path::Combine( romdb_filename, gDaedalusExePath, "rom.db" );
+	}
+#else
 	IO::Path::Combine( romdb_filename, gDaedalusExePath, "rom.db" );
+#endif
 	/*ret = */mpInstance->OpenDB( romdb_filename );
 	// Ignore failure - this file might not exist on first run.
 
@@ -203,6 +216,14 @@ void IRomDB::Reset()
 bool IRomDB::OpenDB( const char * filename )
 {
 	u32 num_read;
+
+	bool is_romfs = false;
+#ifdef DAEDALUS_CTR
+	if (strncmp(filename, "romfs:/", 7) == 0)
+	{
+		is_romfs = true;
+	}
+#endif
 
 	//
 	// Remember the filename
@@ -297,6 +318,14 @@ bool IRomDB::OpenDB( const char * filename )
 	DBGConsole_Msg( 0, "RomDB initialised with %d files and %d details.", mRomFiles.size(), mRomDetails.size() );
 #endif
 	fclose( fh );
+
+#ifdef DAEDALUS_CTR
+	if (is_romfs)
+	{
+		IO::Path::Combine( mRomDBFileName, gDaedalusExePath, "rom.db" );
+	}
+#endif
+
 	return true;
 
 fail:

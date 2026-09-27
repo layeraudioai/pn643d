@@ -68,6 +68,7 @@ for %%R in (roms\*) do (
 )
 if %romcount% equ 0 and !count! equ 0 (
     clear
+    clear
  )
 
 endlocal

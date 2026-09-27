@@ -42,7 +42,7 @@ setlocal enabledelayedexpansion
     set "hex=!hex:}=!"
     set "tid=0x!hex:~0,5!"
     echo !foldername! TID=!tid!
-    copy %1% "Source\SysCTR\Resources\!foldername!\Roms"
+    Tools\additionals\u64aap -a -g -d -f -l -n -k -i %1% -o "Source\SysCTR\Resources\!foldername!\Roms\!foldername!.z64"
     (
     for /f "delims=" %%L in (Source\SysCTR\Resources\template2.rsf) do (
       set "line=%%L"

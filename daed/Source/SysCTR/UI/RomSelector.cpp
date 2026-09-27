@@ -132,7 +132,7 @@ std::string UI::DrawRomSelector()
 		glClear(GL_COLOR_BUFFER_BIT);
 		glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
 
-		for(int i = 0; i < (int)roms.size(); i++)
+		/*for(int i = 0; i < (int)roms.size(); i++)
 		{
 			if(cursor == i)
 			{
@@ -149,9 +149,9 @@ std::string UI::DrawRomSelector()
 		pglSwapBuffers();
 		UI::ClearSecondScreen(GFX_TOP);
 
-		//if(hidKeysDown() & KEY_A)
-			return roms.at(cursor).mFilename;
-
+		//if(hidKeysDown() & KEY_A)*/
+		return roms.at(cursor).mFilename;
+/*
 		if((hidKeysDown() & KEY_DOWN) && cursor != (int)roms.size() - 1)
 			cursor++;
 
@@ -165,5 +165,5 @@ std::string UI::DrawRomSelector()
 			scroll--;
 	}
 
-	return nullptr;
+	return nullptr;*/
 }

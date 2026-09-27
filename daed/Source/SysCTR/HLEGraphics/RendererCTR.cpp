@@ -653,7 +653,7 @@ void RendererCTR::TexRect(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexCoord
 	ConvertN64ToScreen( xy0, screen0 );
 	ConvertN64ToScreen( xy1, screen1 );
 
-	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth *666 : 0.0f;
+	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
 
 	CNativeTexture *texture = mBoundTexture[0];
 	float scale_x {texture->GetScaleX()};

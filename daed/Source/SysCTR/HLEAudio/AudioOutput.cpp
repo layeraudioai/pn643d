@@ -73,9 +73,7 @@ static void AudioInit()
 	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
 	ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
 	
-	f32 perf_scale = FramerateLimiter_GetPerformanceScale();
-	ndspChnSetRate(0, 44100.0f * (perf_scale > 0.25f ? perf_scale : 1.0f));
-
+	ndspChnSetRate(0, 44100.0f);
 
 	waveBuf[0].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * 4);
 	waveBuf[0].nsamples = CTR_NUM_SAMPLES;
@@ -114,14 +112,9 @@ AudioOutput::AudioOutput()
 :	mAudioPlaying( false )
 ,	mFrequency( 44100 )
 {
-	u32 buffer_size_ms = (gAudioBufferSizeMs > 0) ? gAudioBufferSizeMs : 50;
-	u32 buffer_size_samples = (DESIRED_OUTPUT_FREQUENCY * buffer_size_ms) / 1000;
-	if (buffer_size_samples < 2048)
-		buffer_size_samples = 2048;
-
-	// Allocate audio buffer with malloc to avoid cached/uncached aliasing
+	// Allocate audio buffer with malloc_64 to avoid cached/uncached aliasing
 	void * mem = malloc( sizeof( CAudioBuffer ) );
-	mAudioBuffer = new( mem ) CAudioBuffer( buffer_size_samples );
+	mAudioBuffer = new( mem ) CAudioBuffer( BUFFER_SIZE );
 }
 
 AudioOutput::~AudioOutput( )
@@ -150,29 +143,9 @@ void AudioOutput::AddBuffer( u8 *start, u32 length )
 	u32 output_freq = DESIRED_OUTPUT_FREQUENCY;
 	u32 input_freq = mFrequency;
 
-	if (gAudioStretchingEnabled && mAudioBuffer)
-	{
-		u32 capacity = mAudioBuffer->GetCapacity();
-		u32 target_samples = capacity / 2;
-		u32 buffered = mAudioBuffer->GetNumBufferedSamples();
-
-		s32 diff = (s32)buffered - (s32)target_samples;
-		float stretch_ratio = 1.0f + ((float)diff / (float)(target_samples > 0 ? target_samples : 1)) * 0.15f;
-		if (stretch_ratio < 0.85f) stretch_ratio = 0.85f;
-		if (stretch_ratio > 1.15f) stretch_ratio = 1.15f;
-
-		output_freq = (u32)((float)DESIRED_OUTPUT_FREQUENCY * stretch_ratio);
-	}
-	else if (gAudioRateMatch)
-	{
-		if (gSoundSync > 88200)	output_freq = 88200;	//limit upper rate
-		else if (gSoundSync < DESIRED_OUTPUT_FREQUENCY)	output_freq = DESIRED_OUTPUT_FREQUENCY;	//limit lower rate
-		else output_freq = gSoundSync;
-	}
-
 	if (audioOpen)
 	{
-		ndspChnSetRate(0, (float)output_freq);
+		ndspChnSetRate(0, (float)DESIRED_OUTPUT_FREQUENCY);
 	}
 
 	switch( gAudioPluginEnabled )

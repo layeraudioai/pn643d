@@ -658,7 +658,7 @@ void RendererCTR::TexRect(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexCoord
 	CNativeTexture *texture = mBoundTexture[0];
 	float scale_x {texture->GetScaleX()};
 	float scale_y {texture->GetScaleY()};
-	float scale_z {texture->GetScaleZ()};
+	//float scale_z {texture->GetScaleZ()};
 
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
 
@@ -671,10 +671,10 @@ void RendererCTR::TexRect(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexCoord
 	p_vertices[3].Texture.x = uv1.x * scale_x;
 	p_vertices[3].Texture.y = uv1.y * scale_y;
 	
-	p_vertices[0].Texture.z = uv0.z * scale_z;
-	p_vertices[1].Texture.z = uv1.z * scale_z;
-	p_vertices[2].Texture.z = uv0.z * scale_z;
-	p_vertices[3].Texture.z = uv1.z * scale_z;
+	//_vertices[0].Texture.z = uv0.z * scale_z;
+	//p_vertices[1].Texture.z = uv1.z * scale_z;
+	//p_vertices[2].Texture.z = uv0.z * scale_z;
+	//p_vertices[3].Texture.z = uv1.z * scale_z;
 	
 	p_vertices[0].Position.x = screen0.x;
 	p_vertices[0].Position.y = screen0.y;
@@ -723,7 +723,7 @@ void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexC
 
 	float scale_x = texture->GetScaleX();
 	float scale_y = texture->GetScaleY();
-	float scale_z = texture->GetScaleZ();
+	//float scale_z = texture->GetScaleZ();
 
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
 	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;
@@ -813,7 +813,7 @@ void RendererCTR::Draw2DTexture(f32 x0, f32 y0, f32 x1, f32 y1,
 
 	float scale_x = texture->GetScaleX();
 	float scale_y = texture->GetScaleY();
-	float scale_z = texture->GetScaleZ();
+	//float scale_z = texture->GetScaleZ();
 	
 	float sx0 = N64ToScreenX(x0);
 	float sy0 = N64ToScreenY(y0);
@@ -870,7 +870,7 @@ void RendererCTR::Draw2DTextureR(f32 x0, f32 y0, f32 x1, f32 y1, f32 x2,
 	
 	float scale_x = texture->GetScaleX();
 	float scale_y = texture->GetScaleY();
-	float scale_z = texture->GetScaleZ();
+	//float scale_z = texture->GetScaleZ();
 
 	DaedalusVtx * p_vertices = static_cast<DaedalusVtx *>(malloc(4 * sizeof(DaedalusVtx)));
 	const f32 depth = gRDPOtherMode.depth_source ? mPrimDepth : 0.0f;

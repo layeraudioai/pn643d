@@ -82,10 +82,9 @@ if [ "$1" = "PSP_RELEASE" ] || [ "$1" = "PSP_DEBUG" ]; then
 
 elif [ "$1" = "CTR_RELEASE" ]; then
   mkdir "$PWD/$2"
-  cd "$PWD/$2"
+  cd "$PWD/$2" 
   cmake -D"PROJECT_NAME=$2" -D"$1=1" ../Source -DCMAKE_TOOLCHAIN_FILE=../Tools/3dstoolchain.cmake -G "Unix Makefiles"
-  make -j4
-  wait
+  make 
   rm rom_locks/"$2"
 
 elif [ "$1" = "LINUX_RELEASE" ] || [ "$1" = "MAC_RELEASE" ]; then

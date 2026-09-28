@@ -1,14 +1,8 @@
 @echo off
 setlocal enabledelayedexpansion
 
-if not exist roms (
-    echo Error: 'roms\' directory not found!
-    exit /b 1
-)
-if not exist daed\rom_locks mkdir daed\rom_locks
-del /q daed\rom_locks\* 2>nul
-
-set /a max=32
+set /a max=2
+set /a completed=0
 
 echo ========================================
 echo Starting DaedalusX64 ROM Conversion
@@ -17,9 +11,14 @@ echo Maximum !max! parallel jobs
 echo =======================================
 
 
-:top
+if not exist daed\rom_locks mkdir daed\rom_locks
+del /q daed\rom_locks\* 2>nul
 
-set /a completed=0
+if not exist roms (
+    echo Error: 'roms\' directory not found!
+    exit /b 1
+)
+
 :nextrom
 for %%R in (roms\*) do (
     set "rom_file=%%R"
@@ -29,12 +28,13 @@ for %%R in (roms\*) do (
     call :wait_for_slot
 
     echo [START] Converting: !folder_name! ^(Launched: !completed!/!romcount!^)
-    cd daed
-    start romconvert.bat "..\!rom_file!" "!folder_name!"
-    cd ..
+    mkdir used 2>nul
+    start /b "" cmd /c "cd daed && romconvert.bat "..\!rom_file!" "!folder_name!""
     set /a completed=!completed!+1
-
+    move "!rom_file!" "used\"
 )
+call :wait_all_loop
+goto end
 
 :wait_for_slot
 set /a count=0
@@ -42,34 +42,31 @@ for %%L in (daed\rom_locks\*) do (
     set /a count=!count!+1
 )
 if !count! GTR !max! (
-    goto wait_all_loop
+    cls
+    echo waiting for slot: !count!/!max!
+    goto wait_for_slot
 )
+exit /b
+
 :wait_all_loop
 set /a count=0
 for %%L in (daed\rom_locks\*) do (
+    cls
+    echo Waiting for all processes to finish: !count!/!romcount!
     set /a count=!count!+1
 )
 
 if !count! GTR 0 (
-    goto wait_for_slot
+    goto wait_all_loop
 )
+exit /b
 
 :romcount
-set /a count=0
-for %%L in (daed\rom_locks\*) do (
-    set /a count=!count!+1
-)
-if !count! GTR 0 (
-    call :wait_for_slot
-)
-
 set /a romcount=0
 for %%R in (roms\*) do (
     set /a romcount=!romcount!+1
 )
-if %romcount% equ 0 and !count! equ 0 (
-    clear
-    clear
- )
+exit /b
 
+:end
 endlocal

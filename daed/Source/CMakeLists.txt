@@ -361,31 +361,31 @@ if (CTR_RELEASE)
 	set(APP_DESCRIPTION "${PROJECT_NAME} port for 3DS")
 	set(APP_AUTHOR "MasterFeizz")
 
-	if(EXISTS "${PROJECT_NAME}/${PROJECT_NAME}.smdh")
-		set(APP_SMDH "${PROJECT_NAME}/${PROJECT_NAME}.smdh")
+	if(EXISTS "${PROJECT_NAME}.smdh")
+		set(APP_SMDH "${PROJECT_NAME}.smdh")
 	else()
 		set(APP_SMDH "${PROJECT_SOURCE_DIR}/SysCTR/Resources/daedalus.smdh")
 	endif()
 
-	if(EXISTS "${PROJECT_NAME}/${PROJECT_NAME}.bnr")
-		set(APP_BANNER "${PROJECT_NAME}/${PROJECT_NAME}.bnr")
+	if(EXISTS "${PROJECT_NAME}.bnr")
+		set(APP_BANNER "${PROJECT_NAME}.bnr")
 	else()
 		set(APP_BANNER "${PROJECT_SOURCE_DIR}/SysCTR/Resources/banner.bnr")
 	endif()
-	set(APP_AUDIO "${PROJECT_NAME}/${PROJECT_NAME}.wav")
-	set(APP_RSF "${PROJECT_NAME}/${PROJECT_NAME}.rsf")
-	set(APP_ROMFS_DIR "${PROJECT_NAME}/${PROJECT_NAME}")
-	set(APP_ROMFS_BIN "${PROJECT_NAME}/${PROJECT_NAME}.bin")
+	set(APP_AUDIO "${PROJECT_NAME}.wav")
+	set(APP_RSF "${PROJECT_NAME}.rsf")
+	set(APP_ROMFS_DIR "romfs")
+	set(APP_ROMFS_BIN "${PROJECT_NAME}.bin")
 
 	add_custom_command(
 		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.3dsx
-		COMMAND ../tools/3dsxtool.exe ${PROJECT_NAME}.elf ${PROJECT_NAME}.3dsx --romfs=${APP_ROMFS_DIR} --smdh=${APP_SMDH}
+		COMMAND ../Tools/3dsxtool.exe ${PROJECT_NAME}.elf ${PROJECT_NAME}.3dsx --romfs=${APP_ROMFS_DIR} --smdh=${APP_SMDH}
 		DEPENDS ${PROJECT_NAME}.elf
 	)
 
 	add_custom_command(
 		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.cia
-		COMMAND ../tools/makerom.exe	-f cia
+		COMMAND ../Tools/makerom.exe	-f cia
 				-target t
 				-exefslogo
 				-o ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.cia
@@ -394,7 +394,7 @@ if (CTR_RELEASE)
 				-banner ${APP_BANNER}
 				-icon ${APP_SMDH}
 				-romfs ${APP_ROMFS_BIN}
-		DEPENDS ${PROJECT_NAME}.elf ${APP_RSF}
+		DEPENDS ${PROJECT_NAME}.elf
     )
 
 	add_custom_target( N3DS ALL

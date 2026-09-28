@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set /a max=2
+set /a max=5
 set /a completed=0
 
 echo ========================================
@@ -19,6 +19,8 @@ if not exist roms (
     exit /b 1
 )
 
+mkdir used
+set dir=%CD%\daed
 :nextrom
 for %%R in (roms\*) do (
     set "rom_file=%%R"
@@ -28,10 +30,9 @@ for %%R in (roms\*) do (
     call :wait_for_slot
 
     echo [START] Converting: !folder_name! ^(Launched: !completed!/!romcount!^)
-    mkdir used 2>nul
-    start /b "" cmd /c "cd daed && romconvert.bat "..\!rom_file!" "!folder_name!""
+    cd "!dir!"
+    start romconvert.bat "..\!rom_file!" "!folder_name!"
     set /a completed=!completed!+1
-    move "!rom_file!" "used\"
 )
 call :wait_all_loop
 goto end

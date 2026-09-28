@@ -99,8 +99,6 @@ static void Initialize()
 	strcpy(gDaedalusExePath, DAEDALUS_CTR_PATH(""));
 	strcpy(g_DaedalusConfig.mSaveDir, DAEDALUS_CTR_PATH("SaveGames/"));
 
-	IO::Directory::EnsureExists( gDaedalusExePath );
-	IO::Directory::EnsureExists( g_DaedalusConfig.mSaveDir );
 	IO::Directory::EnsureExists( DAEDALUS_CTR_PATH("SaveStates/") );
 	UI::Initialize();
 

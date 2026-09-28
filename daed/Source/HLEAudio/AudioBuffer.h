@@ -45,7 +45,6 @@ public:
 	u32				Drain( Sample * samples, u32 num_samples );
 
 	u32				GetNumBufferedSamples() const;
-	u32				GetCapacity() const { return mBufferEnd - mBufferBegin; }
 
 private:
 	Sample *		mBufferBegin;

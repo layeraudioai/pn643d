@@ -8,8 +8,10 @@ import random
 import shutil
     
 def get_random_rom_audio(rom_path, output_dir):
+    audioout = output_dir+"/"+output_dir+".wav"
     default_audio = "Source/SysCTR/Resources/audio.wav"
-        
+    shutil.copy(default_audio, audioout)
+
     exe_path = "Tools/n64sfxdump.exe"
     wavs_dir = os.path.join(output_dir, "extracted_wavs")
     os.makedirs(wavs_dir, exist_ok=True)
@@ -25,7 +27,7 @@ def get_random_rom_audio(rom_path, output_dir):
     except Exception as e:
         print(f"Error dumping WAVs with n64sfxdump: {e}")
         
-    return default_audio
+    return audioout
 
 def sanitize(name):
     return re.sub(r'[^a-zA-Z0-9]', '', name).lower()
@@ -185,9 +187,9 @@ def process_rom(rom_path, output_dir, folder_name):
     banner_out = os.path.join(output_dir, sys.argv[3] + ".bnr")
     smdh_out = os.path.join(output_dir, sys.argv[3] + ".smdh")
     audio_wav = get_random_rom_audio(sys.argv[1], output_dir)
+    audioout = output_dir+"/"+output_dir+".wav"
+    os.replace(audio_wav,audioout)
     bannertool = "Tools/bannertool.exe"
-    audioout = output_dir+"/"+output_dir+".wav";
-    os.replace(audio_wav, audioout)
     cmd_banner = [
         bannertool, "makebanner",
         "-i", temp_banner_png,

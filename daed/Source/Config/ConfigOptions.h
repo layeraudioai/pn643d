@@ -44,8 +44,6 @@ extern u32	gSpeedSyncEnabled;
 extern bool gDoubleDisplayEnabled;
 extern bool gAudioRateMatch;
 extern bool gVideoRateMatch;
-//extern u32	gAudioBufferSizeMs;
-//extern bool gAudioStretchingEnabled;
 extern bool gFogEnabled;
 extern bool gMemoryAccessOptimisation;
 extern bool gCheatsEnabled;

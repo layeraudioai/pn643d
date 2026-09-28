@@ -154,20 +154,7 @@ template<> bool	CSingleton< CRomSettingsDB >::Create()
 	mpInstance = new IRomSettingsDB();
 
 	IO::Filename	ini_filename;
-#ifdef DAEDALUS_CTR
-	IO::Path::Combine( ini_filename, "romfs:/", "roms.ini" );
-	FILE * fh = fopen( ini_filename, "rb" );
-	if ( fh != nullptr )
-	{
-		fclose( fh );
-	}
-	else
-	{
-		IO::Path::Combine( ini_filename, gDaedalusExePath, "roms.ini" );
-	}
-#else
 	IO::Path::Combine( ini_filename, gDaedalusExePath, "roms.ini" );
-#endif
 	mpInstance->OpenSettingsFile( ini_filename );
 
 	return true;
@@ -234,13 +221,6 @@ static RomID	RomIDFromString( const char * str )
 
 bool IRomSettingsDB::OpenSettingsFile( const char * filename )
 {
-	bool is_romfs = false;
-#ifdef DAEDALUS_CTR
-	if (strncmp(filename, "romfs:/", 7) == 0)
-	{
-		is_romfs = true;
-	}
-#endif
 
 	strcpy(mFilename, filename);
 
@@ -343,14 +323,6 @@ bool IRomSettingsDB::OpenSettingsFile( const char * filename )
 	mDirty = false;
 
 	delete p_ini_file;
-
-#ifdef DAEDALUS_CTR
-	if (is_romfs)
-	{
-		IO::Path::Combine( mFilename, gDaedalusExePath, "roms.ini" );
-	}
-#endif
-
 	return true;
 }
 

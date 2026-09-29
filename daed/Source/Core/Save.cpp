@@ -7,13 +7,12 @@
 #include "Debug/Dump.h"
 #include "Utility/IO.h"
 #ifdef DAEDALUS_CTR
-#include "SysCTR/Utility/CTRStorage.h"
+#include "Utility/CTRStorage.h"
 #define Save_Reset Save_Reset_legacy_sdmc
 #define Save_Fini Save_Fini_legacy_sdmc
 #define Save_MarkSaveDirty Save_MarkSaveDirty_legacy_sdmc
 #define Save_MarkMempackDirty Save_MarkMempackDirty_legacy_sdmc
 #define Save_Flush Save_Flush_legacy_sdmc
-/* Save_Fini calls Save_Flush before the legacy implementation is defined. */
 void Save_Flush(bool force);
 #endif
 static void InitMempackContent(); static IO::Filename gSaveFileName; static bool gSaveDirty; static u32 gSaveSize; static IO::Filename gMempackFileName; static bool gMempackDirty;

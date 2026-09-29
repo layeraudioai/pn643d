@@ -61,18 +61,65 @@ void log2file(const char *format, ...) {
 static void CheckDSPFirmware()
 {
 	FILE *firmware = fopen("romfs:/dspfirm.cdc", "rb");
-
 	if(firmware != NULL)
 	{
 		fclose(firmware);
 		return;
 	}
 
+	FILE *sd_firmware = fopen("sdmc:/3ds/dspfirm.cdc", "rb");
+	if(sd_firmware != NULL)
+	{
+		fclose(sd_firmware);
+		return;
+	}
+
 	gfxInitDefault();
 	consoleInit(GFX_BOTTOM, NULL);
 
-	printf("DSP Firmware not found!\n\n");
-	printf("Press START to exit\n");
+	printf("\x1b[10;10HFetching DSP component...\x1b[12;10H");
+
+	Handle rsrc = envGetHandle("hb:ndsp");
+	if (rsrc)
+	{
+		Result rc;
+		u32 len;
+		void* bin;
+		extern u32 fake_heap_end;
+		char* filename = "sdmc:/3ds/dspfirm.cdc";
+
+		u32 mapAddr = (fake_heap_end+0xFFF) &~ 0xFFF;
+		rc = svcMapMemoryBlock(rsrc, mapAddr, 0x3, 0x3);
+		if (R_SUCCEEDED(rc))
+		{
+			len = *(u32*)(mapAddr + 0x104);
+			bin = malloc(len);
+			if (bin)
+			{
+				memcpy(bin, (void*)mapAddr, len);
+			}
+			svcUnmapMemoryBlock(rsrc, mapAddr);
+
+			if (bin)
+			{
+				IO::Directory::EnsureExists("sdmc:/3ds");
+				FILE* file = fopen(filename, "wb");
+				if (file)
+				{
+					fwrite(bin, 1, len, file);
+					fclose(file);
+					printf("\x1b[32;1mDone\x1b[0m: DSP firmware dumped successfully!\n");
+					free(bin);
+					gfxExit();
+					return;
+				}
+				free(bin);
+			}
+		}
+	}
+
+	printf("\x1b[31;1mFailed\x1b[0m: Need to run using *hax 2.0+ or supply dspfirm.cdc\n");
+	printf("\x1b[28;15HPress START to exit.");
 
 	while(aptMainLoop())
 	{

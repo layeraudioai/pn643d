@@ -1,183 +1,41 @@
 /*
 Copyright (C) 2003 Azimer
 Copyright (C) 2001,2006 StrmnNrmn
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
 */
-
 #include "stdafx.h"
-
 #include "AudioOutput.h"
-
 #include <stdio.h>
 #include <new>
-
 #include <3ds.h>
-
 #include "SysCTR/HLEAudio/AudioOutput.h"
-
 #include "Config/ConfigOptions.h"
 #include "Debug/DBGConsole.h"
 #include "HLEAudio/AudioBuffer.h"
 #include "Utility/FramerateLimiter.h"
 #include "Utility/Thread.h"
 
-static const u32	DESIRED_OUTPUT_FREQUENCY = 44100;
-u32	gSoundSync = 44100;
-// Large BUFFER_SIZE creates huge delay on sound //Corn
-static const u32	BUFFER_SIZE  = 1024 * 2;
+static const u32 DESIRED_OUTPUT_FREQUENCY=44100;
+static const u32 BUFFER_SIZE=4096;
+static const u32 CTR_NUM_SAMPLES=512;
+static ndspWaveBuf waveBuf[2]; static unsigned int waveBuf_id; static bool audioOpen=false; static AudioOutput*ac; CAudioBuffer*mAudioBuffer;
+static const float MIN_STRETCH=0.985f,MAX_STRETCH=1.015f;
 
-static const u32	CTR_NUM_SAMPLES = 512;
-
-static ndspWaveBuf waveBuf[2];
-static unsigned int waveBuf_id;
-
-bool audioOpen = false;
-
-static AudioOutput * ac;
-
-CAudioBuffer *mAudioBuffer;
-
-static void audioCallback(void *arg)
-{
-	(void)arg;
-
-	if(waveBuf[waveBuf_id].status == NDSP_WBUF_DONE)
-	{
-		mAudioBuffer->Drain( reinterpret_cast< Sample * >( waveBuf[waveBuf_id].data_pcm16 ), CTR_NUM_SAMPLES );
-		DSP_FlushDataCache(waveBuf[waveBuf_id].data_pcm16, CTR_NUM_SAMPLES << 2);
-		ndspChnWaveBufAdd( 0, &waveBuf[waveBuf_id] );
-
-		waveBuf_id = !waveBuf_id;
-	}
+static void UpdateAudioStretch(){
+ if(!audioOpen)return;
+ const float target=BUFFER_SIZE*0.50f; const float buffered=(float)mAudioBuffer->GetNumBufferedSamples();
+ float error=(buffered-target)/target; if(error>1.0f)error=1.0f;if(error<-1.0f)error=-1.0f;
+ /* A small proportional correction continuously absorbs timing drift. The
+  * 1.5% limit is intentionally below an audible glitch/pitch jump while
+  * still giving the DSP enough authority to recover from short stalls. */
+ float ratio=1.0f+error*0.015f; if(ratio<MIN_STRETCH)ratio=MIN_STRETCH;if(ratio>MAX_STRETCH)ratio=MAX_STRETCH;
+ ndspChnSetRate(0,DESIRED_OUTPUT_FREQUENCY*ratio);
 }
-
-static void AudioInit()
-{
-	if (ndspInit() != 0)
-		return;
-
-	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
-	ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
-	
-	ndspChnSetRate(0, 44100.0f);
-
-	waveBuf[0].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * 4);
-	waveBuf[0].nsamples = CTR_NUM_SAMPLES;
-	waveBuf[0].status = 0;
-	waveBuf[1].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * 4);
-	waveBuf[1].nsamples = CTR_NUM_SAMPLES;
-	waveBuf[1].status = 0;
-
-	memset(waveBuf[0].data_pcm16, 0, CTR_NUM_SAMPLES * 4);
-	memset(waveBuf[1].data_pcm16, 0, CTR_NUM_SAMPLES * 4);
-
-	waveBuf_id = 0;
-
-	ndspSetCallback(&audioCallback, nullptr);
-
-	ndspChnWaveBufAdd(0, &waveBuf[0]);
-	ndspChnWaveBufAdd(0, &waveBuf[1]);
-
-	// Everything OK
-	audioOpen = true;
-}
-
-static void AudioExit()
-{
-	// Stop stream
-	ndspChnWaveBufClear(0);
-	ndspExit();
-
-	linearFree((void*)waveBuf[0].data_vaddr);
-	linearFree((void*)waveBuf[1].data_vaddr);
-
-	audioOpen = false;
-}
-
-AudioOutput::AudioOutput()
-:	mAudioPlaying( false )
-,	mFrequency( 44100 )
-{
-	// Allocate audio buffer with malloc_64 to avoid cached/uncached aliasing
-	void * mem = malloc( sizeof( CAudioBuffer ) );
-	mAudioBuffer = new( mem ) CAudioBuffer( BUFFER_SIZE );
-}
-
-AudioOutput::~AudioOutput( )
-{
-	StopAudio();
-
-	mAudioBuffer->~CAudioBuffer();
-	free( mAudioBuffer );
-}
-
-void AudioOutput::SetFrequency( u32 frequency )
-{
-	mFrequency = frequency;
-}
-
-void AudioOutput::AddBuffer( u8 *start, u32 length )
-{
-	if (length == 0)
-		return;
-
-	if (!mAudioPlaying)
-		StartAudio();
-
-	u32 num_samples = length / sizeof( Sample );
-
-	u32 output_freq = DESIRED_OUTPUT_FREQUENCY;
-	u32 input_freq = mFrequency;
-
-	if (audioOpen)
-	{
-		ndspChnSetRate(0, (float)DESIRED_OUTPUT_FREQUENCY);
-	}
-
-	switch( gAudioPluginEnabled )
-	{
-	case APM_DISABLED:
-		break;
-
-	case APM_ENABLED_ASYNC:
-	case APM_ENABLED_SYNC:
-		mAudioBuffer->AddSamples( reinterpret_cast< const Sample * >( start ), num_samples, input_freq, output_freq );
-		break;
-	}
-}
-
-void AudioOutput::StartAudio()
-{
-	if (mAudioPlaying)
-		return;
-
-	mAudioPlaying = true;
-
-	ac = this;
-
-	AudioInit();
-}
-
-void AudioOutput::StopAudio()
-{
-	if (!mAudioPlaying)
-		return;
-
-	mAudioPlaying = false;
-
-	AudioExit();
-}
+static void audioCallback(void*){if(waveBuf[waveBuf_id].status==NDSP_WBUF_DONE){mAudioBuffer->Drain((Sample*)waveBuf[waveBuf_id].data_pcm16,CTR_NUM_SAMPLES);DSP_FlushDataCache(waveBuf[waveBuf_id].data_pcm16,CTR_NUM_SAMPLES<<2);ndspChnWaveBufAdd(0,&waveBuf[waveBuf_id]);waveBuf_id=!waveBuf_id;UpdateAudioStretch();}}
+static void AudioInit(){if(ndspInit()!=0)return;ndspSetOutputMode(NDSP_OUTPUT_STEREO);ndspChnSetFormat(0,NDSP_FORMAT_STEREO_PCM16);ndspChnSetRate(0,(float)DESIRED_OUTPUT_FREQUENCY);for(int i=0;i<2;i++){waveBuf[i].data_vaddr=linearAlloc(CTR_NUM_SAMPLES*4);waveBuf[i].nsamples=CTR_NUM_SAMPLES;waveBuf[i].status=0;memset(waveBuf[i].data_pcm16,0,CTR_NUM_SAMPLES*4);}waveBuf_id=0;ndspSetCallback(&audioCallback,nullptr);ndspChnWaveBufAdd(0,&waveBuf[0]);ndspChnWaveBufAdd(0,&waveBuf[1]);audioOpen=true;}
+static void AudioExit(){ndspChnWaveBufClear(0);ndspExit();linearFree((void*)waveBuf[0].data_vaddr);linearFree((void*)waveBuf[1].data_vaddr);audioOpen=false;}
+AudioOutput::AudioOutput():mAudioPlaying(false),mFrequency(44100){void*mem=malloc(sizeof(CAudioBuffer));mAudioBuffer=new(mem)CAudioBuffer(BUFFER_SIZE);}
+AudioOutput::~AudioOutput(){StopAudio();mAudioBuffer->~CAudioBuffer();free(mAudioBuffer);}
+void AudioOutput::SetFrequency(u32 frequency){mFrequency=frequency;}
+void AudioOutput::AddBuffer(u8*start,u32 length){if(!length)return;if(!mAudioPlaying)StartAudio();u32 num_samples=length/sizeof(Sample);if(audioOpen){mAudioBuffer->AddSamples((const Sample*)start,num_samples,mFrequency,DESIRED_OUTPUT_FREQUENCY);UpdateAudioStretch();}}
+void AudioOutput::StartAudio(){if(mAudioPlaying)return;mAudioPlaying=true;ac=this;AudioInit();}
+void AudioOutput::StopAudio(){if(!mAudioPlaying)return;mAudioPlaying=false;AudioExit();}

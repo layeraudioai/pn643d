@@ -200,10 +200,10 @@ void CGraphicsPluginImpl::UpdateScreen()
 			const f32 inv_Fsync = 1.0f / Fsync;
 			gSoundSync = (u32)(44100.0f * inv_Fsync);
 			gVISyncRate = (u32)(1500.0f * inv_Fsync);
-
-			u32 target_fps = FramerateLimiter_GetTvFrequencyHz();
-			u32 max_vi = (u32)(1500.0f * ((f32)target_fps / 60.0f));
 			
+			u32 max_vi = (gMaxFPS > 0.0f) ? (u32)(1500.0f * (gMaxFPS / 60.0f)) : 4000u;
+			if (max_vi < 4000u) max_vi = 4000u;
+
 			if( gVISyncRate > max_vi ) gVISyncRate = max_vi;
 			else if ( gVISyncRate < 300 ) gVISyncRate = 300;
 		}

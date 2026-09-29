@@ -31,7 +31,7 @@ for %%R in (roms\*) do (
     call :romcount
     echo [START] Converting: !folder_name! ^(Launched: !completed!/!romcount!^)
     cd "!dir!"
-    set "seed=%RANDOM%"
+    set /a seed=%1%+0
     set seedInt=!seed!
     start !dir!\romconvert.bat "..\!rom_file!" "!folder_name!" "!seedInt!"
     set /a completed=!completed!+1

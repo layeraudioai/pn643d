@@ -18,10 +18,12 @@ setlocal enabledelayedexpansion
     set "foldername=!foldername:}=!"
     set "foldername=!foldername:.=!"
     set "foldername=!foldername:&=!"
-    if "%3%"=="" (
-       exit
+    set "rng=%3%"
+    set /a rngInt=!rng!
+    if "%3%" == "" (
+      exit /b
     ) else (
-       echo start
+      echo start
     )
     touch rom_locks\!foldername!
     del !foldername!\CMakeCache.txt
@@ -58,16 +60,13 @@ setlocal enabledelayedexpansion
       echo !line!
     ) >> "!foldername!\!foldername!.rsf"
     copy %1% !foldername!\romfs\Roms\!foldername!.z64 /Y
-    
+
     set "foldername=!foldername:&=!"
-    if "%3%"=="0.000000" (
-       echo no rng
-    ) else (
+    if "!rngInt!" GTR "0" ( 
       echo rng
       Tools\gbmin -c !foldername!\romfs\Roms\!foldername!.z64 !foldername!\romfs\Roms\!foldername!.h 0
-      Tools\gbmin -g !foldername!\romfs\Roms\!foldername!.h !foldername!\romfs\Roms\!foldername!.z64 %3%
+      Tools\gbmin -g !foldername!\romfs\Roms\!foldername!.h !foldername!\romfs\Roms\!foldername!.z64 0.000000000!rngInt!
     )
-
     python Tools\generate_romdb_prefs.py %1% !foldername! !foldername!\romfs 
     python Tools\generate_banner_smdh.py %1% !foldername! !foldername!
     move !foldername!\romfs\Roms\!foldername!.h !foldername!\!foldername!.h
@@ -79,4 +78,4 @@ setlocal enabledelayedexpansion
     move %1% ..\used\
     move !foldername! cmakedirs
     echo !foldername! done && del rom_locks\!foldername!
-    exit
+exit

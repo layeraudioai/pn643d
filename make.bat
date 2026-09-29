@@ -31,12 +31,14 @@ for %%R in (roms\*) do (
     call :romcount
     echo [START] Converting: !folder_name! ^(Launched: !completed!/!romcount!^)
     cd "!dir!"
-    start /b !dir!\romconvert.bat "..\!rom_file!" "!folder_name!" 0.00000%1%
+    set "seed=%RANDOM%"
+    set seedInt=!seed!
+    start !dir!\romconvert.bat "..\!rom_file!" "!folder_name!" "!seedInt!"
     set /a completed=!completed!+1
 )
 call :wait_all_loop
 goto end
-
+exit /b
 :wait_for_slot
 set /a count=0
 for %%L in (daed\rom_locks\*) do (

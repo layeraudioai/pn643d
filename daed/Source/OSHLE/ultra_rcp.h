@@ -230,13 +230,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 u32 FramerateLimiter_GetTvFrequencyHz();
 
-inline u32 Get_VI_NTSC_CLOCK() { return (u32)(48681812.0f * ((f32)FramerateLimiter_GetTvFrequencyHz() / 60.0f)); }
-inline u32 Get_VI_PAL_CLOCK()  { return (u32)(49656530.0f * ((f32)FramerateLimiter_GetTvFrequencyHz() / 60.0f)); }
-inline u32 Get_VI_MPAL_CLOCK() { return (u32)(48628316.0f * ((f32)FramerateLimiter_GetTvFrequencyHz() / 60.0f)); }
+extern float gMaxFPS;
 
-inline u32 Get_AI_NTSC_MAX_FREQ() { return (u32)(4860000.0f * ((f32)FramerateLimiter_GetTvFrequencyHz() / 60.0f)); }
-inline u32 Get_AI_PAL_MAX_FREQ()  { return (u32)(4965000.0f * ((f32)FramerateLimiter_GetTvFrequencyHz() / 60.0f)); }
-inline u32 Get_AI_MPAL_MAX_FREQ() { return (u32)(4860000.0f * ((f32)FramerateLimiter_GetTvFrequencyHz() / 60.0f)); }
+inline u32 Get_VI_NTSC_CLOCK() { return (u32)(48681812.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+inline u32 Get_VI_PAL_CLOCK()  { return (u32)(49656530.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+inline u32 Get_VI_MPAL_CLOCK() { return (u32)(48628316.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+
+inline u32 Get_AI_NTSC_MAX_FREQ() { return (u32)(4860000.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+inline u32 Get_AI_PAL_MAX_FREQ()  { return (u32)(4965000.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
+inline u32 Get_AI_MPAL_MAX_FREQ() { return (u32)(4860000.0f * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f)); }
 
 #define VI_NTSC_CLOCK		Get_VI_NTSC_CLOCK()
 #define VI_PAL_CLOCK		Get_VI_PAL_CLOCK()

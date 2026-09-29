@@ -77,7 +77,7 @@ bool FramerateLimiter_Reset()
 		u32 target_fps = (gMaxFPS > 0.0f) ? (u32)gMaxFPS : gTvFrequencies[ tv_type ];
 		if (target_fps == 0) target_fps = 60;
 		gTicksBetweenVbls = (u32)(frequency / (u64)target_fps);
-		gTicksPerSecond = (u32)(frequency * ((gMaxFPS > 0.0f) ? (gMaxFPS / 60.0f) : 1.0f));
+		gTicksPerSecond = (u32)(frequency * ((f32)target_fps / 60.0f));
 	}
 	else
 	{

@@ -13,6 +13,8 @@
 #define Save_MarkSaveDirty Save_MarkSaveDirty_legacy_sdmc
 #define Save_MarkMempackDirty Save_MarkMempackDirty_legacy_sdmc
 #define Save_Flush Save_Flush_legacy_sdmc
+/* Save_Fini calls Save_Flush before the legacy implementation is defined. */
+void Save_Flush(bool force);
 #endif
 static void InitMempackContent(); static IO::Filename gSaveFileName; static bool gSaveDirty; static u32 gSaveSize; static IO::Filename gMempackFileName; static bool gMempackDirty;
 bool Save_Reset(){const char*ext;switch(g_ROM.settings.SaveType){case SAVE_TYPE_EEP4K:ext=".sav";gSaveSize=4096;break;case SAVE_TYPE_EEP16K:ext=".sav";gSaveSize=16384;break;case SAVE_TYPE_SRAM:ext=".sra";gSaveSize=32768;break;case SAVE_TYPE_FLASH:ext=".fla";gSaveSize=131072;break;default:ext="";gSaveSize=0;break;}gSaveDirty=false;if(gSaveSize>0){Dump_GetSaveDirectory(gSaveFileName,g_ROM.mFileName,ext);FILE*fp=fopen(gSaveFileName,"rb");if(fp){u8 buffer[2048]{};u8*dst=(u8*)g_pMemoryBuffers[MEM_SAVE];for(u32 d=0;d<gSaveSize;d+=sizeof(buffer)){fread(buffer,sizeof(buffer),1,fp);for(u32 i=0;i<sizeof(buffer);i++)dst[d+i]=buffer[i^U8_TWIDDLE];}fclose(fp);}}Dump_GetSaveDirectory(gMempackFileName,g_ROM.mFileName,".mpk");FILE*fp=fopen(gMempackFileName,"rb");if(fp){fread(g_pMemoryBuffers[MEM_MEMPACK],MemoryRegionSizes[MEM_MEMPACK],1,fp);fclose(fp);gMempackDirty=false;}else{InitMempackContent();gMempackDirty=true;}return true;}
@@ -26,8 +28,8 @@ static void InitMempackContent(){for(size_t dst_off=0;dst_off<MemoryRegionSizes[
 #undef Save_MarkSaveDirty
 #undef Save_MarkMempackDirty
 #undef Save_Flush
-static u32 CTRSaveKey(){const char*s=g_ROM.mFileName.c_str();u32 h=2166136261u;for(;*s;s++){h^=(u8)*s;h*=16777619u;}return h;}
-static void CTRSaveNames(char*save,size_t ss,char*mpk,size_t ms){u32 h=CTRSaveKey();snprintf(save,ss,"S%08X.sav",h);snprintf(mpk,ms,"M%08X.mpk",h);}
+static u32 CTRSaveKey(){const char*s=(const char*)g_ROM.mFileName;u32 h=2166136261u;for(;*s;s++){h^=(u8)*s;h*=16777619u;}return h;}
+static void CTRSaveNames(char*save,size_t ss,char*mpk,size_t ms){u32 h=CTRSaveKey();snprintf(save,ss,"S%08lX.sav",(unsigned long)h);snprintf(mpk,ms,"M%08lX.mpk",(unsigned long)h);}
 bool Save_Reset(){char save[32],mpk[32];CTRSaveNames(save,sizeof(save),mpk,sizeof(mpk));switch(g_ROM.settings.SaveType){case SAVE_TYPE_EEP4K:gSaveSize=4096;break;case SAVE_TYPE_EEP16K:gSaveSize=16384;break;case SAVE_TYPE_SRAM:gSaveSize=32768;break;case SAVE_TYPE_FLASH:gSaveSize=131072;break;default:gSaveSize=0;break;}gSaveDirty=false;if(gSaveSize){u8 raw[131072];memset(raw,0,sizeof(raw));if(CTRStorage::SaveDataRead(save,raw,gSaveSize)){u8*dst=(u8*)g_pMemoryBuffers[MEM_SAVE];for(u32 i=0;i<gSaveSize;i++)dst[i]=raw[i^U8_TWIDDLE];}}if(!CTRStorage::SaveDataRead(mpk,g_pMemoryBuffers[MEM_MEMPACK],MemoryRegionSizes[MEM_MEMPACK]))InitMempackContent();gMempackDirty=false;return true;}
 void Save_Fini(){Save_Flush(true);} void Save_MarkSaveDirty(){gSaveDirty=true;} void Save_MarkMempackDirty(){gMempackDirty=true;}
 void Save_Flush(bool force){char save[32],mpk[32];CTRSaveNames(save,sizeof(save),mpk,sizeof(mpk));if((gSaveDirty||force)&&g_ROM.settings.SaveType!=SAVE_TYPE_UNKNOWN&&gSaveSize){u8 raw[131072];u8*src=(u8*)g_pMemoryBuffers[MEM_SAVE];for(u32 i=0;i<gSaveSize;i++)raw[i^U8_TWIDDLE]=src[i];CTRStorage::SaveDataWrite(save,raw,gSaveSize);gSaveDirty=false;}if(gMempackDirty||force){CTRStorage::SaveDataWrite(mpk,g_pMemoryBuffers[MEM_MEMPACK],MemoryRegionSizes[MEM_MEMPACK]);gMempackDirty=false;}}

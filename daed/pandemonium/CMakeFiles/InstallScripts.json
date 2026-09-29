@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/k/fresh/new/daed/pandemonium/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

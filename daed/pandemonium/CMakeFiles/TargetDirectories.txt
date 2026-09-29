@@ -1,5 +1,0 @@
-/k/fresh/new/daed/pandemonium/CMakeFiles/daedalus.dir
-/k/fresh/new/daed/pandemonium/CMakeFiles/pandemonium.elf.dir
-/k/fresh/new/daed/pandemonium/CMakeFiles/N3DS.dir
-/k/fresh/new/daed/pandemonium/CMakeFiles/edit_cache.dir
-/k/fresh/new/daed/pandemonium/CMakeFiles/rebuild_cache.dir

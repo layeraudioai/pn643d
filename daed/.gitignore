@@ -31,5 +31,4 @@ Source/SysCTR/Resources/*/Roboto-Medium.ttf
 */*/*/*.bin
 Tools/*.a3a
 Tools/*.bin
-Data/
 dist/

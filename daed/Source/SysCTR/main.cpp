@@ -75,8 +75,6 @@ static void CheckDSPFirmware()
 		return;
 	}
 
-
-
 	printf("\x1b[10;10HFetching DSP component...\x1b[12;10H");
 
 	Handle rsrc = envGetHandle("hb:ndsp");

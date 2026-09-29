@@ -120,9 +120,12 @@ static void CheckDSPFirmware()
 		hidScanInput();
 
 		if(hidKeysDown() == KEY_START)
+		{
 			exit(1);
+		} else {
+			return;
+		}
 	}
-	return;
 }
 static void Initialize()
 {

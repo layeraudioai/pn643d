@@ -1,0 +1,30 @@
+BattlezoneRiseoftheBlackDogsUSA TID=0xBaeee
+        1 file(s) copied.
+Source\SysCTR\Resources\romfs\dspfirm.cdc
+Source\SysCTR\Resources\romfs\kenvector_future.ttf
+Source\SysCTR\Resources\romfs\Roboto-Medium.ttf
+3 File(s) copied
+        1 file(s) copied.
+        1 file(s) copied.
+Generated BattlezoneRiseoftheBlackDogsUSA\romfs\rom.db successfully for BattlezoneRiseoftheBlackDogsUSA (CRC1: 55d4c4ce, CRC2: 7753c78a, Country: 69)
+Generated BattlezoneRiseoftheBlackDogsUSA\romfs\preferences.ini successfully.
+BattlezoneRiseoftheBlackDogsUSA TID=0xBaeee
+        1 file(s) copied.
+Source\SysCTR\Resources\romfs\dspfirm.cdc
+Source\SysCTR\Resources\romfs\kenvector_future.ttf
+Source\SysCTR\Resources\romfs\Roboto-Medium.ttf
+3 File(s) copied
+        1 file(s) copied.
+        1 file(s) copied.
+Generated BattlezoneRiseoftheBlackDogsUSA\romfs\rom.db successfully for BattlezoneRiseoftheBlackDogsUSA (CRC1: 55d4c4ce, CRC2: 7753c78a, Country: 69)
+Generated BattlezoneRiseoftheBlackDogsUSA\romfs\preferences.ini successfully.
+BattlezoneRiseoftheBlackDogsUSA TID=0xBaeee
+        1 file(s) copied.
+Source\SysCTR\Resources\romfs\dspfirm.cdc
+Source\SysCTR\Resources\romfs\kenvector_future.ttf
+Source\SysCTR\Resources\romfs\Roboto-Medium.ttf
+3 File(s) copied
+        1 file(s) copied.
+        1 file(s) copied.
+Generated BattlezoneRiseoftheBlackDogsUSA\romfs\rom.db successfully for BattlezoneRiseoftheBlackDogsUSA (CRC1: 55d4c4ce, CRC2: 7753c78a, Country: 69)
+Generated BattlezoneRiseoftheBlackDogsUSA\romfs\preferences.ini successfully.

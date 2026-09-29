@@ -14,10 +14,15 @@ setlocal enabledelayedexpansion
     set "foldername=!foldername:\!=!"
     set "foldername=!foldername:[=!"
     set "foldername=!foldername:]=!"
-    set "foldername=!foldername:{=!"
+    set "foldername=!foldername:{=!" 
     set "foldername=!foldername:}=!"
     set "foldername=!foldername:.=!"
     set "foldername=!foldername:&=!"
+    if "%3%"=="" (
+       exit
+    ) else (
+       echo start
+    )
     touch rom_locks\!foldername!
     del !foldername!\CMakeCache.txt
     set "hex=!foldername!"
@@ -57,10 +62,11 @@ setlocal enabledelayedexpansion
     python Tools\generate_romdb_prefs.py %1% !foldername! !foldername!\romfs 
     python Tools\generate_banner_smdh.py %1% !foldername! !foldername!
     Tools\3dstool -c --type romfs --romfs-dir !foldername!\romfs --file !foldername!\!foldername!.bin
-    sh build_daedalus.sh CTR_RELEASE !foldername!
+    sh build_daedalus.sh CTR_RELEASE !foldername! >> !foldername!\log.txt
     move !foldername!\!foldername!.cia dist\!foldername!.cia 
     mkdir dist\3ds\!foldername!
     move !foldername!\!foldername!.3dsx dist\3ds\!foldername!\!foldername!.3dsx
     move %1% ..\used\
     move !foldername! cmakedirs
     echo !foldername! done && del rom_locks\!foldername!
+    exit

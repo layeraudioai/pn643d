@@ -24,17 +24,15 @@ set dir=%CD%\daed
 mkdir !dir!\cmakedirs
 :nextrom
 for %%R in (roms\*) do (
+    call :wait_for_slot
     set "rom_file=%%R"
     set "folder_name=%%~nR"
  
     call :romcount
-    call :wait_for_slot
-
     echo [START] Converting: !folder_name! ^(Launched: !completed!/!romcount!^)
     cd "!dir!"
-    start /b romconvert.bat "..\!rom_file!" "!folder_name!"
+    !dir!\romconvert.bat "..\!rom_file!" "!folder_name!" 1
     set /a completed=!completed!+1
-    goto :wait_for_slot
 )
 call :wait_all_loop
 goto end

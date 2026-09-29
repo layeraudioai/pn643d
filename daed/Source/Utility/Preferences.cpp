@@ -475,7 +475,7 @@ void SRomPreferences::Reset()
 	AudioEnabled               = APM_ENABLED_ASYNC;
 	//AudioAdaptFrequency      = false;
 	ZoomX                      = 1.0f;
-	MaxFPS                     = 250.0f;
+	MaxFPS                     = 110.0f;
 	CheatsEnabled              = false;
 	ControllerIndex            = 0;
 }

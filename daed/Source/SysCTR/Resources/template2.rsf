@@ -1,30 +1,25 @@
 BasicInfo:
   Title                   : Daedalusx64
   ProductCode             : CTR-P-DAED
-  Logo                    : Nintendo # Nintendo / Licensed / Distributed / iQue / iQueForSystem
-
+  Logo                    : Nintendo
 TitleInfo:
   Category                : Application
   UniqueId                : 0xDAED3
-
 Option:
   UseOnSD                 : true
   FreeProductCode         : true
   MediaFootPadding        : false
   EnableCrypt             : false
   EnableCompress          : true
-
 AccessControlInfo:
   CoreVersion                   : 2
   DescVersion                   : 2
   ReleaseKernelMajor            : "02"
   ReleaseKernelMinor            : "33"
   UseExtSaveData                : true
-
   FileSystemAccess:
    - CategoryFileSystemTool
    - DirectSdmc
-
   MemoryType                    : Application
   SystemMode                    : 80MB
   IdealProcessor                : 0
@@ -45,12 +40,10 @@ AccessControlInfo:
   CpuSpeed                      : 804MHz
   EnableL2Cache                 : true
   CanAccessCore2                : true
-
   IORegisterMapping:
-   - 1ff00000-1ff7ffff   # DSP memory
+   - 1ff00000-1ff7ffff
   MemoryMapping:
    - 1f000000-1f5fffff:r
-
   SystemCallAccess:
     ArbitrateAddress: 34
     Backdoor: 123
@@ -84,7 +77,6 @@ AccessControlInfo:
     GetThreadId: 55
     GetThreadInfo: 44
     GetThreadIdealProcessor: 15
-    GetThreadInfo: 44
     MapMemoryBlock: 31
     OutputDebugString: 61
     QueryMemory: 2
@@ -102,7 +94,6 @@ AccessControlInfo:
     UnmapMemoryBlock: 32
     WaitSynchronization1: 36
     WaitSynchronizationN: 37
-
   ServiceAccessControl:
    - APT:U
    - ac:u
@@ -131,7 +122,6 @@ AccessControlInfo:
    - soc:U
    - ssl:C
    - y2r:u
-
 SystemControlInfo:
   SaveDataSize: 256KB
   RemasterVersion: 3

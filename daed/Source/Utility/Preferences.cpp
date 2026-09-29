@@ -60,7 +60,7 @@ static EFrameskipValue			GetFrameskipValueFromInt( u32 value );
 
 extern EFrameskipValue			gFrameskipValue;
 extern f32 						gZoomX;
-float							gMaxFPS = 240.0f;
+float							gMaxFPS = 110f;
 
 SGlobalPreferences				gGlobalPreferences;
 

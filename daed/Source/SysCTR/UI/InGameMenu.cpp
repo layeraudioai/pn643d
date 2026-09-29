@@ -144,10 +144,10 @@ static void DrawOptionsPage()
 
 	if(UI::DrawButton(165,  94, 145, 62, framerateString))
 	{
-		if(preferences.MaxFPS > 240.0f)
-			preferences.MaxFPS = 15.0f;
+		if(preferences.MaxFPS > 420.0f)
+			preferences.MaxFPS = 40.0f;
 		else
-			preferences.MaxFPS += 15.0f;
+			preferences.MaxFPS += 5.0f;
 	}
 
 	if(UI::DrawButton(10, 166, 300, 62, "Back"))

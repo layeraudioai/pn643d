@@ -201,7 +201,8 @@ void CGraphicsPluginImpl::UpdateScreen()
 			gSoundSync = (u32)(44100.0f * inv_Fsync);
 			gVISyncRate = (u32)(1500.0f * inv_Fsync);
 			
-			u32 max_vi = (gMaxFPS > 0.0f) ? (u32)(1500.0f * (gMaxFPS / 60.0f)) : 4000u;
+			u32 target_fps = FramerateLimiter_GetTvFrequencyHz();
+			u32 max_vi = (u32)(1500.0f * ((f32)target_fps / 60.0f));
 			if (max_vi < 4000u) max_vi = 4000u;
 			
 			if( gVISyncRate > max_vi ) gVISyncRate = max_vi;
@@ -210,7 +211,8 @@ void CGraphicsPluginImpl::UpdateScreen()
 		else
 		{
 			gSoundSync = 44100;
-			gVISyncRate = (gMaxFPS > 0.0f) ? (u32)(1500.0f * (gMaxFPS / 60.0f)) : 1500u;
+			u32 target_fps = FramerateLimiter_GetTvFrequencyHz();
+			gVISyncRate = (u32)(1500.0f * ((f32)target_fps / 60.0f));
 		}
 		
 		if(!gFrameskipActive)

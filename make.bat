@@ -34,6 +34,7 @@ for %%R in (roms\*) do (
     cd "!dir!"
     start romconvert.bat "..\!rom_file!" "!folder_name!"
     set /a completed=!completed!+1
+    goto :wait_for_slot
 )
 call :wait_all_loop
 goto end

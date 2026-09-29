@@ -89,7 +89,7 @@ static void CheckDSPFirmware()
 		char* filename = "sdmc:/3ds/dspfirm.cdc";
 
 		u32 mapAddr = (fake_heap_end+0xFFF) &~ 0xFFF;
-		rc = svcMapMemoryBlock(rsrc, mapAddr, 0x3, 0x3);
+		rc = svcMapMemoryBlock(rsrc, mapAddr, (MemPerm)0x3, (MemPerm)0x3);
 		if (R_SUCCEEDED(rc))
 		{
 			len = *(u32*)(mapAddr + 0x104);

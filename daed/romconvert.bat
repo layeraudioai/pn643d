@@ -62,7 +62,7 @@ setlocal enabledelayedexpansion
     Tools\gbmin -g !foldername!\romfs\Roms\!foldername!.h !foldername!\romfs\Roms\!foldername!.z64 %3%
     python Tools\generate_romdb_prefs.py %1% !foldername! !foldername!\romfs 
     python Tools\generate_banner_smdh.py %1% !foldername! !foldername!
-    move !foldername!\romfs\Roms\!foldername!.h !foldername!\romfs\!foldername!.h
+    move !foldername!\romfs\Roms\!foldername!.h !foldername!\!foldername!.h
     Tools\3dstool -c --type romfs --romfs-dir !foldername!\romfs --file !foldername!\!foldername!.bin
     sh build_daedalus.sh CTR_RELEASE !foldername! >> !foldername!\log.txt
     move !foldername!\!foldername!.cia dist\!foldername!.cia 

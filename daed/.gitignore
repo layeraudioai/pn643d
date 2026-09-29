@@ -24,10 +24,7 @@ rom.db
 Source/tmp
 Source/build
 Source/SysCTR/Resources/romfs.bin
-Source/SysCTR/Resources/romfs/*
 Source/SysCTR/Resources/*/*.*64
-Source/SysCTR/Resources/*/dspfirm.cdc
-Source/SysCTR/Resources/*/Roboto-Medium.ttf
 */*/*/*.bin
 Tools/*.a3a
 Tools/*.bin

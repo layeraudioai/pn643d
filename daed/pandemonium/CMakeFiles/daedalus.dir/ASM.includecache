@@ -1,0 +1,12 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/k/fresh/new/daed/Source/SysCTR/DynaRec/arm/DynarecStubARM.S
+
+/k/fresh/new/daed/Source/SysCTR/Utility/CacheCTR.S
+

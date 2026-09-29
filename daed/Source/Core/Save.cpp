@@ -7,7 +7,7 @@
 #include "Debug/Dump.h"
 #include "Utility/IO.h"
 #ifdef DAEDALUS_CTR
-#include "Utility/CTRStorage.h"
+#include "SysCTR/Utility/CTRStorage.h"
 #define Save_Reset Save_Reset_legacy_sdmc
 #define Save_Fini Save_Fini_legacy_sdmc
 #define Save_MarkSaveDirty Save_MarkSaveDirty_legacy_sdmc

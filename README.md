@@ -1,4 +1,5 @@
 Portable N64 in 3D is presented by XBCX developed by DaedalusX64 ported by MasterFeizz refined by Gemini AI and CodingFleet
+-
 -----
 1st install devkitpro with 3ds-dev and dkp-libs then install picagl and imgui-picagl. 
 -

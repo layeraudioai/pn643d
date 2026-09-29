@@ -29,3 +29,4 @@ Source/SysCTR/Resources/*/*.*64
 Tools/*.a3a
 Tools/*.bin
 dist/
+cmakedirs/

@@ -62,4 +62,5 @@ setlocal enabledelayedexpansion
     mkdir dist\3ds\!foldername!
     move !foldername!\!foldername!.3dsx dist\3ds\!foldername!\!foldername!.3dsx
     move %1% ..\used\
+    move !foldername! cmakedirs
     echo !foldername! done && del rom_locks\!foldername!

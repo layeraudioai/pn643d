@@ -21,6 +21,7 @@ if not exist roms (
 
 mkdir used
 set dir=%CD%\daed
+mkdir !dir!\cmakedirs
 :nextrom
 for %%R in (roms\*) do (
     set "rom_file=%%R"

@@ -10,6 +10,7 @@ this generates individual game cias and 3dsxs with the dspfirm.cdc and rom insid
 ---
 if you want to modify your rom list post-compile use lumacfw with layeredfs
 --
+-
 send complaints to bscarell@gmail.com
 -
 https://github.com/layeraudioai/pn643d

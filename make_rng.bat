@@ -1,2 +1,2 @@
 Set /P rng=enter rng amount:
-make %rng%
+Start /B make %rng%

@@ -31,7 +31,7 @@ for %%R in (roms\*) do (
     call :romcount
     echo [START] Converting: !folder_name! ^(Launched: !completed!/!romcount!^)
     cd "!dir!"
-    !dir!\romconvert.bat "..\!rom_file!" "!folder_name!" 0.0%1%
+    start /b !dir!\romconvert.bat "..\!rom_file!" "!folder_name!" 0.00000%1%
     set /a completed=!completed!+1
 )
 call :wait_all_loop

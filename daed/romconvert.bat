@@ -58,8 +58,16 @@ setlocal enabledelayedexpansion
       echo !line!
     ) >> "!foldername!\!foldername!.rsf"
     copy %1% !foldername!\romfs\Roms\!foldername!.z64 /Y
-    Tools\gbmin -c !foldername!\romfs\Roms\!foldername!.z64 !foldername!\romfs\Roms\!foldername!.h 0
-    Tools\gbmin -g !foldername!\romfs\Roms\!foldername!.h !foldername!\romfs\Roms\!foldername!.z64 %3%
+    
+    set "foldername=!foldername:&=!"
+    if "%3%"=="0.000000" (
+       echo no rng
+    ) else (
+      echo rng
+      Tools\gbmin -c !foldername!\romfs\Roms\!foldername!.z64 !foldername!\romfs\Roms\!foldername!.h 0
+      Tools\gbmin -g !foldername!\romfs\Roms\!foldername!.h !foldername!\romfs\Roms\!foldername!.z64 %3%
+    )
+
     python Tools\generate_romdb_prefs.py %1% !foldername! !foldername!\romfs 
     python Tools\generate_banner_smdh.py %1% !foldername! !foldername!
     move !foldername!\romfs\Roms\!foldername!.h !foldername!\!foldername!.h

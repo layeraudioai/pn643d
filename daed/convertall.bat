@@ -1,1 +1,1 @@
-cd .. && make && exit
+cd .. && Start /b make 0 && exit 

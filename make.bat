@@ -32,7 +32,7 @@ for %%R in (roms\*) do (
 
     echo [START] Converting: !folder_name! ^(Launched: !completed!/!romcount!^)
     cd "!dir!"
-    start romconvert.bat "..\!rom_file!" "!folder_name!"
+    start /b romconvert.bat "..\!rom_file!" "!folder_name!"
     set /a completed=!completed!+1
     goto :wait_for_slot
 )

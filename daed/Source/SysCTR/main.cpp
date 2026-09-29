@@ -60,13 +60,14 @@ void log2file(const char *format, ...) {
 
 static void CheckDSPFirmware()
 {
+	gfxInitDefault();
+	consoleInit(GFX_BOTTOM, NULL);
 	FILE *firmware = fopen("romfs:/dspfirm.cdc", "rb");
 	if(firmware != NULL)
 	{
 		fclose(firmware);
 		return;
 	}
-
 	FILE *sd_firmware = fopen("sdmc:/3ds/dspfirm.cdc", "rb");
 	if(sd_firmware != NULL)
 	{
@@ -74,8 +75,7 @@ static void CheckDSPFirmware()
 		return;
 	}
 
-	gfxInitDefault();
-	consoleInit(GFX_BOTTOM, NULL);
+
 
 	printf("\x1b[10;10HFetching DSP component...\x1b[12;10H");
 

@@ -37,10 +37,15 @@ void _stateInitialize()
 
 	pglState->geometryBufferCurrent = 0;
 
-	pglState->colorBuffer = vramAlloc(400 * 240 * 4); // left eye, RGBA8
-	pglState->depthBuffer = vramAlloc(400 * 240 * 4); // left eye, depth/stencil
-	pglState->stereoColorBuffer = vramAlloc(400 * 240 * 4); // right eye
-	pglState->stereoDepthBuffer = vramAlloc(400 * 240 * 4); // right eye
+	pglState->colorBuffer = vramAlloc(400 * 240 * 4); // Left-eye RGBA8 color buffer
+	pglState->depthBuffer = vramAlloc(400 * 240 * 4); // Left-eye 24-bit depth + 8-bit stencil
+	pglState->stereoColorBuffer = vramAlloc(400 * 240 * 4);
+	pglState->stereoDepthBuffer = vramAlloc(400 * 240 * 4);
+	pglState->stereoSeparation = 0.025f;
+	pglState->stereoEnabled = GL_FALSE;
+	pglState->stereoParallax = GL_TRUE;
+	pglState->stereoActive = GL_FALSE;
+	pglState->stereoRightEye = GL_FALSE;
 
 	pglState->commandBuffer[0] = linearAlloc(COMMAND_BUFFER_SIZE);
 	pglState->commandBuffer[1] = linearAlloc(COMMAND_BUFFER_SIZE);
@@ -85,10 +90,9 @@ void _stateDefault()
 	pglState->texenv[PGL_TEXENV_UNTEXTURED].src_rgb   = GPU_TEVSOURCES(GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
 	pglState->texenv[PGL_TEXENV_UNTEXTURED].src_alpha = pglState->texenv[PGL_TEXENV_UNTEXTURED].src_rgb;
 
-	float slider = gfxIs3D() ? osGet3DSliderState() : 0.0f;
-	pglState->depthmapNear 	= 1.0f + (slider * 0.5f);
-	pglState->depthmapFar 	= 0.0f - (slider * 0.5f);
-	pglState->polygonOffset = slider * 0.9f;
+	pglState->depthmapNear 	= 1.0f;
+	pglState->depthmapFar 	= 0.0f;
+	pglState->polygonOffset = 0.0f;
 
 	glViewport(0, 0, 400, 240);
 	glScissor(0, 0, 400, 240);
@@ -167,18 +171,6 @@ void _stateFlush()
 		{
 			_picaLogicOp(GPU_LOGICOP_COPY);
 		}
-	}
-
-	float slider = gfxIs3D() ? osGet3DSliderState() : 0.0f;
-	float target_near = 1.0f + (slider * 0.5f);
-	float target_far  = 0.0f - (slider * 0.5f);
-	float target_offset = slider * 0.9f;
-	if (pglState->depthmapNear != target_near || pglState->depthmapFar != target_far || pglState->polygonOffset != target_offset)
-	{
-		pglState->depthmapNear = target_near;
-		pglState->depthmapFar = target_far;
-		pglState->polygonOffset = target_offset;
-		pglState->changes |= STATE_DEPTHMAP_CHANGE;
 	}
 
 	if(pglState->changes & STATE_DEPTHMAP_CHANGE)

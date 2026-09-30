@@ -1,0 +1,8 @@
+/build/
+*.o
+*.wav
+*.z64
+*.v64
+*.n64
+*.rom
+__pycache__/

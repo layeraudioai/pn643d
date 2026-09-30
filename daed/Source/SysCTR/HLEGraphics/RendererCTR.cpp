@@ -445,8 +445,6 @@ void RendererCTR::RenderUsingRenderSettings( const CBlendStates * states, Daedal
 
 void RendererCTR::RenderUsingCurrentBlendMode(const float (&mat_project)[16], DaedalusVtx * p_vertices, u32 num_vertices, u32 triangle_mode, bool disable_zbuffer )
 {
-	pglSelectScreen(GFX_TOP, GFX_LEFT);
-
 	glMatrixMode(GL_PROJECTION);
 	glLoadMatrixf((float*)mat_project);
 	
@@ -601,6 +599,7 @@ void RendererCTR::RenderUsingCurrentBlendMode(const float (&mat_project)[16], Da
 		glDisable(GL_TEXTURE_2D);
 		DrawPrimitives(p_vertices, num_vertices, triangle_mode, false);
 	}
+
 }
 
 void RendererCTR::RenderTriangles(DaedalusVtx *p_vertices, u32 num_vertices, bool disable_zbuffer)

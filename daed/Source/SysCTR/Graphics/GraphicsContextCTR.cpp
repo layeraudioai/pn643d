@@ -178,17 +178,6 @@ void IGraphicsContext::EndFrame()
 
 void IGraphicsContext::UpdateFrame(bool wait_for_vbl)
 {
-	static bool s_last_3d_state = true;
-	float slider = osGet3DSliderState();
-	bool should_be_3d = slider > 0.0f;
-	if (should_be_3d != s_last_3d_state)
-	{
-		s_last_3d_state = should_be_3d;
-		// Keep picaGL's stereo state in sync with the hardware slider so the
-		// renderer populates both top-screen eye buffers whenever 3D is on.
-		pglSetStereo(should_be_3d, 0.020f);
-	}
-
 	pglSwapBuffers();
 	UI::DrawInGameMenu();
 	//gfxSwapBuffersGpu();

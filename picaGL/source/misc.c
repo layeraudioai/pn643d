@@ -8,13 +8,13 @@ static GLint _GetScreenWidth()
 		return 320;
 }
 
-static void _pglClearTarget(GLbitfield mask)
+static void _glClearCurrentTarget(GLbitfield mask)
 {
+	shaderProgramUse(&pglState->clearShader);
 	uint32_t write_mask = 0;
-
-	if(mask & GL_COLOR_BUFFER_BIT)
+	if (mask & GL_COLOR_BUFFER_BIT)
 		write_mask |= GPU_WRITE_COLOR;
-	if(mask & GL_DEPTH_BUFFER_BIT)
+	if (mask & GL_DEPTH_BUFFER_BIT)
 		write_mask |= GPU_WRITE_DEPTH;
 
 	_picaViewport(0, 0, 240, 400);
@@ -35,25 +35,22 @@ static void _pglClearTarget(GLbitfield mask)
 	_picaFixedAttribute( 1.0,  1.0, pglState->clearDepth, 1.0f);
 	_picaFixedAttribute( 1.0, -1.0, pglState->clearDepth, 1.0f);
 	_picaImmediateEnd();
+	shaderProgramUse(&pglState->basicShader);
+	pglState->changes = STATE_ALL_CHANGE;
 }
 
 void glClear(GLbitfield mask)
 {
-	bool stereo = _pglStereoActive();
-
-	_pglSelectStereoTarget(0);
-	shaderProgramUse(&pglState->clearShader);
-	_pglClearTarget(mask);
-
+	bool stereo = _pglStereoIsActive();
+	pglState->stereoActive = stereo ? GL_TRUE : GL_FALSE;
+	_pglSetStereoRenderTarget(false);
+	_glClearCurrentTarget(mask);
 	if (stereo)
 	{
-		_pglSelectStereoTarget(1);
-		_pglClearTarget(mask);
-		_pglSelectStereoTarget(0);
+		_pglSetStereoRenderTarget(true);
+		_glClearCurrentTarget(mask);
+		_pglSetStereoRenderTarget(false);
 	}
-
-	shaderProgramUse(&pglState->basicShader);
-	pglState->changes = STATE_ALL_CHANGE;
 }
 
 void glClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)

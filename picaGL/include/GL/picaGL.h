@@ -13,9 +13,11 @@ void pglExit();
 void pglSwapBuffers();
 void pglSelectScreen(unsigned display, unsigned side);
 
-/* Nintendo 3DS top-screen stereoscopic output. Separation controls the
- * symmetric off-axis camera projection; the hardware 3D slider scales it. */
+/* Nintendo 3DS stereoscopic rendering support. Each scene draw is rendered
+ * into separate left/right color and depth buffers. `separation` controls the
+ * symmetric off-axis eye projection; the hardware 3D slider scales it. */
 void pglSetStereo(int enabled, float separation);
+/* Keep stereo output but suppress the per-eye projection offset when disabled. */
 void pglSetStereoParallax(int enabled);
 
 /* Transferable picaGL shader cache support. Import before pglInit(); export

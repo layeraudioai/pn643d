@@ -120,7 +120,7 @@ static void DrawOptionsPage()
 	char frameskipString[30];
 	char framerateString[30];
 	sprintf(frameskipString, "Frameskip: %s", Preferences_GetFrameskipDescription( preferences.Frameskip ));
-	sprintf(framerateString, "Max FPS: %.0f", preferences.MaxFPS / 3);
+	sprintf(framerateString, "Max FPS: %.0f", preferences.MaxFPS);
 	UI::DrawHeader("Options");
 
 	if(UI::DrawToggle(10,  22, 145, 62, "Toggle Audio", preferences.AudioEnabled == APM_ENABLED_ASYNC))

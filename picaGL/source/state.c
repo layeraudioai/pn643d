@@ -83,9 +83,10 @@ void _stateDefault()
 	pglState->texenv[PGL_TEXENV_UNTEXTURED].src_rgb   = GPU_TEVSOURCES(GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
 	pglState->texenv[PGL_TEXENV_UNTEXTURED].src_alpha = pglState->texenv[PGL_TEXENV_UNTEXTURED].src_rgb;
 
-	pglState->depthmapNear 	= 1.0f;
-	pglState->depthmapFar 	= 0.0f;
-	pglState->polygonOffset = 0.0f;
+	float slider = gfxIs3D() ? osGet3DSliderState() : 0.0f;
+	pglState->depthmapNear 	= 1.0f + (slider * 0.5f);
+	pglState->depthmapFar 	= 0.0f - (slider * 0.5f);
+	pglState->polygonOffset = slider * 0.9f;
 
 	glViewport(0, 0, 400, 240);
 	glScissor(0, 0, 400, 240);
@@ -164,6 +165,18 @@ void _stateFlush()
 		{
 			_picaLogicOp(GPU_LOGICOP_COPY);
 		}
+	}
+
+	float slider = gfxIs3D() ? osGet3DSliderState() : 0.0f;
+	float target_near = 1.0f + (slider * 0.5f);
+	float target_far  = 0.0f - (slider * 0.5f);
+	float target_offset = slider * 0.9f;
+	if (pglState->depthmapNear != target_near || pglState->depthmapFar != target_far || pglState->polygonOffset != target_offset)
+	{
+		pglState->depthmapNear = target_near;
+		pglState->depthmapFar = target_far;
+		pglState->polygonOffset = target_offset;
+		pglState->changes |= STATE_DEPTHMAP_CHANGE;
 	}
 
 	if(pglState->changes & STATE_DEPTHMAP_CHANGE)

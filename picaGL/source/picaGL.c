@@ -112,4 +112,19 @@ void pglSelectScreen(unsigned display, unsigned side)
 {
 	pglState->display = display;
 	pglState->display_side = side;
+}
+
+static int g_stereo_enabled = 1;
+static float g_stereo_separation = 0.02f;
+static int g_stereo_parallax = 1;
+
+void pglSetStereo(int enabled, float separation)
+{
+	g_stereo_enabled = enabled;
+	g_stereo_separation = separation;
+}
+
+void pglSetStereoParallax(int enabled)
+{
+	g_stereo_parallax = enabled;
 }

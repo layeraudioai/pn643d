@@ -262,7 +262,7 @@ inline u32 Get_AI_MPAL_MAX_FREQ() { return (u32)(4860000.0f * ((f32)FramerateLim
 #define AI_MAX_DAC_RATE         16384
 #define AI_MIN_DAC_RATE         132
 
-#define AI_MAX_BIT_RATE         32
+#define AI_MAX_BIT_RATE         16
 #define AI_MIN_BIT_RATE         2
 
 #define AI_NTSC_MAX_FREQ        Get_AI_NTSC_MAX_FREQ()

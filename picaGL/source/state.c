@@ -4,6 +4,29 @@
 
 picaGLState *pglState;
 
+static const void *g_vertex_shader = NULL;
+static size_t g_vertex_size = 0;
+static const void *g_clear_shader = NULL;
+static size_t g_clear_size = 0;
+
+void pglSetShaderCache(const void *vertex_shader, size_t vertex_size,
+                       const void *clear_shader, size_t clear_size)
+{
+	g_vertex_shader = vertex_shader;
+	g_vertex_size = vertex_size;
+	g_clear_shader = clear_shader;
+	g_clear_size = clear_size;
+}
+
+void pglGetShaderCache(const void **vertex_shader, size_t *vertex_size,
+                       const void **clear_shader, size_t *clear_size)
+{
+	if (vertex_shader) *vertex_shader = g_vertex_shader;
+	if (vertex_size) *vertex_size = g_vertex_size;
+	if (clear_shader) *clear_shader = g_clear_shader;
+	if (clear_size) *clear_size = g_clear_size;
+}
+
 void _stateInitialize()
 {
 	pglState->gxQueue.maxEntries = 8;
@@ -25,16 +48,27 @@ void _stateInitialize()
 	GX_BindQueue(&pglState->gxQueue);
 	gxCmdQueueRun(&pglState->gxQueue);
 
-	pglState->basicShader_dvlb = DVLB_ParseFile((u32*)vshader_shbin, vshader_shbin_size);
+	const void *vshader_ptr = g_vertex_shader ? g_vertex_shader : vshader_shbin;
+	size_t vshader_sz = g_vertex_shader ? g_vertex_size : vshader_shbin_size;
+
+	pglState->basicShader_dvlb = DVLB_ParseFile((u32*)vshader_ptr, vshader_sz);
 
 	shaderProgramInit(&pglState->basicShader);
 	shaderProgramSetVsh(&pglState->basicShader, &pglState->basicShader_dvlb->DVLE[0]);
 	shaderProgramUse(&pglState->basicShader);
 
-	pglState->clearShader_dvlb = DVLB_ParseFile((u32*)clear_shbin, clear_shbin_size);
+	const void *cshader_ptr = g_clear_shader ? g_clear_shader : clear_shbin;
+	size_t cshader_sz = g_clear_shader ? g_clear_size : clear_shbin_size;
+
+	pglState->clearShader_dvlb = DVLB_ParseFile((u32*)cshader_ptr, cshader_sz);
 
 	shaderProgramInit(&pglState->clearShader);
 	shaderProgramSetVsh(&pglState->clearShader, &pglState->clearShader_dvlb->DVLE[0]);
+
+	g_vertex_shader = vshader_ptr;
+	g_vertex_size = vshader_sz;
+	g_clear_shader = cshader_ptr;
+	g_clear_size = cshader_sz;
 
 	_picaRenderBuffer(pglState->colorBuffer, pglState->depthBuffer);
 	_picaAttribBuffersLocation((void*)__ctru_linear_heap);

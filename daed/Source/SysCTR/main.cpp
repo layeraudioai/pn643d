@@ -9,7 +9,7 @@
 #include "Config/ConfigOptions.h"
 #include "Core/Cheats.h"
 #include "Core/CPU.h"
-#include "Core/CPU.h"
+
 #include "Core/Memory.h"
 #include "Core/PIF.h"
 #include "Core/RomSettings.h"
@@ -27,6 +27,7 @@
 #include "UI/UserInterface.h"
 #include "UI/RomSelector.h"
 
+#include "SysCTR/Utility/CTRStorage.h"
 #include "Utility/IO.h"
 #include "Utility/Preferences.h"
 #include "Utility/Profiler.h"
@@ -127,6 +128,104 @@ static void CheckDSPFirmware()
 		}
 	}
 }
+
+static u64 ShaderExtId()
+{
+    u64 programId = 0;
+
+    APT_GetProgramID(&programId);
+
+    return programId & 0xFFFFFFFFULL;
+}
+
+static void ApplyShaderCache(const u8 *cache, size_t got)
+{
+    if (got < 8)
+        return;
+
+    u32 vs = *(const u32 *)&cache[0];
+    u32 cs = *(const u32 *)&cache[4];
+
+    if (vs + cs + 8 > got || vs == 0 || cs == 0)
+        return;
+
+    pglSetShaderCache(
+        cache + 8,
+        vs,
+        cache + 8 + vs,
+        cs
+    );
+}
+
+static void LoadShaderCache()
+{
+    u64 extId = ShaderExtId();
+
+    static u8 cache[0x40000];
+    size_t got = 0;
+
+    if (CTRStorage::ExtDataRead(
+            extId,
+            "shader_cache.bin",
+            cache,
+            sizeof(cache),
+            &got))
+    {
+        ApplyShaderCache(cache, got);
+        return;
+    }
+
+    if (CTRStorage::ImportFile(
+            "sdmc:/3ds/DaedalusX64",
+            "shader_cache.bin",
+            cache,
+            sizeof(cache),
+            &got))
+    {
+        ApplyShaderCache(cache, got);
+    }
+}
+
+static void SaveShaderCache()
+{
+    u64 extId = ShaderExtId();
+
+    const void *v;
+    const void *c;
+
+    size_t vs;
+    size_t cs;
+
+    pglGetShaderCache(&v, &vs, &c, &cs);
+
+    if (vs + cs + 8 > 0x40000)
+        return;
+
+    static u8 cache[0x40000];
+
+    *(u32 *)&cache[0] = (u32)vs;
+    *(u32 *)&cache[4] = (u32)cs;
+
+    memcpy(cache + 8, v, vs);
+    memcpy(cache + 8 + vs, c, cs);
+
+    CTRStorage::ExtDataWrite(
+        extId,
+        "shader_cache.bin",
+        cache,
+        vs + cs + 8
+    );
+
+    IO::Directory::EnsureExists("sdmc:/3ds/DaedalusX64");
+
+    CTRStorage::ExportFile(
+        "sdmc:/3ds/DaedalusX64",
+        "shader_cache.bin",
+        cache,
+        vs + cs + 8
+    );
+}
+
 static void Initialize()
 {
 	romfsInit();
@@ -138,6 +237,9 @@ static void Initialize()
 
 	gfxInit(GSP_BGR8_OES, GSP_BGR8_OES, true);
 	gfxSet3D(true);
+	//pglSetStereo(true, 0.020f);
+	LoadShaderCache();
+
 
 	pglInit();
 
@@ -168,12 +270,13 @@ int main(int argc, char* argv[])
 	while(shouldQuit == false)
 	{
 		std::string rom = UI::DrawRomSelector();
-        std::string full_rom_path = "romfs:/Roms/" + rom;
+                std::string full_rom_path = "romfs:/Roms/" + rom;
 		System_Open(full_rom_path.c_str());
 		CPU_Run();
 		System_Close();
 	}
 	
+	SaveShaderCache();
 	System_Finalize();
 	pglExit();
 

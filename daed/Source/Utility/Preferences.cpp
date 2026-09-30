@@ -450,8 +450,8 @@ SRomPreferences::SRomPreferences()
 	,	Frameskip( FV_DISABLED )
 	,	AudioEnabled( APM_ENABLED_ASYNC )
 	,	ZoomX( 1.0f )
-	,	MaxFPS( 250.0f )
-	,	SpeedSyncEnabled( 0 )
+	,	MaxFPS( 95.0f )
+	,	SpeedSyncEnabled( 1 )
 	,	ControllerIndex( 0 )
 {
 }
@@ -459,7 +459,7 @@ SRomPreferences::SRomPreferences()
 void SRomPreferences::Reset()
 {
 	PatchesEnabled             = true;
-	SpeedSyncEnabled           = 0;
+	SpeedSyncEnabled           = 1;
 	DynarecEnabled             = true;
 	DynarecLoopOptimisation    = true;
 	DynarecDoublesOptimisation = true;
@@ -475,7 +475,7 @@ void SRomPreferences::Reset()
 	AudioEnabled               = APM_ENABLED_ASYNC;
 	//AudioAdaptFrequency      = false;
 	ZoomX                      = 1.0f;
-	MaxFPS                     = 110.0f;
+	MaxFPS                     = 95.0f;
 	CheatsEnabled              = false;
 	ControllerIndex            = 0;
 }

@@ -180,6 +180,7 @@ void IGraphicsContext::UpdateFrame(bool wait_for_vbl)
 {
 	pglSwapBuffers();
 	UI::DrawInGameMenu();
+	//gfxSwapBuffersGpu();
 
 	ClearToBlack();
 

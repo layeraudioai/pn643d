@@ -424,8 +424,9 @@ void RendererCTR::RenderUsingRenderSettings( const CBlendStates * states, Daedal
 		}
 
 		// If no texture was specified, or if we couldn't load it, clear it out
-		if( !installed_texture )
+		if( !installed_texture ) 
 			glDisable(GL_TEXTURE_2D);
+
 		else
 		{
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, mTexWrap[texture_idx].u);
@@ -762,6 +763,7 @@ void RendererCTR::TexRectFlip(u32 tile_idx, const v2 & xy0, const v2 & xy1, TexC
 
 	glEnable(GL_TEXTURE_2D);
 	RenderUsingCurrentBlendMode(mScreenToDevice.mRaw, p_vertices, 4, GL_TRIANGLE_STRIP, gRDPOtherMode.depth_source ? false : true);
+	glDisable(GL_TEXTURE_2D);
 
 	free(p_vertices);
 }

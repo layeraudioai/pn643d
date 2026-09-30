@@ -154,6 +154,8 @@ void AudioOutput::AddBuffer( u8 *start, u32 length )
 		break;
 
 	case APM_ENABLED_ASYNC:
+		mAudioBuffer->AddSamples( reinterpret_cast< const Sample * >( start ), num_samples, mFrequency, output_freq );
+		break;
 	case APM_ENABLED_SYNC:
 		mAudioBuffer->AddSamples( reinterpret_cast< const Sample * >( start ), num_samples, input_freq, output_freq );
 		break;

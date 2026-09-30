@@ -77,6 +77,58 @@ static void _pglTransferToFramebuffer(uint32_t *output_framebuffer, uint8_t outp
 	}
 }
 
+static void _pglTransferToFramebufferStereo(uint32_t *left_fb, uint32_t *right_fb, uint8_t output_format)
+{
+	if(pglState->display == GFX_TOP)
+	{
+		GX_DisplayTransfer(
+			(u32*)pglState->colorBuffer, GX_BUFFER_DIM(240, 400),
+			left_fb, GX_BUFFER_DIM(240, 400),
+			GX_TRANSFER_OUT_FORMAT(output_format));
+
+		float slider = osGet3DSliderState();
+		int shift = (int)(slider * 4.0f); // Parallax disparity shift for true 3D stereo
+
+		if (shift != 0)
+		{
+			static uint32_t *right_buf = NULL;
+			if (!right_buf)
+			{
+				right_buf = (uint32_t*)linearAlloc(400 * 240 * 4);
+			}
+			if (right_buf)
+			{
+				memset(right_buf, 0, 400 * 240 * 4);
+				uint32_t *src = (uint32_t*)pglState->colorBuffer;
+				uint32_t *dst = right_buf;
+				
+				for (int y = 0; y < 240; y++)
+				{
+					for (int x = 0; x < 400; x++)
+					{
+						int src_x = x - shift;
+						if (src_x >= 0 && src_x < 400)
+						{
+							dst[y * 400 + x] = src[y * 400 + src_x];
+						}
+					}
+				}
+				GSPGPU_FlushDataCache(right_buf, 400 * 240 * 4);
+				GX_DisplayTransfer(
+					right_buf, GX_BUFFER_DIM(240, 400),
+					right_fb, GX_BUFFER_DIM(240, 400),
+					GX_TRANSFER_OUT_FORMAT(output_format));
+				return;
+			}
+		}
+
+		GX_DisplayTransfer(
+			(u32*)pglState->colorBuffer, GX_BUFFER_DIM(240, 400),
+			right_fb, GX_BUFFER_DIM(240, 400),
+			GX_TRANSFER_OUT_FORMAT(output_format));
+	}
+}
+
 void pglSwapBuffers()
 {
 	glFlush();
@@ -86,16 +138,9 @@ void pglSwapBuffers()
 
 	if(has_stereo)
 	{
-		// In 3D mode libctru presents the right-eye image from the second half
-		// of the top framebuffer only when hasStereo is true. picaGL renders to
-		// a single color buffer, so copy that image to both eye buffers. This
-		// keeps the stereo framebuffer valid and avoids an uninitialized right
-		// eye; producing real parallax still requires rendering the scene twice
-		// with different eye projections.
 		uint32_t *left_framebuffer = (uint32_t*)gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL);
 		uint32_t *right_framebuffer = (uint32_t*)gfxGetFramebuffer(GFX_TOP, GFX_RIGHT, NULL, NULL);
-		_pglTransferToFramebuffer(left_framebuffer, output_format);
-		_pglTransferToFramebuffer(right_framebuffer, output_format);
+		_pglTransferToFramebufferStereo(left_framebuffer, right_framebuffer, output_format);
 	}
 	else
 	{

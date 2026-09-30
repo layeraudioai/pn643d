@@ -1,1 +1,0 @@
-cd .. && Start /b make 0 && exit 

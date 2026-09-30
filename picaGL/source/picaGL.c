@@ -63,31 +63,6 @@ static void _pglTransferToFramebuffer(uint32_t *output_framebuffer, uint8_t outp
 {
 	if(pglState->display == GFX_TOP)
 	{
-		static uint32_t *wide_buf = NULL;
-		if (!wide_buf)
-		{
-			wide_buf = (uint32_t*)linearAlloc(800 * 240 * 4);
-		}
-		if (wide_buf && !gfxIs3D())
-		{
-			uint32_t *src = (uint32_t*)pglState->colorBuffer;
-			uint32_t *dst = wide_buf;
-			for (int y = 0; y < 240; y++)
-			{
-				for (int x = 0; x < 800; x++)
-				{
-					int src_x = x / 2;
-					dst[y * 800 + x] = src[y * 400 + src_x];
-				}
-			}
-			GSPGPU_FlushDataCache(wide_buf, 800 * 240 * 4);
-			GX_DisplayTransfer(
-				wide_buf, GX_BUFFER_DIM(240, 800),
-				output_framebuffer, GX_BUFFER_DIM(240, 800),
-				GX_TRANSFER_OUT_FORMAT(output_format));
-			return;
-		}
-
 		GX_DisplayTransfer(
 			(u32*)pglState->colorBuffer, GX_BUFFER_DIM(240, 400),
 			output_framebuffer, GX_BUFFER_DIM(240, 400),

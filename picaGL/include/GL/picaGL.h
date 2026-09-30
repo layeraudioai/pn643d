@@ -13,7 +13,8 @@ void pglExit();
 void pglSwapBuffers();
 void pglSelectScreen(unsigned display, unsigned side);
 
-/* Nintendo 3DS stereoscopic rendering support. */
+/* Nintendo 3DS top-screen stereoscopic output. Separation controls the
+ * symmetric off-axis camera projection; the hardware 3D slider scales it. */
 void pglSetStereo(int enabled, float separation);
 void pglSetStereoParallax(int enabled);
 

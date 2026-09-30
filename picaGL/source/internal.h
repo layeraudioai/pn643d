@@ -80,6 +80,8 @@ typedef struct {
 
 	uint32_t			*commandBuffer[2], commandBufferLength;
 	uint32_t			*colorBuffer, *depthBuffer;
+	uint32_t			*stereoColorBuffer, *stereoDepthBuffer;
+	uint8_t			stereoEye;
 
 	DVLB_s*				basicShader_dvlb;
 	shaderProgram_s		basicShader;
@@ -188,6 +190,9 @@ void _picaBlendFunction(GPU_BLENDEQUATION color_equation, GPU_BLENDEQUATION alph
 void _picaViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 void _picaScissorTest(GPU_SCISSORMODE mode, u32 left, u32 top, u32 right, u32 bottom);
 void _picaRenderBuffer(uint32_t *colorBuffer, uint32_t *depthBuffer);
+bool _pglStereoActive(void);
+void _pglSelectStereoTarget(int right_eye);
+void _pglSetStereoProjection(int right_eye);
 void _picaCullMode(GPU_CULLMODE mode);
 
 void _picaDepthMap(float near, float far, float polygon_offset);

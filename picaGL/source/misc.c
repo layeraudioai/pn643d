@@ -8,45 +8,51 @@ static GLint _GetScreenWidth()
 		return 320;
 }
 
-void glClear(GLbitfield mask)
+static void _pglClearTarget(GLbitfield mask)
 {
-	shaderProgramUse(&pglState->clearShader);
-
 	uint32_t write_mask = 0;
 
 	if(mask & GL_COLOR_BUFFER_BIT)
 		write_mask |= GPU_WRITE_COLOR;
 	if(mask & GL_DEPTH_BUFFER_BIT)
 		write_mask |= GPU_WRITE_DEPTH;
-	
-	_picaViewport(0, 0, 240, 400);
-	
-	_picaScissorTest(pglState->scissorState ? 0x3 : 0x0, pglState->scissorY, pglState->scissorX, pglState->scissorY + pglState->scissorHeight, pglState->scissorX + pglState->scissorWidth);
 
+	_picaViewport(0, 0, 240, 400);
+	_picaScissorTest(pglState->scissorState ? 0x3 : 0x0, pglState->scissorY, pglState->scissorX, pglState->scissorY + pglState->scissorHeight, pglState->scissorX + pglState->scissorWidth);
 	_picaDepthMap(0, 1.0, 0);
 	_picaLogicOp(GPU_LOGICOP_COPY);
 	_picaAlphaTest(false, GPU_ALWAYS, 0);
 	_picaDepthTestWriteMask(true, GPU_ALWAYS, write_mask);
 	_picaCullMode(GPU_CULL_NONE);
-
 	_picaTexUnitEnable(0x00);
 	_picaTextureEnvSet(0, &pglState->texenv[PGL_TEXENV_UNTEXTURED]);
 	_picaTextureEnvSet(1, &pglState->texenv[PGL_TEXENV_DUMMY]);
-
 	_picaUniformFloat(GPU_VERTEX_SHADER, 0, (float*)&pglState->clearColor, 1);
-
 	_picaAttribBuffersFormat(0, 0XFF, 0x0, 1);
 	_picaImmediateBegin(GPU_TRIANGLE_STRIP);
-
 	_picaFixedAttribute(-1.0,  1.0, pglState->clearDepth, 1.0f);
 	_picaFixedAttribute(-1.0, -1.0, pglState->clearDepth, 1.0f);
 	_picaFixedAttribute( 1.0,  1.0, pglState->clearDepth, 1.0f);
 	_picaFixedAttribute( 1.0, -1.0, pglState->clearDepth, 1.0f);
-
 	_picaImmediateEnd();
+}
+
+void glClear(GLbitfield mask)
+{
+	bool stereo = _pglStereoActive();
+
+	_pglSelectStereoTarget(0);
+	shaderProgramUse(&pglState->clearShader);
+	_pglClearTarget(mask);
+
+	if (stereo)
+	{
+		_pglSelectStereoTarget(1);
+		_pglClearTarget(mask);
+		_pglSelectStereoTarget(0);
+	}
 
 	shaderProgramUse(&pglState->basicShader);
-
 	pglState->changes = STATE_ALL_CHANGE;
 }
 

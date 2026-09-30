@@ -216,6 +216,8 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 		return;
 
 	void *arrayCache = NULL;
+	uint32_t index_array_offset = 0;
+	bool stereo = _pglStereoActive();
 
 	uint8_t  bufferCount 			= 0;
 	uint16_t attributesFixedMask 	= 0x00;
@@ -230,6 +232,9 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 		glFlush();
 
 	_stateFlush();
+	_pglSelectStereoTarget(0);
+	if (stereo)
+		_pglSetStereoProjection(0);
 
 	if(vertexArray->inLinearMem)
 		arrayCache = (void*)vertexArray->pointer;
@@ -329,15 +334,29 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 	
 	if(indices)
 	{
-		uint16_t* index_array  = _bufferArray(indices, sizeof(uint16_t) * count);
-
-		_picaDrawElements(primitive_type, (uint32_t)index_array - __ctru_linear_heap, count);
+		uint16_t* index_array = _bufferArray(indices, sizeof(uint16_t) * count);
+		index_array_offset = (uint32_t)index_array - __ctru_linear_heap;
+		_picaDrawElements(primitive_type, index_array_offset, count);
 	}
 	else
 	{
 		_picaDrawArray(primitive_type, start, count);
 	}
 
-	if(++pglState->batchedDraws > MAX_BATCHED_DRAWS)
+	/* Submit this same primitive to the independent right-eye color/depth
+	 * buffers using its own off-axis projection. Vertex data and render state
+	 * are shared, but depth testing and blending remain eye-local. */
+	if (stereo)
+	{
+		_pglSelectStereoTarget(1);
+		_pglSetStereoProjection(1);
+		if(indices)
+			_picaDrawElements(primitive_type, index_array_offset, count);
+		else
+			_picaDrawArray(primitive_type, start, count);
+	}
+
+	pglState->batchedDraws += stereo ? 2 : 1;
+	if(pglState->batchedDraws > MAX_BATCHED_DRAWS)
 		glFlush();
 }

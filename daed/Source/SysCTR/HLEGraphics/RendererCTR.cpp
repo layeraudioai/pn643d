@@ -443,7 +443,7 @@ void RendererCTR::RenderUsingRenderSettings( const CBlendStates * states, Daedal
 }
 
 
-void RendererCTR::RenderUsingCurrentBlendMode(const float (&mat_project)[16], DaedalusVtx * p_vertices, u32 num_vertices, u32 triangle_mode, bool disable_zbuffer )
+void RendererCTR::RenderUsingCurrentBlendModeInternal(const float (&mat_project)[16], DaedalusVtx * p_vertices, u32 num_vertices, u32 triangle_mode, bool disable_zbuffer )
 {
 	glMatrixMode(GL_PROJECTION);
 	glLoadMatrixf((float*)mat_project);
@@ -599,7 +599,27 @@ void RendererCTR::RenderUsingCurrentBlendMode(const float (&mat_project)[16], Da
 		glDisable(GL_TEXTURE_2D);
 		DrawPrimitives(p_vertices, num_vertices, triangle_mode, false);
 	}
+}
 
+void RendererCTR::RenderUsingCurrentBlendMode(const float (&mat_project)[16], DaedalusVtx * p_vertices, u32 num_vertices, u32 triangle_mode, bool disable_zbuffer )
+{
+	bool stereo = gfxIs3D();
+	float slider = stereo ? osGet3DSliderState() : 0.0f;
+
+	// 1. Render Left Eye
+	pglSelectScreen(GFX_TOP, GFX_LEFT);
+	RenderUsingCurrentBlendModeInternal(mat_project, p_vertices, num_vertices, triangle_mode, disable_zbuffer);
+
+	// 2. Render Right Eye (if 3D active and slider > 0.01)
+	if (stereo && slider > 0.01f)
+	{
+		pglSelectScreen(GFX_TOP, GFX_RIGHT);
+		float right_project[16];
+		memcpy(right_project, mat_project, sizeof(right_project));
+		float eye_offset = slider * 0.035f;
+		right_project[8] += eye_offset;
+		RenderUsingCurrentBlendModeInternal(right_project, p_vertices, num_vertices, triangle_mode, disable_zbuffer);
+	}
 }
 
 void RendererCTR::RenderTriangles(DaedalusVtx *p_vertices, u32 num_vertices, bool disable_zbuffer)

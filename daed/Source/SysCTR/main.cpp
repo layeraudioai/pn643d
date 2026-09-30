@@ -237,7 +237,7 @@ static void Initialize()
 
 	gfxInit(GSP_BGR8_OES, GSP_BGR8_OES, true);
 	gfxSet3D(true);
-	//pglSetStereo(true, 0.020f);
+	pglSetStereo(true, 0.020f);
 	LoadShaderCache();
 
 

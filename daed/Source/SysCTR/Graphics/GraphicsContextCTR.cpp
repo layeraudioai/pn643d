@@ -178,6 +178,16 @@ void IGraphicsContext::EndFrame()
 
 void IGraphicsContext::UpdateFrame(bool wait_for_vbl)
 {
+	static bool s_last_3d_state = true;
+	float slider = osGet3DSliderState();
+	bool should_be_3d = slider > 0.01f;
+	if (should_be_3d != s_last_3d_state)
+	{
+		s_last_3d_state = should_be_3d;
+		gfxSet3D(should_be_3d);
+		gfxSetWide(!should_be_3d);
+	}
+
 	pglSwapBuffers();
 	UI::DrawInGameMenu();
 	//gfxSwapBuffersGpu();

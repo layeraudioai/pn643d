@@ -348,10 +348,12 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 		if (stereo && pglState->stereoParallax)
 		{
 			float slider = osGet3DSliderState();
-			/* stereoSeparation is a normalized disparity control. Convert it
-			 * to a camera-space baseline at a nominal 100-unit convergence
-			 * distance. Scaling by focal length keeps the control comparable
-			 * across different game projection matrices. */
+			/* stereoSeparation is a normalized disparity control. N64 scenes
+			 * commonly place perspective geometry hundreds of view-space units
+			 * away, so use a longer reference distance for perspective cameras;
+			 * orthographic UI/background layers keep the smaller baseline. */
+			bool perspective = fabsf(pglState->matrix_projection.row[3].z) > 0.5f;
+			float reference_depth = perspective ? 400.0f : 100.0f;
 			float focal_scale = fmaxf(fabsf(pglState->matrix_projection.row[0].x),
 				fabsf(pglState->matrix_projection.row[0].y));
 			focal_scale = fmaxf(focal_scale,
@@ -362,7 +364,7 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 
 			float eye_sign = right_eye ? 1.0f : -1.0f;
 			float eye_offset = eye_sign * 0.5f * pglState->stereoSeparation *
-				slider * 100.0f / focal_scale;
+				slider * reference_depth / focal_scale;
 
 			/* Translate the view in camera space, rather than editing a
 			 * projection translation term. This produces depth-dependent

@@ -1,18 +1,9 @@
 # DaedalusX64
- whoops forgot to include ffmpeg, which you need installed
- -
- grab ffmpeg first
- -
-then
------------------
 ---
 1: install the dependencies by double clicking the bat in the deps folder
 -----
 2: double click the romconvert.exe after place the roms in the Roms dir
----
-3: ignore the outdated readme in the release zip(s)
 --
--
 ## Credits
 -
 - cmf028: Major contributer of the ARM DynaRec code

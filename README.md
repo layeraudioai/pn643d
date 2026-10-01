@@ -3,7 +3,7 @@
  -
  grab ffmpeg first
  -
-very simple stuff
+then
 -----------------
 ---
 1: install the dependencies by double clicking the bat in the deps folder

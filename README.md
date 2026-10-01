@@ -16,4 +16,8 @@
 - TheMrIron2: Optimizations, wiki maintenance
 - MrHuu: Icon, banner
 - MasterFeizz: 3DS Port of DaedalusX64, PicaGL, and imgui-picagl
+- FFMpeg: for FFMpeg
+- Google: for Gemini
+- OpenAI: for GPT Luna
+- CodingFleet: for AI chat services
 -

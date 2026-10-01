@@ -2,6 +2,9 @@
 #include <GL/picaGL.h>
 #include <stdio.h>
 
+// Defines platform calling-convention and attribute macros used by Core headers.
+#include "BuildOptions.h"
+
 #include "UserInterface.h"
 #include "InGameMenu.h"
 

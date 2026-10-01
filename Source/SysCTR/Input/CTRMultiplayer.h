@@ -10,16 +10,26 @@ namespace CTRMultiplayer
     {
         STATE_OFF,
         STATE_HOSTING,
-        STATE_JOINED
+        STATE_JOINED,
+        STATE_ONLINE_HOSTING,
+        STATE_ONLINE_JOINED
     };
 
-    // Start/stop a nearby wireless session. Scan results remain valid until the
-    // next Scan() call or Stop().
+    // Start/stop a nearby UDS session. Scan results remain valid until the next
+    // Scan() call or Stop().
     bool Host();
     bool Scan();
     size_t GetRoomCount();
     void GetRoomLabel(size_t roomIndex, char *buffer, size_t bufferSize);
     bool Join(size_t roomIndex);
+
+    // Internet sessions use the bundled TCP relay server. The server address
+    // accepts a hostname or IPv4 address, optionally followed by :port.
+    bool HostOnline(const char *serverAddress);
+    bool JoinOnline(const char *serverAddress, const char *roomCode);
+    const char *GetOnlineRoomCode();
+    bool IsOnline();
+
     void Stop();
 
     State GetState();

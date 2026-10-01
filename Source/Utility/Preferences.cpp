@@ -462,7 +462,7 @@ SRomPreferences::SRomPreferences()
 	,	AudioEnabled( APM_ENABLED_ASYNC )
 	,	ZoomX( 1.0f )
 	,	MaxFPS( 60.0f )
-	,	StereoSeparation( 0.00125f )
+	,	StereoSeparation( 0.0012525f )
 	,	SpeedSyncEnabled( 1 )
 	,	ControllerIndex( 0 )
 {

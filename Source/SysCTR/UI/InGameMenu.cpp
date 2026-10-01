@@ -235,12 +235,52 @@ static void DrawJoinPage()
 		currentPage = 5;
 }
 
-static void DrawOnlineInfoPage(const char * title)
+static bool PromptOnlineText(const char *hint, char *buffer, size_t bufferSize)
 {
-	UI::DrawHeader(title);
-	UI::DrawText(14, 60, "Online rooms are not supported.");
-	UI::DrawText(14, 84, "Use Host/Join Local on nearby 3DS systems.");
-	if(UI::DrawButton(10, 184, 300, 44, "Back"))
+	SwkbdState keyboard;
+	swkbdInit(&keyboard, SWKBD_TYPE_WESTERN, 2, -1);
+	swkbdSetHintText(&keyboard, hint);
+	swkbdSetFeatures(&keyboard, SWKBD_DEFAULT_QWERTY);
+	buffer[0] = '\0';
+	return swkbdInputText(&keyboard, buffer, bufferSize) == SWKBD_BUTTON_RIGHT && buffer[0] != '\0';
+}
+
+static void DrawOnlineInfoPage(bool host)
+{
+	UI::DrawHeader(host ? "Host online" : "Join online");
+	UI::DrawText(14, 38, CTRMultiplayer::GetStatus());
+
+	if (CTRMultiplayer::GetState() != CTRMultiplayer::STATE_OFF)
+	{
+		if (host)
+			UI::DrawText(14, 66, "Give the room code to your friends.");
+		else
+			UI::DrawText(14, 66, "Online input relay is connected.");
+		if (UI::DrawButton(10, 112, 300, 48, "Stop session"))
+			CTRMultiplayer::Stop();
+	}
+	else
+	{
+		UI::DrawText(14, 68, "Enter relay address as host:port.");
+		UI::DrawText(14, 88, "Deploy online-relay/server.py first.");
+		if (UI::DrawButton(10, 112, 300, 48, host ? "Create online room" : "Enter room code"))
+		{
+			char serverAddress[64];
+			if (PromptOnlineText("Relay hostname or IPv4:port", serverAddress, sizeof(serverAddress)))
+			{
+				if (host)
+					CTRMultiplayer::HostOnline(serverAddress);
+				else
+				{
+					char roomCode[16];
+					if (PromptOnlineText("Enter the 6-character room code", roomCode, sizeof(roomCode)))
+						CTRMultiplayer::JoinOnline(serverAddress, roomCode);
+				}
+			}
+		}
+	}
+
+	if (UI::DrawButton(10, 184, 300, 44, "Back"))
 		currentPage = 5;
 }
 
@@ -282,8 +322,8 @@ void UI::DrawInGameMenu()
 		case 5: DrawMultiplayerPage(); break;
 		case 6: DrawHostPage(); break;
 		case 7: DrawJoinPage(); break;
-		case 8: DrawOnlineInfoPage("Host online"); break;
-		case 9: DrawOnlineInfoPage("Join online"); break;
+		case 8: DrawOnlineInfoPage(true); break;
+		case 9: DrawOnlineInfoPage(false); break;
 	}
 
 	pglSwapBuffers();

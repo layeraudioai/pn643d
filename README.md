@@ -1,8 +1,9 @@
 # DaedalusX64
  
-1: double click the bat inside the deps folder
-2: place roms in roms folder
-3: double click romconvert.exe
+very simple stuff
+1: install the dependencies by double clicking the bat in the deps folder
+2: double click the romconvert.exe after place the roms in the Roms dir
+3: ignore the outdated readme in the release zip(s)
  
 ## Credits
 

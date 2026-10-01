@@ -18,6 +18,7 @@
 #include "Graphics/GraphicsContext.h"
 #include "HLEGraphics/TextureCache.h"
 #include "Input/InputManager.h"
+#include "SysCTR/Input/CTRInput.h"
 #include "Interface/RomDB.h"
 #include "System/Paths.h"
 #include "System/System.h"
@@ -123,6 +124,8 @@ static void DrawOptionsPage()
 	sprintf(framerateString, "Max FPS: %.0f", preferences.MaxFPS);
 	char stereoString[30];
 	sprintf(stereoString, "Stereo: %.3f", preferences.StereoSeparation);
+	char hostPlayerString[24];
+	sprintf(hostPlayerString, "Host Player: P%u", CTRInput_GetLocalControllerPort() + 1);
 	UI::DrawHeader("Options");
 
 	if(UI::DrawToggle(10,  22, 145, 48, "Toggle Audio", preferences.AudioEnabled == APM_ENABLED_ASYNC))
@@ -159,7 +162,13 @@ static void DrawOptionsPage()
 			preferences.StereoSeparation = 0.0f;
 	}
 
-	if(UI::DrawButton(165, 130, 145, 48, "Back"))
+	if(UI::DrawButton(10, 184, 145, 44, hostPlayerString))
+	{
+		unsigned int port = CTRInput_GetLocalControllerPort();
+		CTRInput_SetLocalControllerPort((port + 1) % 4);
+	}
+
+	if(UI::DrawButton(165, 184, 145, 44, "Back"))
 	{
 		CPreferences::Get()->Commit();
 		currentPage = 0;
@@ -168,6 +177,31 @@ static void DrawOptionsPage()
 	CPreferences::Get()->SetRomPreferences( g_ROM.mRomID, preferences );
 
 	preferences.Apply();
+}
+
+static void DrawMultiplayerPage()
+{
+	UI::DrawHeader("Multiplayer");
+
+	if(UI::DrawButton(10, 22, 145, 48, "Host Local"))
+		currentPage = 6;
+	if(UI::DrawButton(165, 22, 145, 48, "Join Local"))
+		currentPage = 7;
+	if(UI::DrawButton(10, 76, 145, 48, "Host Online"))
+		currentPage = 8;
+	if(UI::DrawButton(165, 76, 145, 48, "Join Online"))
+		currentPage = 9;
+	if(UI::DrawButton(10, 184, 300, 44, "Back"))
+		currentPage = 0;
+}
+
+static void DrawMultiplayerInfoPage(const char * title, const char * line1, const char * line2)
+{
+	UI::DrawHeader(title);
+	UI::DrawText(18, 68, line1);
+	UI::DrawText(18, 92, line2);
+	if(UI::DrawButton(10, 184, 300, 44, "Back"))
+		currentPage = 5;
 }
 
 static void DrawMainPage()
@@ -186,10 +220,11 @@ static void DrawMainPage()
 		return;
 	}
 
-	if(UI::DrawButton(10,  22, 300, 62, "Save State")) currentPage = 1;
-	if(UI::DrawButton(10,  94, 300, 62, "Load State")) currentPage = 2;
-	if(UI::DrawButton(10,  166, 145, 62, "Close ROM")) currentPage = 3;
-	if(UI::DrawButton(165, 166, 145, 62, "Options"))   currentPage = 4;
+	if(UI::DrawButton(10,  22, 145, 48, "Save State")) currentPage = 1;
+	if(UI::DrawButton(165, 22, 145, 48, "Load State")) currentPage = 2;
+	if(UI::DrawButton(10,  76, 145, 48, "Multiplayer")) currentPage = 5;
+	if(UI::DrawButton(165, 76, 145, 48, "Options")) currentPage = 4;
+	if(UI::DrawButton(10,  130, 300, 62, "Close ROM")) currentPage = 3;
 }
 
 void UI::DrawInGameMenu()
@@ -204,6 +239,11 @@ void UI::DrawInGameMenu()
 		case 2: DrawLoadStatePage(); break;
 		case 3: DrawConfirmPage(); break;
 		case 4: DrawOptionsPage(); break;
+		case 5: DrawMultiplayerPage(); break;
+		case 6: DrawMultiplayerInfoPage("Host Local", "Local wireless hosting is not active yet.", "UDS session transport is the next step."); break;
+		case 7: DrawMultiplayerInfoPage("Join Local", "Nearby-room discovery is not active yet.", "No local sessions can be listed in this build."); break;
+		case 8: DrawMultiplayerInfoPage("Host Online", "Online hosting needs a public lobby service.", "No lobby or relay endpoint is configured."); break;
+		case 9: DrawMultiplayerInfoPage("Join Online", "Online room listings are not available yet.", "A lobby service must be configured first."); break;
 	}
 
 	pglSwapBuffers();

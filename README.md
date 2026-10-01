@@ -1,5 +1,5 @@
 # DaedalusX64
- 
+ whoops forgot to include ffmpeg, which you need installed
 very simple stuff
 -----------------
 ---

@@ -42,10 +42,10 @@ void _stateInitialize()
 	pglState->stereoColorBuffer = vramAlloc(400 * 240 * 4);
 	pglState->stereoDepthBuffer = vramAlloc(400 * 240 * 4);
 	pglState->stereoSeparation = 0.025f;
-	pglState->stereoEnabled = GL_TRUE;
+	pglState->stereoEnabled = GL_FALSE;
 	pglState->stereoParallax = GL_TRUE;
-	pglState->stereoActive = GL_TRUE;
-	pglState->stereoRightEye = GL_TRUE;
+	pglState->stereoActive = GL_FALSE;
+	pglState->stereoRightEye = GL_FALSE;
 
 	pglState->commandBuffer[0] = linearAlloc(COMMAND_BUFFER_SIZE);
 	pglState->commandBuffer[1] = linearAlloc(COMMAND_BUFFER_SIZE);

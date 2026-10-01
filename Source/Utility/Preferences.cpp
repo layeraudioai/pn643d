@@ -283,7 +283,7 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 		{
 			preferences.StereoSeparation = (f32)atof( property->GetValue() );
 			if( preferences.StereoSeparation < 0.0f ) preferences.StereoSeparation = 0.0f;
-			if( preferences.StereoSeparation > 0.10f ) preferences.StereoSeparation = 0.10f;
+			if( preferences.StereoSeparation > 0.20f ) preferences.StereoSeparation = 0.20f;
 		}
 #ifdef DAEDALUS_PSP
 		if( section->FindProperty( "Controller", &property ) )

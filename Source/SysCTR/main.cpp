@@ -19,6 +19,7 @@
 #include "Graphics/GraphicsContext.h"
 #include "HLEGraphics/TextureCache.h"
 #include "Input/InputManager.h"
+#include "SysCTR/Input/CTRMultiplayer.h"
 #include "Interface/RomDB.h"
 #include "System/Paths.h"
 #include "System/System.h"
@@ -243,7 +244,7 @@ static void Initialize()
 
 	pglInit();
 	/* Enable real dual-eye rendering; slider state scales stereo separation. */
-	pglSetStereo(true, 0.10f);
+	pglSetStereo(true, 0.025f);
 
 	strcpy(gDaedalusExePath, DAEDALUS_CTR_PATH(""));
 	strcpy(g_DaedalusConfig.mSaveDir, DAEDALUS_CTR_PATH("SaveGames/"));
@@ -275,9 +276,11 @@ int main(int argc, char* argv[])
                 std::string full_rom_path = "romfs:/Roms/" + rom;
 		System_Open(full_rom_path.c_str());
 		CPU_Run();
+		CTRMultiplayer::Stop();
 		System_Close();
 	}
 	
+	CTRMultiplayer::Stop();
 	SaveShaderCache();
 	System_Finalize();
 	pglExit();

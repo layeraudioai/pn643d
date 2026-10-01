@@ -5,35 +5,16 @@
 #include "UserInterface.h"
 #include "InGameMenu.h"
 
-#include "BuildOptions.h"
 #include "Config/ConfigOptions.h"
-#include "Core/Cheats.h"
 #include "Core/CPU.h"
-#include "Core/Memory.h"
-#include "Core/PIF.h"
-#include "Core/RomSettings.h"
-#include "Core/Save.h"
-#include "Debug/DBGConsole.h"
-#include "Debug/DebugLog.h"
-#include "Graphics/GraphicsContext.h"
-#include "HLEGraphics/TextureCache.h"
-#include "Input/InputManager.h"
+#include "Core/ROM.h"
 #include "SysCTR/Input/CTRInput.h"
-#include "Interface/RomDB.h"
-#include "System/Paths.h"
-#include "System/System.h"
-#include "Test/BatchTest.h"
+#include "SysCTR/Input/CTRMultiplayer.h"
 #include "Utility/IO.h"
 #include "Utility/Preferences.h"
-#include "Utility/Profiler.h"
-#include "Utility/Thread.h"
-#include "Utility/Translate.h"
-#include "Utility/ROMFile.h"
-#include "Utility/Timer.h"
 
 extern uint8_t aspectRatio;
 extern float gCurrentFramerate;
-extern EFrameskipValue gFrameskipValue;
 extern RomInfo g_ROM;
 
 static uint64_t timer;
@@ -158,14 +139,21 @@ static void DrawOptionsPage()
 	if(UI::DrawButton(10, 130, 145, 48, stereoString))
 	{
 		preferences.StereoSeparation += 0.025f;
-		if(preferences.StereoSeparation > 0.1f)
+		if(preferences.StereoSeparation > 0.2001f)
 			preferences.StereoSeparation = 0.0f;
 	}
 
-	if(UI::DrawButton(10, 184, 145, 44, hostPlayerString))
+	if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
 	{
-		unsigned int port = CTRInput_GetLocalControllerPort();
-		CTRInput_SetLocalControllerPort((port + 1) % 4);
+		if(UI::DrawButton(10, 184, 145, 44, hostPlayerString))
+		{
+			unsigned int port = CTRInput_GetLocalControllerPort();
+			CTRInput_SetLocalControllerPort((port + 1) % 4);
+		}
+	}
+	else
+	{
+		UI::DrawText(10, 212, "Port locked");
 	}
 
 	if(UI::DrawButton(165, 184, 145, 44, "Back"))
@@ -195,11 +183,63 @@ static void DrawMultiplayerPage()
 		currentPage = 0;
 }
 
-static void DrawMultiplayerInfoPage(const char * title, const char * line1, const char * line2)
+static void DrawHostPage()
+{
+	UI::DrawHeader("Host nearby room");
+	UI::DrawText(14, 52, CTRMultiplayer::GetStatus());
+
+	if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
+	{
+		UI::DrawText(14, 82, "Players join over local wireless.");
+		if (UI::DrawButton(10, 112, 300, 48, "Start hosting"))
+			CTRMultiplayer::Host();
+	}
+	else
+	{
+		UI::DrawText(14, 82, "Press Back to resume emulation.");
+		if (UI::DrawButton(10, 112, 300, 48, "Stop session"))
+			CTRMultiplayer::Stop();
+	}
+
+	if (UI::DrawButton(10, 184, 300, 44, "Back"))
+		currentPage = 5;
+}
+
+static void DrawJoinPage()
+{
+	UI::DrawHeader("Join nearby room");
+	UI::DrawText(14, 38, CTRMultiplayer::GetStatus());
+
+	if (CTRMultiplayer::GetState() != CTRMultiplayer::STATE_OFF)
+	{
+		UI::DrawText(14, 68, "Stop the active session before scanning.");
+		if (UI::DrawButton(10, 112, 300, 48, "Stop session"))
+			CTRMultiplayer::Stop();
+	}
+	else
+	{
+		if (UI::DrawButton(10, 52, 300, 40, "Scan nearby rooms"))
+			CTRMultiplayer::Scan();
+
+		const size_t count = CTRMultiplayer::GetRoomCount();
+		for (size_t i = 0; i < count && i < 3; ++i)
+		{
+			char roomLabel[32];
+			CTRMultiplayer::GetRoomLabel(i, roomLabel, sizeof(roomLabel));
+			if (UI::DrawButton(10, 100 + (int)i * 27, 300, 24, roomLabel))
+				CTRMultiplayer::Join(i);
+		}
+	}
+
+	if (UI::DrawButton(10, 184, 300, 44, "Back"))
+		currentPage = 5;
+}
+
+static void DrawOnlineInfoPage(const char * title)
 {
 	UI::DrawHeader(title);
-	UI::DrawText(18, 68, line1);
-	UI::DrawText(18, 92, line2);
+	UI::DrawText(14, 60, "Online rooms are not supported.");
+	UI::DrawText(14, 84, "Use Host/Join Local on nearby 3DS systems.");
 	if(UI::DrawButton(10, 184, 300, 44, "Back"))
 		currentPage = 5;
 }
@@ -240,10 +280,10 @@ void UI::DrawInGameMenu()
 		case 3: DrawConfirmPage(); break;
 		case 4: DrawOptionsPage(); break;
 		case 5: DrawMultiplayerPage(); break;
-		case 6: DrawMultiplayerInfoPage("Host Local", "Local wireless hosting is not active yet.", "UDS session transport is the next step."); break;
-		case 7: DrawMultiplayerInfoPage("Join Local", "Nearby-room discovery is not active yet.", "No local sessions can be listed in this build."); break;
-		case 8: DrawMultiplayerInfoPage("Host Online", "Online hosting needs a public lobby service.", "No lobby or relay endpoint is configured."); break;
-		case 9: DrawMultiplayerInfoPage("Join Online", "Online room listings are not available yet.", "A lobby service must be configured first."); break;
+		case 6: DrawHostPage(); break;
+		case 7: DrawJoinPage(); break;
+		case 8: DrawOnlineInfoPage("Host online"); break;
+		case 9: DrawOnlineInfoPage("Join online"); break;
 	}
 
 	pglSwapBuffers();

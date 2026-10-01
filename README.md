@@ -1,4 +1,6 @@
 # DaedalusX64
+--
+0: remove all !s in file names if they exist, essential
 ---
 1: install the dependencies by double clicking the bat in the deps folder
 -----

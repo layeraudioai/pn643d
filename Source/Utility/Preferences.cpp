@@ -283,7 +283,7 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 		{
 			preferences.StereoSeparation = (f32)atof( property->GetValue() );
 			if( preferences.StereoSeparation < 0.0f ) preferences.StereoSeparation = 0.0f;
-			if( preferences.StereoSeparation > 0.20f ) preferences.StereoSeparation = 0.20f;
+			if( preferences.StereoSeparation > 0.15f ) preferences.StereoSeparation = 0.15f;
 		}
 #ifdef DAEDALUS_PSP
 		if( section->FindProperty( "Controller", &property ) )
@@ -488,7 +488,7 @@ void SRomPreferences::Reset()
 	//AudioAdaptFrequency      = false;
 	ZoomX                      = 1.0f;
 	MaxFPS                     = 95.0f;
-	StereoSeparation           = 0.05f;
+	StereoSeparation           = 0.005f;
 	CheatsEnabled              = false;
 	ControllerIndex            = 0;
 }

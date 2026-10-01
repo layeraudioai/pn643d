@@ -14,7 +14,7 @@
 - z2442: Compilation improvements and updating, optimizations
 - mrneo240: Optimizations, compilation help
 - TheMrIron2: Optimizations, wiki maintenance
-- MrHuu: Icon, banner
+- MrHuu: Default DaedalusX64 Icon, banner
 - MasterFeizz: 3DS Port of DaedalusX64, PicaGL, and imgui-picagl
 - FFMpeg: for FFMpeg
 - Google: for Gemini

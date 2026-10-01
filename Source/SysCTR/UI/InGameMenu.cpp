@@ -155,7 +155,7 @@ static void DrawOptionsPage()
 	if(UI::DrawButton(10, 130, 145, 48, stereoString))
 	{
 		preferences.StereoSeparation += 0.025f;
-		if(preferences.StereoSeparation > 0.2001f)
+		if(preferences.StereoSeparation > 0.1f)
 			preferences.StereoSeparation = 0.0f;
 	}
 

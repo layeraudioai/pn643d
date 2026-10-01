@@ -64,7 +64,7 @@ static EFrameskipValue			GetFrameskipValueFromInt( u32 value );
 
 extern EFrameskipValue			gFrameskipValue;
 extern f32 						gZoomX;
-float							gMaxFPS = 110;
+float							gMaxFPS = 60;
 
 SGlobalPreferences				gGlobalPreferences;
 
@@ -283,7 +283,7 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 		{
 			preferences.StereoSeparation = (f32)atof( property->GetValue() );
 			if( preferences.StereoSeparation < 0.0f ) preferences.StereoSeparation = 0.0f;
-			if( preferences.StereoSeparation > 0.20f ) preferences.StereoSeparation = 0.20f;
+			if( preferences.StereoSeparation > 0.10f ) preferences.StereoSeparation = 0.10f;
 		}
 #ifdef DAEDALUS_PSP
 		if( section->FindProperty( "Controller", &property ) )
@@ -461,8 +461,8 @@ SRomPreferences::SRomPreferences()
 	,	Frameskip( FV_DISABLED )
 	,	AudioEnabled( APM_ENABLED_ASYNC )
 	,	ZoomX( 1.0f )
-	,	MaxFPS( 95.0f )
-	,	StereoSeparation( 0.05f )
+	,	MaxFPS( 60.0f )
+	,	StereoSeparation( 0.025f )
 	,	SpeedSyncEnabled( 1 )
 	,	ControllerIndex( 0 )
 {
@@ -487,8 +487,8 @@ void SRomPreferences::Reset()
 	AudioEnabled               = APM_ENABLED_ASYNC;
 	//AudioAdaptFrequency      = false;
 	ZoomX                      = 1.0f;
-	MaxFPS                     = 95.0f;
-	StereoSeparation           = 0.05f;
+	MaxFPS                     = 60.0f;
+	StereoSeparation           = 0.025f;
 	CheatsEnabled              = false;
 	ControllerIndex            = 0;
 }

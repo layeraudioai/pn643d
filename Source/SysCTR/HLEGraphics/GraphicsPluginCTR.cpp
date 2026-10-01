@@ -21,6 +21,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <cstdio>
 
+#include "Config/ConfigOptions.h"
+
 #include "Debug/DBGConsole.h"
 
 #include "HLEGraphics/BaseRenderer.h"
@@ -42,6 +44,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern bool gFrameskipActive;
 extern float gMaxFPS;
+extern u32 gSoundSync;
 
 u32		gVISyncRate = 1500;
 bool	gTakeScreenshot = false;
@@ -192,13 +195,22 @@ void CGraphicsPluginImpl::UpdateScreen()
 		if( gGlobalPreferences.DisplayFramerate )
 			UpdateFramerate();
 
-		u32 gSoundSync = 44100;
-		(void)gSoundSync;
+		static f32 smoothed_sound_rate = 44100.0f;
 		const f32 Fsync = FramerateLimiter_GetSync();
-		if (Fsync > 0.01f)
+		if (gAudioRateMatch && Fsync > 0.01f)
 		{
+			/* Follow the established Daedalus audio-rate matching scheme:
+			 * compensate when emulation runs below target, but never resample
+			 * below the hardware's 44.1 kHz base or above 2x. Smooth changes
+			 * to avoid audible pitch modulation. */
+			f32 rate_scale = 1.0f / Fsync;
+			if (rate_scale < 1.0f) rate_scale = 1.0f;
+			if (rate_scale > 2.0f) rate_scale = 2.0f;
+			f32 target_sound_rate = 44100.0f * rate_scale;
+			smoothed_sound_rate += (target_sound_rate - smoothed_sound_rate) * 0.10f;
+			gSoundSync = (u32)smoothed_sound_rate;
+
 			const f32 inv_Fsync = 1.0f / Fsync;
-			gSoundSync = (u32)(44100.0f * inv_Fsync);
 			gVISyncRate = (u32)(1500.0f * inv_Fsync);
 			
 			u32 max_vi = (gMaxFPS > 0.0f) ? (u32)(1500.0f * (gMaxFPS / 60.0f)) : 4000u;
@@ -209,6 +221,7 @@ void CGraphicsPluginImpl::UpdateScreen()
 		}
 		else
 		{
+			smoothed_sound_rate = 44100.0f;
 			gSoundSync = 44100;
 			u32 target_fps = FramerateLimiter_GetTvFrequencyHz();
 			gVISyncRate = (u32)(1500.0f * ((f32)target_fps / 60.0f));

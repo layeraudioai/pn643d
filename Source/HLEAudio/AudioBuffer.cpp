@@ -63,9 +63,10 @@ u32 CAudioBuffer::GetNumBufferedSamples() const
 
 void CAudioBuffer::AddSamples( const Sample * samples, u32 num_samples, u32 frequency, u32 output_freq )
 {
-	#ifdef DAEDALUS_ENABLE_ASSERTS
-	DAEDALUS_ASSERT( frequency <= output_freq, "Input frequency is too high" );
-#endif
+	/* This resampler supports both up- and down-sampling. Reject invalid
+	 * rates before dividing; high DAC rates are valid inputs, not asserts. */
+	if (frequency == 0 || output_freq == 0 || num_samples < 2)
+		return;
 	//static FILE * fh = nullptr;
 	//if( !fh )
 	//{
@@ -88,16 +89,19 @@ void CAudioBuffer::AddSamples( const Sample * samples, u32 num_samples, u32 freq
 	//	and reduce s by 1.0 (to keep it in the range 0.0 .. 1.0)
 	//	Principle is the same but rewritten to integer mode (faster & less ASM) //Corn
 
-	const s32 r( (frequency << 12)  / output_freq );
+	const s32 r( (s32)(((u64)frequency << 12) / output_freq) );
 	s32		  s( 0 );
 	u32		  in_idx( 0 );
-	u32		  output_samples( (( num_samples * output_freq ) / frequency) - 1);
+	const u64 output_count = ((u64)num_samples * output_freq) / frequency;
+	if (output_count <= 1)
+		return;
+	u32		  output_samples( (u32)(output_count - 1) );
 
 	for( u32 i = output_samples; i != 0 ; i-- )
 	{
-		#ifdef DAEDALUS_ENABLE_ASSERTS
-		DAEDALUS_ASSERT( in_idx + 1 < num_samples, "Input index out of range - %d / %d", in_idx+1, num_samples );
-#endif
+		if (in_idx >= num_samples)
+			in_idx = num_samples - 1;
+		const u32 next_idx = (in_idx + 1 < num_samples) ? in_idx + 1 : in_idx;
 //#if 0 // 1->Sine tone, 0->Normal
 		//static float c= 0.0f;
 		//c += 100.0f / 44100.0f;
@@ -117,21 +121,23 @@ void CAudioBuffer::AddSamples( const Sample * samples, u32 num_samples, u32 freq
 		// Resample in integer mode (faster & less ASM code) //Corn
 		Sample	out;
 
-		out.L = samples[ in_idx ].L + ((( samples[ in_idx + 1 ].L - samples[ in_idx ].L ) * s ) >> 12 );
-		out.R = samples[ in_idx ].R + ((( samples[ in_idx + 1 ].R - samples[ in_idx ].R ) * s ) >> 12 );
+		out.L = samples[ in_idx ].L + ((( samples[ next_idx ].L - samples[ in_idx ].L ) * s ) >> 12 );
+		out.R = samples[ in_idx ].R + ((( samples[ next_idx ].R - samples[ in_idx ].R ) * s ) >> 12 );
 
 		s += r;
 		in_idx += s >> 12;
 		s &= 4095;
 // #endif
 
-		write_ptr++;
-		if( write_ptr >= mBufferEnd )
-			write_ptr = mBufferBegin;
+		Sample *next_write_ptr = write_ptr + 1;
+		if (next_write_ptr >= mBufferEnd)
+			next_write_ptr = mBufferBegin;
 
-		while( write_ptr == read_ptr )
+		while (next_write_ptr == read_ptr)
 		{
-			// The buffer is full - spin until the read pointer advances.
+			/* Publish written samples before waiting for space, so a large
+			 * resampled block cannot deadlock on a full ring. */
+			mWritePtr = write_ptr;
 			//    Note - spends a lot of time here if program is running
 			//    fast. This loop locks the speed to the playback rate
 			//    as the program winds up waiting for the buffer to empty.
@@ -144,6 +150,12 @@ void CAudioBuffer::AddSamples( const Sample * samples, u32 num_samples, u32 freq
 		}
 
 		*write_ptr = out;
+		write_ptr = next_write_ptr;
+		if ((i & 31) == 0)
+		{
+			mWritePtr = write_ptr;
+			read_ptr = mReadPtr;
+		}
 	}
 
 	//Todo: Check Cache Routines

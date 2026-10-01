@@ -139,8 +139,18 @@ void AudioOutput::AddBuffer( u8 *start, u32 length )
 		StartAudio();
 
 	u32 num_samples = length / sizeof( Sample );
+	if (mFrequency == 0 || num_samples < 2)
+		return;
 
 	u32 output_freq = DESIRED_OUTPUT_FREQUENCY;
+	if (gAudioRateMatch)
+	{
+		output_freq = gSoundSync;
+		if (output_freq < DESIRED_OUTPUT_FREQUENCY)
+			output_freq = DESIRED_OUTPUT_FREQUENCY;
+		if (output_freq > DESIRED_OUTPUT_FREQUENCY * 2)
+			output_freq = DESIRED_OUTPUT_FREQUENCY * 2;
+	}
 	u32 input_freq = mFrequency;
 
 	if (audioOpen)

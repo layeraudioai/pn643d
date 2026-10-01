@@ -243,7 +243,7 @@ static void Initialize()
 
 	pglInit();
 	/* Enable real dual-eye rendering; slider state scales stereo separation. */
-	pglSetStereo(true, 0.05f);
+	pglSetStereo(true, 0.10f);
 
 	strcpy(gDaedalusExePath, DAEDALUS_CTR_PATH(""));
 	strcpy(g_DaedalusConfig.mSaveDir, DAEDALUS_CTR_PATH("SaveGames/"));

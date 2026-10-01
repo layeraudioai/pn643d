@@ -1,12 +1,17 @@
 # DaedalusX64
  
 very simple stuff
+-----------------
+---
 1: install the dependencies by double clicking the bat in the deps folder
+-----
 2: double click the romconvert.exe after place the roms in the Roms dir
+---
 3: ignore the outdated readme in the release zip(s)
- 
+--
+-
 ## Credits
-
+-
 - cmf028: Major contributer of the ARM DynaRec code
 - rinnegatamante, xerpi: Porting DaedalusX64 to the Playstation Vita
 - TheFloW: Contributions to the DynaRec code
@@ -17,3 +22,4 @@ very simple stuff
 - TheMrIron2: Optimizations, wiki maintenance
 - MrHuu: Icon, banner
 - MasterFeizz: 3DS Port of DaedalusX64, PicaGL, and imgui-picagl
+-

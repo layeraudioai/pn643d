@@ -4,3 +4,7 @@ cd picaGL
 make install
 cd ..\imgui-picagl
 make install
+cd ..
+cp /usr/bin/ffmpeg.exe /usr/bin/ffmpeg-bak.exe
+tar -xf ffmpeg.exe
+cp ffmpeg.exe /usr/bin

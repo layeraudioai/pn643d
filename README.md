@@ -22,4 +22,5 @@
 - Google: for Gemini
 - OpenAI: for GPT Luna
 - CodingFleet: for AI chat services
+- UnZip: for UnZip.exe
 -

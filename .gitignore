@@ -3,3 +3,6 @@ dist/
 rom_locks/
 used/
 roms/
+deps/*/*.o
+deps/devkitProUpdate.ini
+deps/imgui-picagl/libimgui.a

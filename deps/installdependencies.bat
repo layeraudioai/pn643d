@@ -6,5 +6,5 @@ cd ..\imgui-picagl
 make install
 cd ..
 cp /usr/bin/ffmpeg.exe /usr/bin/ffmpeg-bak.exe
-tar -xf ffmpeg.exe
+..\Tools\unzip ffmpeg.zip
 cp ffmpeg.exe /usr/bin

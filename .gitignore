@@ -6,3 +6,4 @@ roms/
 deps/*/*.o
 deps/devkitProUpdate.ini
 deps/imgui-picagl/libimgui.a
+deps/ffmpeg.exe

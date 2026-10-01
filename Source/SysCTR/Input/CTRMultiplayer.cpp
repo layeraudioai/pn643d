@@ -316,7 +316,7 @@ namespace
         }
         if (!s_socInitialized)
         {
-            Result result = socInit((u32)(uintptr_t)s_socBuffer, kOnlineSocBufferSize);
+            Result result = socInit((u32*)(uintptr_t)s_socBuffer, kOnlineSocBufferSize);
             if (R_FAILED(result))
             {
                 SetStatus("Internet socket service unavailable");

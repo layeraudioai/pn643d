@@ -85,7 +85,7 @@ namespace
 
     static int s_onlineSocket = -1;
     static bool s_socInitialized = false;
-    static u8 s_socBuffer[kOnlineSocBufferSize] __attribute__((aligned(0x1000)));
+    static u32 s_socBuffer[kOnlineSocBufferSize / sizeof(u32)] __attribute__((aligned(0x1000)));
     static u8 s_onlineTx[kOnlineInputSize];
     static size_t s_onlineTxSize = 0;
     static size_t s_onlineTxOffset = 0;
@@ -490,7 +490,7 @@ namespace
         }
         if (!s_socInitialized)
         {
-            Result result = socInit((u32)(uintptr_t)s_socBuffer, kOnlineSocBufferSize);
+            Result result = socInit(s_socBuffer, sizeof(s_socBuffer));
             if (R_FAILED(result))
             {
                 SetStatus("Internet socket service unavailable");
@@ -640,7 +640,7 @@ namespace
         }
         if (!s_socInitialized)
         {
-            Result result = socInit((u32)(uintptr_t)s_socBuffer, kOnlineSocBufferSize);
+            Result result = socInit(s_socBuffer, sizeof(s_socBuffer));
             if (R_FAILED(result))
             {
                 SetStatus("Internet socket service unavailable");

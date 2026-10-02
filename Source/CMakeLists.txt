@@ -127,6 +127,9 @@ if (CTR_RELEASE)
 
 	set(CMAKE_EXE_LINKER_FLAGS "-L${DEVKITPRO}/libctru/lib -L${DEVKITPRO}/picaGL/lib -L${DEVKITPRO}/portlibs/3ds/lib -specs=3dsx.specs -Wl,--gc-sections")
 
+	# Prefer this checkout's picaGL API header so Daedalus and the linked
+	# picaGL library agree on the stereo extensions used by Preferences.cpp.
+	include_directories(BEFORE ${PROJECT_SOURCE_DIR}/../../picaGL/include)
 	include_directories(${DEVKITPRO}/libctru/include ${DEVKITPRO}/picaGL/include ${DEVKITPRO}/portlibs/3ds/include)
 
 	add_definitions("-DDAEDALUS_CTR" "-D__3DS__")

@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //	These are our various compilation options
 //*****************************************************************************
 #include "BuildOptions.h"
+#include "Core/GameBuildConfig.h"
 
 // Platform specifc #includes, externs, #defines etc
 #ifdef DAEDALUS_W32

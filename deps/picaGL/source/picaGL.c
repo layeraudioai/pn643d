@@ -103,14 +103,21 @@ void pglSwapBuffers()
 	glFinish();
 	uint8_t output_format = gfxGetScreenFormat(pglState->display);
 	bool has_stereo = _pglStereoIsActive();
+	/* Keep the 3DS top screen in dual-framebuffer (800-pixel combined) mode
+	 * whenever stereo is enabled. At the bottom of the hardware 3D slider,
+	 * render once and mirror that image to both eyes; raising the slider switches
+	 * to the independently rendered stereoscopic image automatically. */
+	bool stereo_output = pglState->stereoEnabled &&
+		pglState->display == GFX_TOP && gfxIs3D();
 	pglState->stereoActive = has_stereo ? GL_TRUE : GL_FALSE;
 
-	if (has_stereo)
+	if (stereo_output)
 	{
 		uint32_t *left_framebuffer = (uint32_t*)gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL);
 		uint32_t *right_framebuffer = (uint32_t*)gfxGetFramebuffer(GFX_TOP, GFX_RIGHT, NULL, NULL);
 		_pglTransferToFramebuffer(pglState->colorBuffer, left_framebuffer, output_format);
-		_pglTransferToFramebuffer(pglState->stereoColorBuffer, right_framebuffer, output_format);
+		_pglTransferToFramebuffer(has_stereo ? pglState->stereoColorBuffer : pglState->colorBuffer,
+			right_framebuffer, output_format);
 	}
 	else
 	{
@@ -119,7 +126,7 @@ void pglSwapBuffers()
 	}
 
 	_queueRun(false);
-	gfxScreenSwapBuffers(pglState->display, has_stereo);
+	gfxScreenSwapBuffers(pglState->display, stereo_output);
 }
 
 void pglSelectScreen(unsigned display, unsigned side)

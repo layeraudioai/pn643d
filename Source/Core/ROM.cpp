@@ -497,8 +497,15 @@ bool ROM_LoadFile(const RomID & rom_id, const RomSettings & settings, const SRom
 	g_ROM.settings = settings;
 	g_ROM.TvType   = ROM_GetTvTypeFromID( g_ROM.rh.CountryID );
 
-	// Game specific hacks..
+	// Runtime per-ROM fixes remain enabled for all builds. A dedicated build
+	// may layer a verified compile-time profile on top of these defaults.
 	SpecificGameHacks( g_ROM.rh );
+#if DAEDALUS_TARGET_GAME_ID != 0
+	if( g_ROM.rh.CartID == DAEDALUS_TARGET_GAME_ID )
+		DAEDALUS_GAME_PROFILE_APPLY();
+#else
+	DAEDALUS_GAME_PROFILE_APPLY();
+#endif
 
 	DumpROMInfo( g_ROM.rh );
 

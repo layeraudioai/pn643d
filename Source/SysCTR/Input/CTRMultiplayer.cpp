@@ -82,6 +82,11 @@ namespace
     static u16 s_txSequence = 0;
     static u16 s_rxSequence = 0;
     static bool s_haveRxSequence = false;
+    static bool s_stateSyncPending = false;
+    static u64 s_lastStateSync = 0;
+    // Full controller snapshots go out at 10 Hz (and immediately after a
+    // slot is allocated), comfortably exceeding the once-per-second minimum.
+    static const u64 kStateSyncIntervalMs = 100;
 
     static int s_onlineSocket = -1;
     static bool s_socInitialized = false;
@@ -159,6 +164,8 @@ namespace
         s_txSequence = 0;
         s_rxSequence = 0;
         s_haveRxSequence = false;
+        s_stateSyncPending = false;
+        s_lastStateSync = 0;
     }
 
     static void EncodePads(Packet &packet, const OSContPad *pads)
@@ -191,14 +198,20 @@ namespace
             return s_nodeSlots[nodeId];
 
         bool used[4] = { false, false, false, false };
+        // The host's controller port is reserved before allocating remote
+        // players; otherwise the first joiner could control the same N64 port.
+        const unsigned hostSlot = CTRInput_GetLocalControllerPort();
+        if (hostSlot < 4)
+            used[hostSlot] = true;
         for (unsigned node = 1; node < UDS_MAXNODES; ++node)
-            if (s_nodeSlots[node] < 4)
+            if (node != UDS_HOST_NETWORKNODEID && s_nodeSlots[node] < 4)
                 used[s_nodeSlots[node]] = true;
         for (unsigned slot = 0; slot < 4; ++slot)
         {
             if (!used[slot])
             {
                 s_nodeSlots[nodeId] = (u8)slot;
+                s_stateSyncPending = true;
                 return (int)slot;
             }
         }
@@ -1040,16 +1053,24 @@ void Update(const OSContPad localPad[4], OSContPad outputPads[4])
                 s_hostPads[s_nodeSlots[node]] = s_peers[node].pad;
         }
 
-        Packet packet;
-        memset(&packet, 0, sizeof(packet));
-        packet.magic = kPacketMagic;
-        packet.version = kProtocolVersion;
-        packet.type = PACKET_STATE;
-        packet.sequence = ++s_txSequence;
-        memcpy(packet.nodeSlots, s_nodeSlots, sizeof(s_nodeSlots));
-        EncodePads(packet, s_hostPads);
-        udsSendTo(UDS_BROADCAST_NETWORKNODEID, kDataChannel,
-                  UDS_SENDFLAG_Default, &packet, sizeof(packet));
+        // A joining node needs a snapshot as soon as its controller slot has
+        // been assigned. Keep sending periodic full snapshots afterward so a
+        // missed packet or stale remote state is repaired at least once/sec.
+        if (s_stateSyncPending || now - s_lastStateSync >= kStateSyncIntervalMs)
+        {
+            Packet packet;
+            memset(&packet, 0, sizeof(packet));
+            packet.magic = kPacketMagic;
+            packet.version = kProtocolVersion;
+            packet.type = PACKET_STATE;
+            packet.sequence = ++s_txSequence;
+            memcpy(packet.nodeSlots, s_nodeSlots, sizeof(s_nodeSlots));
+            EncodePads(packet, s_hostPads);
+            udsSendTo(UDS_BROADCAST_NETWORKNODEID, kDataChannel,
+                      UDS_SENDFLAG_Default, &packet, sizeof(packet));
+            s_lastStateSync = now;
+            s_stateSyncPending = false;
+        }
         memcpy(outputPads, s_hostPads, sizeof(s_hostPads));
     }
     else
@@ -1074,10 +1095,16 @@ void Update(const OSContPad localPad[4], OSContPad outputPads[4])
                       UDS_SENDFLAG_Default, &packet, sizeof(packet));
 
             const u8 ownSlot = s_nodeSlots[connection.cur_NetworkNodeID];
-            if (ownSlot < 4)
+            if (ownSlot < 4 && s_haveRxSequence)
             {
                 memcpy(outputPads, s_hostPads, sizeof(s_hostPads));
-                outputPads[ownSlot] = localPad[0];
+                outputPads[ownSlot] = localPad[CTRInput_GetLocalControllerPort()];
+            }
+            else
+            {
+                // Do not run a temporary, differently-mapped local state while
+                // waiting for the host's initial authoritative snapshot.
+                memset(outputPads, 0, sizeof(OSContPad) * 4);
             }
         }
     }

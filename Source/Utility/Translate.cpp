@@ -30,7 +30,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "VolatileMem.h"
 
 #include "System/Paths.h"
-
 #include "Utility/Macros.h"
 
 #define TRANSLATE_DUMP_VALUE 0xDAEDDAED

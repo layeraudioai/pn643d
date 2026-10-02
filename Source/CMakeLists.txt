@@ -72,6 +72,7 @@ set (CTR_BUILD ${CTR_DEBUG_FILES} ${CTR_DYNAREC_FILES} ${CTR_GRAPHICS_FILES} ${C
 
 
 
+#Only difference between PSP Release and Debug is the definitions and Config Dev File - Try and merge
 
 
 if (MAC_RELEASE OR LINUX_RELEASE)
@@ -141,6 +142,32 @@ if (CTR_RELEASE)
 		${CTR_BUILD}
 	)
 
+	# A CartID is optional: zero keeps the standard multi-ROM build. For a
+	# dedicated profile, the build script can detect the ID from an N64 ROM.
+	set(DAEDALUS_GAME_ID_VALUE 0)
+	if(DEFINED DAEDALUS_GAME_ID AND NOT "${DAEDALUS_GAME_ID}" STREQUAL "")
+		string(TOUPPER "${DAEDALUS_GAME_ID}" DAEDALUS_GAME_ID_HEX)
+		string(REGEX REPLACE "^0X" "" DAEDALUS_GAME_ID_HEX "${DAEDALUS_GAME_ID_HEX}")
+		string(LENGTH "${DAEDALUS_GAME_ID_HEX}" DAEDALUS_GAME_ID_LENGTH)
+		if(NOT DAEDALUS_GAME_ID_HEX MATCHES "^[0-9A-F]+$" OR DAEDALUS_GAME_ID_LENGTH GREATER 4)
+			message(FATAL_ERROR "DAEDALUS_GAME_ID must be a 16-bit hexadecimal CartID (for example 514D)")
+		endif()
+		math(EXPR DAEDALUS_GAME_ID_VALUE "0x${DAEDALUS_GAME_ID_HEX}")
+		while(DAEDALUS_GAME_ID_LENGTH LESS 4)
+			set(DAEDALUS_GAME_ID_HEX "0${DAEDALUS_GAME_ID_HEX}")
+			math(EXPR DAEDALUS_GAME_ID_LENGTH "${DAEDALUS_GAME_ID_LENGTH} + 1")
+		endwhile()
+		message(STATUS "Building compile-time game profile for CartID 0x${DAEDALUS_GAME_ID_HEX}")
+	endif()
+
+	target_compile_definitions(daedalus PRIVATE DAEDALUS_TARGET_GAME_ID=${DAEDALUS_GAME_ID_VALUE})
+	set(DAEDALUS_GAME_PROFILE "${PROJECT_SOURCE_DIR}/Core/GameProfiles/${DAEDALUS_GAME_ID_HEX}.h")
+	if(DAEDALUS_GAME_ID_VALUE AND EXISTS "${DAEDALUS_GAME_PROFILE}")
+		target_compile_definitions(daedalus PRIVATE
+			"DAEDALUS_GAME_PROFILE_HEADER=\"Core/GameProfiles/${DAEDALUS_GAME_ID_HEX}.h\"")
+		message(STATUS "Using game profile header ${DAEDALUS_GAME_PROFILE}")
+	endif()
+
 	target_include_directories(daedalus PRIVATE
 		${PROJECT_SOURCE_DIR}
 		${PROJECT_SOURCE_DIR}/SysCTR/Include
@@ -157,6 +184,11 @@ if (CTR_RELEASE)
 		${CTR_MAIN_FILES}
 		${CTR_INPUTMANAGER_FILES}
 	)
+	target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_TARGET_GAME_ID=${DAEDALUS_GAME_ID_VALUE})
+	if(DAEDALUS_GAME_ID_VALUE AND EXISTS "${DAEDALUS_GAME_PROFILE}")
+		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE
+			"DAEDALUS_GAME_PROFILE_HEADER=\"Core/GameProfiles/${DAEDALUS_GAME_ID_HEX}.h\"")
+	endif()
 
 	target_include_directories(${PROJECT_NAME}.elf PRIVATE
 		${PROJECT_SOURCE_DIR}

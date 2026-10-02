@@ -84,6 +84,7 @@ typedef struct {
 	float				stereoSeparation;
 	GLboolean			stereoEnabled;
 	GLboolean			stereoParallax;
+	GLboolean			stereoPopout;
 	GLboolean			stereoActive;
 	GLboolean			stereoRightEye;
 

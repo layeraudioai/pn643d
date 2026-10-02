@@ -151,6 +151,7 @@ struct SRomPreferences
 	EFrameskipValue				Frameskip;
 	float						MaxFPS;
 	float						StereoSeparation;
+	bool						StereoPopout;
 	EAudioPluginMode			AudioEnabled;
 	f32							ZoomX;
 	u32							SpeedSyncEnabled;

@@ -285,6 +285,10 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 			if( preferences.StereoSeparation < 0.0f ) preferences.StereoSeparation = 0.0f;
 			if( preferences.StereoSeparation > 0.20f ) preferences.StereoSeparation = 0.20f;
 		}
+		if( section->FindProperty( "StereoPopout", &property ) )
+		{
+			preferences.StereoPopout = property->GetBooleanValue( false );
+		}
 #ifdef DAEDALUS_PSP
 		if( section->FindProperty( "Controller", &property ) )
 		{
@@ -332,6 +336,7 @@ void IPreferences::OutputSectionDetails( const RomID & id, const SRomPreferences
 	fprintf(fh, "ZoomX=%f\n",                      preferences.ZoomX );
 	fprintf(fh, "MaxFPS=%d\n",                     (int)preferences.MaxFPS );
 	fprintf(fh, "StereoSeparation=%.3f\n",        preferences.StereoSeparation );
+	fprintf(fh, "StereoPopout=%d\n",              preferences.StereoPopout );
 	fprintf(fh, "MemoryAccessOptimisation=%d\n",   preferences.MemoryAccessOptimisation);
 	fprintf(fh, "CheatsEnabled=%d\n",              preferences.CheatsEnabled);
 #ifdef DAEDALUS_PSP
@@ -462,7 +467,8 @@ SRomPreferences::SRomPreferences()
 	,	AudioEnabled( APM_ENABLED_ASYNC )
 	,	ZoomX( 1.0f )
 	,	MaxFPS( 60.0f )
-	,	StereoSeparation( 0.0012525f )
+	,	StereoSeparation( 0.025f )
+	,	StereoPopout( false )
 	,	SpeedSyncEnabled( 1 )
 	,	ControllerIndex( 0 )
 {
@@ -488,7 +494,8 @@ void SRomPreferences::Reset()
 	//AudioAdaptFrequency      = false;
 	ZoomX                      = 1.0f;
 	MaxFPS                     = 60.0f;
-	StereoSeparation           = 0.00125f;
+	StereoSeparation           = 0.025f;
+	StereoPopout               = false;
 	CheatsEnabled              = false;
 	ControllerIndex            = 0;
 }
@@ -513,6 +520,7 @@ void SRomPreferences::Apply() const
 	gMaxFPS                     = MaxFPS;
 #ifdef DAEDALUS_CTR
 	pglSetStereo(true, StereoSeparation);
+	pglSetStereoPopout(StereoPopout);
 #endif
 	gCheatsEnabled              = g_ROM.settings.CheatsEnabled || CheatsEnabled;
 	gAudioPluginEnabled         = AudioEnabled;

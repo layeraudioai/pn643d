@@ -23,9 +23,10 @@ namespace CTRMultiplayer
     void GetRoomLabel(size_t roomIndex, char *buffer, size_t bufferSize);
     bool Join(size_t roomIndex);
 
-    // Internet sessions use the bundled TCP relay server. The server address
-    // accepts a hostname or IPv4 address, optionally followed by :port.
-    bool HostOnline(const char *serverAddress);
+    // Online hosting runs the TCP relay directly on this 3DS. Pass an optional
+    // local listening port (empty uses 37777); joiners connect to the host's
+    // public hostname/IP and forwarded TCP port.
+    bool HostOnline(const char *listenPort);
     bool JoinOnline(const char *serverAddress, const char *roomCode);
     const char *GetOnlineRoomCode();
     bool IsOnline();

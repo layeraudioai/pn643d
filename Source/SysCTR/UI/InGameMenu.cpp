@@ -141,9 +141,15 @@ static void DrawOptionsPage()
 
 	if(UI::DrawButton(10, 130, 145, 48, stereoString))
 	{
-		preferences.StereoSeparation += 0.00125f;
+		preferences.StereoSeparation += 0.025f;
 		if(preferences.StereoSeparation > 0.2001f)
 			preferences.StereoSeparation = 0.0f;
+	}
+
+	if(UI::DrawButton(165, 130, 145, 48,
+		preferences.StereoPopout ? "3D: Pop-out" : "3D: Depth"))
+	{
+		preferences.StereoPopout = !preferences.StereoPopout;
 	}
 
 	if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
@@ -256,7 +262,10 @@ static void DrawOnlineInfoPage(bool host)
 	if (CTRMultiplayer::GetState() != CTRMultiplayer::STATE_OFF)
 	{
 		if (host)
-			UI::DrawText(14, 66, "Give the room code to your friends.");
+		{
+			UI::DrawText(14, 66, "Share code, public address and TCP port.");
+			UI::DrawText(14, 86, "Forward the port to this 3DS on your router.");
+		}
 		else
 			UI::DrawText(14, 66, "Online input relay is connected.");
 		if (UI::DrawButton(10, 112, 300, 48, "Stop session"))
@@ -264,16 +273,25 @@ static void DrawOnlineInfoPage(bool host)
 	}
 	else
 	{
-		UI::DrawText(14, 68, "Enter relay address as host:port.");
-		UI::DrawText(14, 88, "Deploy online-relay/server.py first.");
-		if (UI::DrawButton(10, 112, 300, 48, host ? "Create online room" : "Enter room code"))
+		if (host)
 		{
-			char serverAddress[64];
-			if (PromptOnlineText("Relay hostname or IPv4:port", serverAddress, sizeof(serverAddress)))
+			UI::DrawText(14, 68, "This 3DS runs the online relay.");
+			UI::DrawText(14, 88, "Forward its TCP port on your router.");
+			if (UI::DrawButton(10, 112, 300, 48, "Start 3DS online host"))
 			{
-				if (host)
-					CTRMultiplayer::HostOnline(serverAddress);
-				else
+				char listenPort[16];
+				if (PromptOnlineText("TCP listen port (enter 37777)", listenPort, sizeof(listenPort)))
+					CTRMultiplayer::HostOnline(listenPort);
+			}
+		}
+		else
+		{
+			UI::DrawText(14, 68, "Enter the 3DS host address:port.");
+			UI::DrawText(14, 88, "The host's router must forward TCP.");
+			if (UI::DrawButton(10, 112, 300, 48, "Enter host and room code"))
+			{
+				char serverAddress[64];
+				if (PromptOnlineText("Host hostname or IPv4:port", serverAddress, sizeof(serverAddress)))
 				{
 					char roomCode[16];
 					if (PromptOnlineText("Enter the 6-character room code", roomCode, sizeof(roomCode)))

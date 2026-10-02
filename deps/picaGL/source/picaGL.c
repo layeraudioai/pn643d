@@ -146,3 +146,9 @@ void pglSetStereoParallax(int enabled)
 	if (pglState)
 		pglState->stereoParallax = enabled ? GL_TRUE : GL_FALSE;
 }
+
+void pglSetStereoPopout(int enabled)
+{
+	if (pglState)
+		pglState->stereoPopout = enabled ? GL_TRUE : GL_FALSE;
+}

@@ -19,6 +19,8 @@ void pglSelectScreen(unsigned display, unsigned side);
 void pglSetStereo(int enabled, float separation);
 /* Keep stereo output but suppress the per-eye projection offset when disabled. */
 void pglSetStereoParallax(int enabled);
+/* Reverse the eye disparity so the scene appears in front of the screen. */
+void pglSetStereoPopout(int enabled);
 
 /* Transferable picaGL shader cache support. Import before pglInit(); export
  * after pglInit(). The supplied buffers must remain valid until pglInit(). */

@@ -348,12 +348,12 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 		if (stereo && pglState->stereoParallax)
 		{
 			float slider = osGet3DSliderState();
-			/* stereoSeparation is a normalized disparity control. N64 scenes
-			 * commonly place perspective geometry hundreds of view-space units
-			 * away, so use a longer reference distance for perspective cameras;
-			 * orthographic UI/background layers keep the smaller baseline. */
+			/* stereoSeparation is the user-facing master strength. N64 polygonal
+			 * scenes use perspective projection, so boost their disparity. Keep
+			 * orthographic sprites/UI much closer to the screen to avoid excessive
+			 * eye strain and sprite-edge ghosting. */
 			bool perspective = fabsf(pglState->matrix_projection.row[3].z) > 0.5f;
-			float reference_depth = perspective ? 400.0f : 100.0f;
+			float reference_depth = perspective ? 600.0f : 35.0f;
 			float focal_scale = fmaxf(fabsf(pglState->matrix_projection.row[0].x),
 				fabsf(pglState->matrix_projection.row[0].y));
 			focal_scale = fmaxf(focal_scale,
@@ -363,6 +363,8 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 				focal_scale = 1.0f;
 
 			float eye_sign = right_eye ? 1.0f : -1.0f;
+			if (pglState->stereoPopout)
+				eye_sign = -eye_sign;
 			float eye_offset = eye_sign * 0.5f * pglState->stereoSeparation *
 				slider * reference_depth / focal_scale;
 

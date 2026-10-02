@@ -44,6 +44,7 @@ void _stateInitialize()
 	pglState->stereoSeparation = 0.025f;
 	pglState->stereoEnabled = GL_FALSE;
 	pglState->stereoParallax = GL_TRUE;
+	pglState->stereoPopout = GL_FALSE;
 	pglState->stereoActive = GL_FALSE;
 	pglState->stereoRightEye = GL_FALSE;
 

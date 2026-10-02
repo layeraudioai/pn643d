@@ -98,6 +98,33 @@ namespace
     static u8 s_onlineActiveMask = 0;
     static char s_onlineRoomCode[9] = "";
 
+    // A 3DS-hosted online room is a small nonblocking TCP relay. It is only
+    // opened by HostOnline; local UDS sessions never start an Internet server.
+    struct OnlinePeer
+    {
+        int socket;
+        bool handshaking;
+        u8 hello[kOnlineHelloSize];
+        size_t helloSize;
+        u8 input[kOnlineInputSize];
+        size_t inputSize;
+        u8 output[kOnlineWelcomeSize + kOnlineStateSize];
+        size_t outputSize;
+        size_t outputOffset;
+        u8 slot;
+        u64 lastActivity;
+        u16 lastSequence;
+        bool haveSequence;
+    };
+
+    static int s_onlineListener = -1;
+    static OnlinePeer s_onlinePeers[3] = { { -1 }, { -1 }, { -1 } };
+    static OSContPad s_serverPads[4];
+    static u8 s_serverActiveMask = 0;
+    static u16 s_serverSequence = 0;
+    static const char *kRoomAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    static const u64 kServerPeerTimeoutMs = 60000;
+
     static void SetStatus(const char *text)
     {
         snprintf(s_status, sizeof(s_status), "%s", text ? text : "");
@@ -239,6 +266,302 @@ namespace
         return (u16)(((u16)src[0] << 8) | src[1]);
     }
 
+    static bool SetNonBlocking(int fd)
+    {
+        const int flags = fcntl(fd, F_GETFL, 0);
+        return flags >= 0 && fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
+    }
+
+    static void ResetServerPeer(OnlinePeer &peer)
+    {
+        if (peer.socket >= 0)
+            close(peer.socket);
+        if (peer.slot < 4)
+        {
+            s_serverActiveMask &= (u8)~(1u << peer.slot);
+            memset(&s_serverPads[peer.slot], 0, sizeof(OSContPad));
+        }
+        memset(&peer, 0, sizeof(peer));
+        peer.socket = -1;
+        peer.slot = 0xFF;
+    }
+
+    static void QueueServerState(OnlinePeer &peer)
+    {
+        if (peer.outputOffset < peer.outputSize)
+            return;
+        u8 *state = peer.output;
+        memcpy(state, "PN64", 4);
+        state[4] = kOnlinePacketVersion;
+        state[5] = 11;
+        Put16(state + 6, ++s_serverSequence);
+        state[8] = s_serverActiveMask;
+        for (unsigned i = 0; i < 4; ++i)
+        {
+            u8 *wire = state + 9 + i * 4;
+            Put16(wire, (u16)s_serverPads[i].button);
+            wire[2] = (u8)(s8)s_serverPads[i].stick_x;
+            wire[3] = (u8)(s8)s_serverPads[i].stick_y;
+        }
+        peer.outputSize = kOnlineStateSize;
+        peer.outputOffset = 0;
+    }
+
+    static bool RoomCodeMatches(const u8 *code)
+    {
+        for (unsigned i = 0; i < 8; ++i)
+        {
+            char c = (char)code[i];
+            if (c >= 'a' && c <= 'z')
+                c = (char)(c - 'a' + 'A');
+            const char expected = s_onlineRoomCode[i] ? s_onlineRoomCode[i] : ' ';
+            if (c != expected)
+                return false;
+        }
+        return true;
+    }
+
+    static void AcceptOnlinePeers()
+    {
+        for (unsigned accepted = 0; accepted < 3; ++accepted)
+        {
+            struct sockaddr_in address;
+            socklen_t addressSize = sizeof(address);
+            const int fd = accept(s_onlineListener, (struct sockaddr *)&address, &addressSize);
+            if (fd < 0)
+            {
+                if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EINTR)
+                    break;
+                break;
+            }
+            if (!SetNonBlocking(fd))
+            {
+                close(fd);
+                continue;
+            }
+            int noDelay = 1;
+            setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &noDelay, sizeof(noDelay));
+            unsigned i;
+            for (i = 0; i < 3 && s_onlinePeers[i].socket >= 0; ++i) {}
+            if (i == 3)
+            {
+                close(fd);
+                continue;
+            }
+            OnlinePeer &peer = s_onlinePeers[i];
+            memset(&peer, 0, sizeof(peer));
+            peer.socket = fd;
+            peer.slot = 0xFF;
+            peer.handshaking = true;
+            peer.lastActivity = osGetTime();
+        }
+    }
+
+    static void PollOnlineServer(const OSContPad localPad[4], OSContPad outputPads[4])
+    {
+        AcceptOnlinePeers();
+        const u64 now = osGetTime();
+        s_serverPads[CTRInput_GetLocalControllerPort()] = localPad[CTRInput_GetLocalControllerPort()];
+        s_serverActiveMask |= (u8)(1u << CTRInput_GetLocalControllerPort());
+
+        for (unsigned i = 0; i < 3; ++i)
+        {
+            OnlinePeer &peer = s_onlinePeers[i];
+            if (peer.socket < 0)
+                continue;
+
+            if (peer.outputOffset < peer.outputSize)
+            {
+                const ssize_t sent = send(peer.socket, peer.output + peer.outputOffset,
+                                          peer.outputSize - peer.outputOffset, 0);
+                if (sent > 0)
+                    peer.outputOffset += (size_t)sent;
+                else if (sent < 0 && errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR)
+                {
+                    ResetServerPeer(peer);
+                    continue;
+                }
+                if (peer.outputOffset == peer.outputSize)
+                    peer.outputSize = peer.outputOffset = 0;
+            }
+
+            u8 *buffer = peer.handshaking ? peer.hello : peer.input;
+            size_t *bufferSize = peer.handshaking ? &peer.helloSize : &peer.inputSize;
+            const size_t expectedSize = peer.handshaking ? kOnlineHelloSize : kOnlineInputSize;
+            const ssize_t received = recv(peer.socket, buffer + *bufferSize,
+                                          expectedSize - *bufferSize, 0);
+            if (received > 0)
+            {
+                *bufferSize += (size_t)received;
+                peer.lastActivity = now;
+            }
+            else if (received == 0 || (received < 0 && errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR))
+            {
+                ResetServerPeer(peer);
+                continue;
+            }
+
+            if (peer.handshaking && peer.helloSize == kOnlineHelloSize)
+            {
+                if (memcmp(peer.hello, "PN64", 4) != 0 || peer.hello[4] != kOnlinePacketVersion ||
+                    peer.hello[5] != 2 || !RoomCodeMatches(peer.hello + 6))
+                {
+                    ResetServerPeer(peer);
+                    continue;
+                }
+                bool slotUsed[4] = { false, false, false, false };
+                slotUsed[CTRInput_GetLocalControllerPort()] = true;
+                for (unsigned p = 0; p < 3; ++p)
+                    if (s_onlinePeers[p].socket >= 0 && !s_onlinePeers[p].handshaking && s_onlinePeers[p].slot < 4)
+                        slotUsed[s_onlinePeers[p].slot] = true;
+                unsigned slot;
+                for (slot = 1; slot < 4 && slotUsed[slot]; ++slot) {}
+                if (slot == 4)
+                {
+                    ResetServerPeer(peer);
+                    continue;
+                }
+                peer.slot = (u8)slot;
+                peer.handshaking = false;
+                s_serverActiveMask |= (u8)(1u << slot);
+                u8 *welcome = peer.output;
+                memcpy(welcome, "PN64", 4);
+                welcome[4] = kOnlinePacketVersion;
+                welcome[5] = 3;
+                welcome[6] = (u8)slot;
+                welcome[7] = 0;
+                memset(welcome + 8, ' ', 8);
+                memcpy(welcome + 8, s_onlineRoomCode, 6);
+                peer.outputSize = kOnlineWelcomeSize;
+                peer.outputOffset = 0;
+                // Queue the first state immediately after the welcome is sent.
+                peer.inputSize = 0;
+            }
+            else if (!peer.handshaking && peer.inputSize == kOnlineInputSize)
+            {
+                const u8 *packet = peer.input;
+                if (memcmp(packet, "PN64", 4) == 0 && packet[4] == kOnlinePacketVersion && packet[5] == 10)
+                {
+                    const u16 sequence = Get16(packet + 6);
+                    if (!peer.haveSequence || (s16)(sequence - peer.lastSequence) > 0)
+                    {
+                        peer.haveSequence = true;
+                        peer.lastSequence = sequence;
+                        s_serverPads[peer.slot].button = Get16(packet + 8);
+                        s_serverPads[peer.slot].stick_x = (s8)packet[10];
+                        s_serverPads[peer.slot].stick_y = (s8)packet[11];
+                    }
+                }
+                else
+                {
+                    ResetServerPeer(peer);
+                    continue;
+                }
+                peer.inputSize = 0;
+            }
+
+            if (peer.socket >= 0 && now - peer.lastActivity > kServerPeerTimeoutMs)
+                ResetServerPeer(peer);
+        }
+
+        for (unsigned i = 0; i < 3; ++i)
+        {
+            OnlinePeer &peer = s_onlinePeers[i];
+            if (peer.socket < 0 || peer.handshaking)
+                continue;
+            if (peer.outputSize == 0)
+                QueueServerState(peer);
+        }
+        memcpy(outputPads, s_serverPads, sizeof(s_serverPads));
+    }
+
+    static bool StartOnlineHost(const char *portText)
+    {
+        long port = 37777;
+        if (portText && portText[0])
+        {
+            char *end = NULL;
+            port = strtol(portText, &end, 10);
+            if (!end || *end || port < 1 || port > 65535)
+            {
+                SetStatus("Invalid TCP port (1-65535)");
+                return false;
+            }
+        }
+        if (!s_socInitialized)
+        {
+            Result result = socInit((u32)(uintptr_t)s_socBuffer, kOnlineSocBufferSize);
+            if (R_FAILED(result))
+            {
+                SetStatus("Internet socket service unavailable");
+                return false;
+            }
+            s_socInitialized = true;
+        }
+        s_onlineListener = socket(AF_INET, SOCK_STREAM, 0);
+        if (s_onlineListener < 0)
+        {
+            socExit();
+            s_socInitialized = false;
+            SetStatus("Could not open TCP listener");
+            return false;
+        }
+        int reuse = 1;
+        setsockopt(s_onlineListener, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+        struct sockaddr_in address;
+        memset(&address, 0, sizeof(address));
+        address.sin_family = AF_INET;
+        address.sin_addr.s_addr = htonl(INADDR_ANY);
+        address.sin_port = htons((u16)port);
+        if (bind(s_onlineListener, (struct sockaddr *)&address, sizeof(address)) < 0 ||
+            listen(s_onlineListener, 3) < 0 || !SetNonBlocking(s_onlineListener))
+        {
+            close(s_onlineListener);
+            s_onlineListener = -1;
+            socExit();
+            s_socInitialized = false;
+            SetStatus("TCP port unavailable - check port and Wi-Fi");
+            return false;
+        }
+
+        for (unsigned i = 0; i < 3; ++i)
+        {
+            memset(&s_onlinePeers[i], 0, sizeof(s_onlinePeers[i]));
+            s_onlinePeers[i].socket = -1;
+            s_onlinePeers[i].slot = 0xFF;
+        }
+        memset(s_serverPads, 0, sizeof(s_serverPads));
+        s_serverActiveMask = 0;
+        s_serverSequence = 0;
+        u64 roomSeed = osGetTime();
+        // This code is a room identifier, not a secret or an authentication key.
+        for (unsigned i = 0; i < 6; ++i)
+        {
+            roomSeed = roomSeed * 1103515245u + 12345u;
+            s_onlineRoomCode[i] = kRoomAlphabet[(roomSeed >> 16) % 32];
+        }
+        s_onlineRoomCode[6] = s_onlineRoomCode[7] = ' ';
+        s_onlineRoomCode[8] = '\0';
+        s_onlineSlot = CTRInput_GetLocalControllerPort();
+        s_onlineTxSize = s_onlineTxOffset = s_onlineRxSize = 0;
+        s_state = STATE_ONLINE_HOSTING;
+        snprintf(s_status, sizeof(s_status), "Room %.6s - port %ld", s_onlineRoomCode, port);
+        return true;
+    }
+
+    static void CloseOnlineServer()
+    {
+        if (s_onlineListener >= 0)
+        {
+            close(s_onlineListener);
+            s_onlineListener = -1;
+        }
+        for (unsigned i = 0; i < 3; ++i)
+            ResetServerPeer(s_onlinePeers[i]);
+        memset(s_serverPads, 0, sizeof(s_serverPads));
+        s_serverActiveMask = 0;
+    }
+
     static bool WaitSocket(int fd, bool writing, int timeoutSeconds)
     {
         fd_set set;
@@ -290,6 +613,7 @@ namespace
 
     static void CloseOnlineSocket()
     {
+        CloseOnlineServer();
         if (s_onlineSocket >= 0)
         {
             close(s_onlineSocket);
@@ -316,7 +640,7 @@ namespace
         }
         if (!s_socInitialized)
         {
-            Result result = socInit((u32*)(uintptr_t)s_socBuffer, kOnlineSocBufferSize);
+            Result result = socInit((u32)(uintptr_t)s_socBuffer, kOnlineSocBufferSize);
             if (R_FAILED(result))
             {
                 SetStatus("Internet socket service unavailable");
@@ -616,7 +940,7 @@ bool Join(size_t roomIndex)
     return true;
 }
 
-bool HostOnline(const char *serverAddress)
+bool HostOnline(const char *listenPort)
 {
     if (s_state != STATE_OFF)
     {
@@ -624,11 +948,7 @@ bool HostOnline(const char *serverAddress)
         return false;
     }
     ClearInputs();
-    if (!ConnectOnline(serverAddress, true, NULL))
-        return false;
-    s_state = STATE_ONLINE_HOSTING;
-    snprintf(s_status, sizeof(s_status), "Room %s - share this code", s_onlineRoomCode);
-    return true;
+    return StartOnlineHost(listenPort);
 }
 
 bool JoinOnline(const char *serverAddress, const char *roomCode)
@@ -686,14 +1006,19 @@ void Update(const OSContPad localPad[4], OSContPad outputPads[4])
     if (s_state == STATE_OFF)
         return;
 
-    if (IsOnline())
+    if (s_state == STATE_ONLINE_HOSTING)
+    {
+        PollOnlineServer(localPad, outputPads);
+        return;
+    }
+    if (s_state == STATE_ONLINE_JOINED)
     {
         if (!PollOnline(localPad, outputPads))
         {
             CloseOnlineSocket();
             s_state = STATE_OFF;
             ClearInputs();
-            SetStatus("Relay connection lost - session stopped");
+            SetStatus("Host connection lost - session stopped");
         }
         return;
     }

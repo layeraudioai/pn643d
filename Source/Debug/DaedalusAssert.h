@@ -153,9 +153,11 @@ inline void SetAssertHook( DaedalusAssertHook hook )
 
 #else // DAEDALUS_ENABLE_ASSERTS
 
-#define DAEDALUS_ASSERT( ... )		do { DAEDALUS_USE(__VA_ARGS__); } while(0)
-#define DAEDALUS_ASSERT_Q( ... )	do { DAEDALUS_USE(__VA_ARGS__); } while(0)
-#define DAEDALUS_ERROR( ... )		do { DAEDALUS_USE(__VA_ARGS__); } while(0)
+// Diagnostics are compiled out in non-assert builds. Do not evaluate their
+// arguments or form comma expressions: the arguments may have side effects.
+#define DAEDALUS_ASSERT( ... )		do { } while(0)
+#define DAEDALUS_ASSERT_Q( ... )	do { } while(0)
+#define DAEDALUS_ERROR( ... )		do { } while(0)
 
 #endif // DAEDALUS_ENABLE_ASSERTS
 

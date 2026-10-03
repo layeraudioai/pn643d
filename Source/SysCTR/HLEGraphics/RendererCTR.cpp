@@ -2,6 +2,8 @@
 #include "RendererCTR.h"
 
 #include <GL/picaGL.h>
+#include <malloc.h>
+#include <new>
 
 #include "Combiner/BlendConstant.h"
 #include "Combiner/CombinerTree.h"
@@ -916,14 +918,23 @@ void RendererCTR::Draw2DTextureR(f32 x0, f32 y0, f32 x1, f32 y1, f32 x2,
 
 bool CreateRenderer()
 {
-	gRendererCTR = new RendererCTR();
+	void * storage = memalign(alignof(RendererCTR), sizeof(RendererCTR));
+	if (storage == nullptr)
+	{
+		return false;
+	}
+	gRendererCTR = new (storage) RendererCTR();
 	gRenderer    = gRendererCTR;
 	return true;
 }
 
 void DestroyRenderer()
 {
-	delete gRendererCTR;
+	if (gRendererCTR != nullptr)
+	{
+		gRendererCTR->~RendererCTR();
+		free(gRendererCTR);
+	}
 	gRendererCTR = nullptr;
 	gRenderer    = nullptr;
 }

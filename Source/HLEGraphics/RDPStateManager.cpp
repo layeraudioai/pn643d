@@ -327,9 +327,18 @@ void CRDPStateManager::Reset()
 	ClearAllEntries();
 	InvalidateAllTileTextureInfo();
 
-	memset(mTiles, 0, sizeof(mTiles));
-	memset(mTileSizes, 0, sizeof(mTileSizes));
-	memset(mTileTextureInfo, 0, sizeof(mTileTextureInfo));
+	for (RDP_Tile & tile : mTiles)
+	{
+		tile = RDP_Tile{};
+	}
+	for (RDP_TileSize & tile_size : mTileSizes)
+	{
+		tile_size = RDP_TileSize{};
+	}
+	for (TextureInfo & texture_info : mTileTextureInfo)
+	{
+		texture_info = TextureInfo{};
+	}
 }
 
 void CRDPStateManager::SetTile( const RDP_Tile & tile )

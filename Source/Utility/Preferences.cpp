@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include <string>
 #include <set>
@@ -125,7 +126,7 @@ IPreferences::~IPreferences()
 static RomID RomIDFromString( const char * str )
 {
 	u32 crc1, crc2, country;
-	sscanf( str, "%08x%08x-%02x", &crc1, &crc2, &country );
+	sscanf( str, "%08" SCNx32 "%08" SCNx32 "-%02" SCNx32, &crc1, &crc2, &country );
 	return RomID( crc1, crc2, (u8)country );
 }
 
@@ -318,9 +319,9 @@ void IPreferences::OutputSectionDetails( const RomID & id, const SRomPreferences
 	RomSettings		settings;
 	CRomSettingsDB::Get()->GetSettings( id, &settings );
 
-	fprintf(fh, "{%08x%08x-%02x}\t// %s\n", id.CRC[0], id.CRC[1], id.CountryID, settings.GameName.c_str() );
+	fprintf(fh, "{%08" PRIx32 "%08" PRIx32 "-%02x}\t// %s\n", id.CRC[0], id.CRC[1], static_cast<unsigned int>(id.CountryID), settings.GameName.c_str() );
 	fprintf(fh, "PatchesEnabled=%d\n",             preferences.PatchesEnabled);
-	fprintf(fh, "SpeedSyncEnabled=%d\n",           preferences.SpeedSyncEnabled);
+	fprintf(fh, "SpeedSyncEnabled=%" PRIu32 "\n", preferences.SpeedSyncEnabled);
 	fprintf(fh, "DynarecEnabled=%d\n",             preferences.DynarecEnabled);
 	fprintf(fh, "DynarecLoopOptimisation=%d\n",    preferences.DynarecLoopOptimisation);
 	fprintf(fh, "DynarecDoublesOptimisation=%d\n", preferences.DynarecDoublesOptimisation);
@@ -330,8 +331,8 @@ void IPreferences::OutputSectionDetails( const RomID & id, const SRomPreferences
 	fprintf(fh, "AudioRateMatch=%d\n",             preferences.AudioRateMatch);
 	fprintf(fh, "VideoRateMatch=%d\n",             preferences.VideoRateMatch);
 	fprintf(fh, "FogEnabled=%d\n",                 preferences.FogEnabled);
-	fprintf(fh, "CheckTextureHashFrequency=%d\n",  GetTexureHashFrequencyAsFrames( preferences.CheckTextureHashFrequency ) );
-	fprintf(fh, "Frameskip=%d\n",                  GetFrameskipValueAsInt( preferences.Frameskip ) );
+	fprintf(fh, "CheckTextureHashFrequency=%" PRIu32 "\n", GetTexureHashFrequencyAsFrames( preferences.CheckTextureHashFrequency ) );
+	fprintf(fh, "Frameskip=%" PRIu32 "\n", GetFrameskipValueAsInt( preferences.Frameskip ) );
 	fprintf(fh, "AudioEnabled=%d\n",               preferences.AudioEnabled);
 	fprintf(fh, "ZoomX=%f\n",                      preferences.ZoomX );
 	fprintf(fh, "MaxFPS=%d\n",                     (int)preferences.MaxFPS );
@@ -355,7 +356,7 @@ void IPreferences::Commit()
 
 #define OUTPUT_BOOL( b, nm, def )		fprintf( fh, "%s=%s\n", #nm, b.nm ? "yes" : "no" );
 #define OUTPUT_FLOAT( b, nm, def )		fprintf( fh, "%s=%f\n", #nm, b.nm );
-#define OUTPUT_INT( b, nm, def )		fprintf( fh, "%s=%d\n", #nm, b.nm );
+#define OUTPUT_INT( b, nm, def )		fprintf( fh, "%s=%d\n", #nm, static_cast<int>(b.nm) );
 #ifdef DAEDALUS_PSP
 #define OUTPUT_LANGUAGE( b, nm, def )	fprintf( fh, "%s=%s\n", #nm, Translate_NameFromIndex( b.nm ) );
 #endif
@@ -464,11 +465,11 @@ SRomPreferences::SRomPreferences()
 //	,	AudioAdaptFrequency( false )
 	,	CheckTextureHashFrequency( kDefaultTextureHashFrequency )
 	,	Frameskip( FV_DISABLED )
-	,	AudioEnabled( APM_ENABLED_ASYNC )
-	,	ZoomX( 1.0f )
 	,	MaxFPS( 60.0f )
 	,	StereoSeparation( 0.025f )
 	,	StereoPopout( false )
+	,	AudioEnabled( APM_ENABLED_ASYNC )
+	,	ZoomX( 1.0f )
 	,	SpeedSyncEnabled( 1 )
 	,	ControllerIndex( 0 )
 {

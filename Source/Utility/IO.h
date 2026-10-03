@@ -55,8 +55,13 @@ namespace IO
 
 		inline void Assign( char * p_dest, const char * p_dir )
 		{
-			strncpy(p_dest, p_dir, kMaxPathLen);
-			p_dest[kMaxPathLen-1] = '\0';
+			size_t length = 0;
+			while (length < kMaxPathLen - 1 && p_dir[length] != '\0')
+			{
+				++length;
+			}
+			memcpy(p_dest, p_dir, length);
+			p_dest[length] = '\0';
 		}
 
 		char *				Combine( char * p_dest, const char * p_dir, const char * p_file );

@@ -135,7 +135,7 @@ void decode_video_frame_task(OSTask *task)
 
     int i, j;
     uint8_t Y, Cb, Cr;
-    uint32_t pixel;
+    u32 pixel;
     int pY_1st_row, pY_2nd_row, pDest_1st_row, pDest_2nd_row;
 
     for (i = 0; i < nMovieHeight; i += 2)

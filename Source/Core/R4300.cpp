@@ -1454,10 +1454,10 @@ static void R4300_CALL_TYPE R4300_Special_DMULT( R4300_CALL_SIGNATURE ) 		// Dou
 		sign = sign ? false : true;
 	}
 
-	u64 op1 {rrs & 0xFFFFFFFF};
-	u64 op2 {(rrs >> 32) & 0xFFFFFFFF};
-	u64 op3 {rrt & 0xFFFFFFFF};
-	u64 op4 ={(rrt >> 32) & 0xFFFFFFFF};
+	u64 op1 {static_cast<u64>(rrs & 0xFFFFFFFFLL)};
+	u64 op2 {static_cast<u64>((rrs >> 32) & 0xFFFFFFFFLL)};
+	u64 op3 {static_cast<u64>(rrt & 0xFFFFFFFFLL)};
+	u64 op4 {static_cast<u64>((rrt >> 32) & 0xFFFFFFFFLL)};
 
 u64 temp1 {op1 * op3};
 u64	temp2 {(temp1 >> 32) + op1 * op4};
@@ -1469,8 +1469,8 @@ u64	result2 {temp2 + (temp3 & 0xFFFFFFFF)};
 u64	result3 {(result2 >> 32) + temp4};
 u64	result4 {(result3 >> 32)};
 
-s64	lo {result1 | (result2 << 32)};
-s64	hi {(result3 & 0xFFFFFFFF) | (result4 << 32)};
+s64	lo {static_cast<s64>(result1 | (result2 << 32))};
+s64	hi {static_cast<s64>((result3 & 0xFFFFFFFF) | (result4 << 32))};
 	if (sign)
 	{
 		hi = ~hi;
@@ -1497,10 +1497,10 @@ static void R4300_CALL_TYPE R4300_Special_DMULTU( R4300_CALL_SIGNATURE ) 			// D
 	s64 rrs = gGPR[ op_code.rs ]._s64;
 	s64 rrt = gGPR[ op_code.rt ]._s64;
 
-u64	op1 {rrs & 0xFFFFFFFF};
-u64	op2 {(rrs >> 32) & 0xFFFFFFFF};
-u64	op3 {rrt & 0xFFFFFFFF};
-u64	op4 {(rrt >> 32) & 0xFFFFFFFF};
+u64	op1 {static_cast<u64>(rrs & 0xFFFFFFFFLL)};
+u64	op2 {static_cast<u64>((rrs >> 32) & 0xFFFFFFFFLL)};
+u64	op3 {static_cast<u64>(rrt & 0xFFFFFFFFLL)};
+u64	op4 {static_cast<u64>((rrt >> 32) & 0xFFFFFFFFLL)};
 
 u64	temp1 {op1 * op3};
 u64	temp2 {(temp1 >> 32) + op1 * op4};
@@ -2661,12 +2661,7 @@ static void R4300_CALL_TYPE R4300_Cop1_S_UEQ( R4300_CALL_SIGNATURE )
 
 static void R4300_CALL_TYPE R4300_Cop1_S_NGLE( R4300_CALL_SIGNATURE )
 {
-
-	R4300_CALL_MAKE_OP( op_code );
-
-	f32 fX {LoadFPR_Single( op_code.fs )};
-	f32 fY {LoadFPR_Single( op_code.ft )};
-
+	(void)op_code_bits; // The instruction encoding is irrelevant for this operation.
 	gCPUState.FPUControl[31]._u32 &= ~FPCSR_C;
 }
 
@@ -2752,15 +2747,6 @@ static void R4300_CALL_TYPE R4300_Cop1_S_ULT( R4300_CALL_SIGNATURE )
 
 static void R4300_CALL_TYPE R4300_Cop1_S_SF( R4300_CALL_SIGNATURE )
 {
-#ifdef DAEDALUS_DEBUG_CONSOLE
-	R4300_CALL_MAKE_OP( op_code );
-
-	f32 fX {LoadFPR_Single( op_code.fs )};
-	f32 fY {LoadFPR_Single( op_code.ft )};
-
-	// CATCH_NAN_EXCEPTION( "R4300_Cop1_S_SF", fX, fY );
-#endif
-
 	gCPUState.FPUControl[31]._u32 &= ~FPCSR_C;
 }
 
@@ -3169,30 +3155,12 @@ static void R4300_CALL_TYPE R4300_Cop1_D_ULE( R4300_CALL_SIGNATURE )
 
 static void R4300_CALL_TYPE R4300_Cop1_D_SF( R4300_CALL_SIGNATURE )
 {
-#ifdef DAEDALUS_DEBUG_CONSOLE
-	R4300_CALL_MAKE_OP( op_code );
-
-	d64 fX {LoadFPR_Double( op_code.fs )};
-	d64 fY {LoadFPR_Double( op_code.ft )};
-
-	// CATCH_NAN_EXCEPTION( "R4300_Cop1_D_SF", fX, fY );
-#endif
-
 	gCPUState.FPUControl[31]._u32 &= ~FPCSR_C;
 }
 
 // Same as above..
 static void R4300_CALL_TYPE R4300_Cop1_D_NGLE( R4300_CALL_SIGNATURE )
 {
-#ifdef DAEDALUS_DEBUG_CONSOLE
-	R4300_CALL_MAKE_OP( op_code );
-
-	d64 fX {LoadFPR_Double( op_code.fs )};
-	d64 fY {LoadFPR_Double( op_code.ft )};
-
-	// CATCH_NAN_EXCEPTION( "R4300_Cop1_D_NGLE", fX, fY );
-#endif
-
 	gCPUState.FPUControl[31]._u32 &= ~FPCSR_C;
 }
 

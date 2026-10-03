@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef DAEDALUS_SILENT
 
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "Core/R4300OpCode.h"
 
@@ -579,7 +580,7 @@ void SprintOp_J( char * str, u32 address, OpCode op )
 #ifdef DAEDALUS_ENABLE_OS_HOOKS
 	p_name = Patch_GetJumpAddressName(JumpTarget(op, address));
 #endif
-	sprintf(str, "J         0x%08x        %s", JumpTarget(op, address), p_name );
+	sprintf(str, "J         0x%08" PRIx32 "        %s", JumpTarget(op, address), p_name );
 }
 void SprintOp_JAL( char * str, u32 address, OpCode op )
 {
@@ -587,14 +588,14 @@ void SprintOp_JAL( char * str, u32 address, OpCode op )
 #ifdef DAEDALUS_ENABLE_OS_HOOKS
 	p_name = Patch_GetJumpAddressName(JumpTarget(op, address));
 #endif
-	sprintf(str, "JAL       0x%08x        %s", JumpTarget(op, address), p_name );
+	sprintf(str, "JAL       0x%08" PRIx32 "        %s", JumpTarget(op, address), p_name );
 }
 void SprintOp_BEQ( char * str, u32 address, OpCode op ) {
-						if (op.rs == 0 && op.rt == 0)             sprintf(str, "B         --> 0x%08x", address+4 + (s16)op.immediate*4);
-						else                                      sprintf(str, "BEQ       %s == %s --> 0x%08x", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
-void SprintOp_BNE( char * str, u32 address, OpCode op )			{ sprintf(str, "BNE       %s != %s --> 0x%08x", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
-void SprintOp_BLEZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BLEZ      %s <= 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintOp_BGTZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BGTZ      %s > 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
+						if (op.rs == 0 && op.rt == 0)             sprintf(str, "B         --> 0x%08" PRIx32 "", address+4 + (s16)op.immediate*4);
+						else                                      sprintf(str, "BEQ       %s == %s --> 0x%08" PRIx32 "", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
+void SprintOp_BNE( char * str, u32 address, OpCode op )			{ sprintf(str, "BNE       %s != %s --> 0x%08" PRIx32 "", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
+void SprintOp_BLEZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BLEZ      %s <= 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_BGTZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BGTZ      %s > 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
 void SprintOp_ADDI( char * str, u32 address, OpCode op )		{ sprintf(str, "ADDI      %s = %s + 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
 void SprintOp_ADDIU( char * str, u32 address, OpCode op )		{ sprintf(str, "ADDIU     %s = %s + 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
 void SprintOp_SLTI( char * str, u32 address, OpCode op )		{ sprintf(str, "SLTI      %s = (%s < 0x%04x)", RegNames[op.rt], RegNames[op.rs], op.immediate); }
@@ -602,11 +603,11 @@ void SprintOp_SLTIU( char * str, u32 address, OpCode op )		{ sprintf(str, "SLTIU
 void SprintOp_ANDI( char * str, u32 address, OpCode op )		{ sprintf(str, "ANDI      %s = %s & 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
 void SprintOp_ORI( char * str, u32 address, OpCode op )			{ sprintf(str, "ORI       %s = %s | 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
 void SprintOp_XORI( char * str, u32 address, OpCode op )		{ sprintf(str, "XORI      %s = %s ^ 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
-void SprintOp_LUI( char * str, u32 address, OpCode op )			{ sprintf(str, "LUI       %s = 0x%08x", RegNames[op.rt], op.immediate<<16); }
-void SprintOp_BEQL( char * str, u32 address, OpCode op )		{ sprintf(str, "BEQL      %s == %s --> 0x%08x", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
-void SprintOp_BNEL( char * str, u32 address, OpCode op )		{ sprintf(str, "BNEL      %s != %s --> 0x%08x", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
-void SprintOp_BLEZL( char * str, u32 address, OpCode op )		{ sprintf(str, "BLEZL     %s <= 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintOp_BGTZL( char * str, u32 address, OpCode op )		{ sprintf(str, "BGTZL     %s > 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_LUI( char * str, u32 address, OpCode op )			{ sprintf(str, "LUI       %s = 0x%08" PRIx32 "", RegNames[op.rt], static_cast<u32>(op.immediate) << 16); }
+void SprintOp_BEQL( char * str, u32 address, OpCode op )		{ sprintf(str, "BEQL      %s == %s --> 0x%08" PRIx32 "", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
+void SprintOp_BNEL( char * str, u32 address, OpCode op )		{ sprintf(str, "BNEL      %s != %s --> 0x%08" PRIx32 "", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
+void SprintOp_BLEZL( char * str, u32 address, OpCode op )		{ sprintf(str, "BLEZL     %s <= 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_BGTZL( char * str, u32 address, OpCode op )		{ sprintf(str, "BGTZL     %s > 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
 void SprintOp_DADDI( char * str, u32 address, OpCode op )		{ sprintf(str, "DADDI     %s = %s + 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
 void SprintOp_DADDIU( char * str, u32 address, OpCode op )		{ sprintf(str, "DADDIU    %s = %s + 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
 void SprintOp_LDL( char * str, u32 address, OpCode op )			{ sprintf(str, "LDL       %s <- 0x%04x(%s)", RegNames[op.rt], op.immediate, RegNames[op.rs]); }
@@ -654,7 +655,7 @@ void SprintOp_Special_SRAV( char * str, u32 address, OpCode op )		{ sprintf(str,
 void SprintOp_Special_JR( char * str, u32 address, OpCode op )		{ sprintf(str, "JR        %s", RegNames[op.rs]); }
 void SprintOp_Special_JALR( char * str, u32 address, OpCode op )		{ sprintf(str, "JALR      %s, %s", RegNames[op.rd], RegNames[op.rs]); }
 void SprintOp_Special_SYSCALL( char * str, u32 address, OpCode op )	{ sprintf(str, "SYSCALL"); }
-void SprintOp_Special_BREAK( char * str, u32 address, OpCode op )	{ sprintf(str, "BREAK     0x%08x", (op._u32>>6)&0xFFFFF); }
+void SprintOp_Special_BREAK( char * str, u32 address, OpCode op )	{ sprintf(str, "BREAK     0x%08" PRIx32 "", (op._u32>>6)&0xFFFFF); }
 void SprintOp_Special_SYNC( char * str, u32 address, OpCode op )		{ sprintf(str, "SYNC"); }
 void SprintOp_Special_MFHI( char * str, u32 address, OpCode op )		{ sprintf(str, "MFHI      %s", RegNames[op.rd]); }
 void SprintOp_Special_MTHI( char * str, u32 address, OpCode op )		{ sprintf(str, "MTHI      %s", RegNames[op.rs]); }
@@ -704,14 +705,14 @@ void SprintOp_Special_TNE( char * str, u32 address, OpCode op )			{ sprintf(str,
 
 void SprintOp_RegImm_Unk( char * str, u32 address, OpCode op )			{ sprintf(str, "RegImm_Unk?"); }
 
-void SprintOp_RegImm_BLTZ( char * str, u32 address, OpCode op )			{ sprintf(str, "BLTZ      %s < 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintOp_RegImm_BGEZ( char * str, u32 address, OpCode op )			{ sprintf(str, "BGEZ      %s >= 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintOp_RegImm_BLTZL( char * str, u32 address, OpCode op )		{ sprintf(str, "BLTZL     %s < 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintOp_RegImm_BGEZL( char * str, u32 address, OpCode op )		{ sprintf(str, "BGEZL     %s >= 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintOp_RegImm_BLTZAL( char * str, u32 address, OpCode op )		{ sprintf(str, "BLTZAL    %s < 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintOp_RegImm_BGEZAL( char * str, u32 address, OpCode op )		{ sprintf(str, "BGEZAL    %s >= 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintOp_RegImm_BLTZALL( char * str, u32 address, OpCode op )		{ sprintf(str, "BLTZALL   %s < 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintOp_RegImm_BGEZALL( char * str, u32 address, OpCode op )		{ sprintf(str, "BGEZALL   %s >= 0 --> 0x%08x", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_RegImm_BLTZ( char * str, u32 address, OpCode op )			{ sprintf(str, "BLTZ      %s < 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_RegImm_BGEZ( char * str, u32 address, OpCode op )			{ sprintf(str, "BGEZ      %s >= 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_RegImm_BLTZL( char * str, u32 address, OpCode op )		{ sprintf(str, "BLTZL     %s < 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_RegImm_BGEZL( char * str, u32 address, OpCode op )		{ sprintf(str, "BGEZL     %s >= 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_RegImm_BLTZAL( char * str, u32 address, OpCode op )		{ sprintf(str, "BLTZAL    %s < 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_RegImm_BGEZAL( char * str, u32 address, OpCode op )		{ sprintf(str, "BGEZAL    %s >= 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_RegImm_BLTZALL( char * str, u32 address, OpCode op )		{ sprintf(str, "BLTZALL   %s < 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintOp_RegImm_BGEZALL( char * str, u32 address, OpCode op )		{ sprintf(str, "BGEZALL   %s >= 0 --> 0x%08" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
 
 void SprintOp_RegImm_TGEI( char * str, u32 address, OpCode op )			{ sprintf(str, "TGEI      %s >= 0x%04x", RegNames[op.rs], op.immediate); }
 void SprintOp_RegImm_TGEIU( char * str, u32 address, OpCode op )		{ sprintf(str, "TGEIU     %s >= 0x%04x", RegNames[op.rs], op.immediate); }
@@ -741,7 +742,7 @@ void SprintOp_Cop1_CFC1( char * str, u32 address, OpCode op )			{ sprintf(str, "
 void SprintOp_Cop1_MTC1( char * str, u32 address, OpCode op )			{ sprintf(str, "MTC1      %s -> FP%02d", RegNames[op.rt], op.fs); }
 void SprintOp_Cop1_DMTC1( char * str, u32 address, OpCode op )			{ sprintf(str, "DMTC1     %s -> FP%02d", RegNames[op.rt], op.fs); }
 void SprintOp_Cop1_CTC1( char * str, u32 address, OpCode op )			{ sprintf(str, "CTC1      %s -> CCR%02d", RegNames[op.rt], op.rd); }
-void SprintOp_Cop1_BCInstr( char * str, u32 address, OpCode op )		{ sprintf(str, "%-10.10s%08x", Cop1BC1OpCodeNames[op.cop1_bc], BranchAddress(op, address)); }
+void SprintOp_Cop1_BCInstr( char * str, u32 address, OpCode op )		{ sprintf(str, "%-10.10s%08" PRIx32 "", Cop1BC1OpCodeNames[op.cop1_bc], BranchAddress(op, address)); }
 
 
 void SprintOp_Cop1_SInstr( char * str, u32 address, OpCode op ) { SprintOp_Cop1SInstruction[op.cop1_funct](str, address, op); }
@@ -935,14 +936,14 @@ void SprintRSPOp_SWC2( char * str, u32 address, OpCode op )		{ SprintRSPOp_SWC2I
 
 void SprintRSPOp_Cop2_VOP( char * str, u32 address, OpCode op )	{ SprintRSPOp_VopInstructions[op.cop2_funct](str, address, op); }
 
-void SprintRSPOp_J( char * str, u32 address, OpCode op )		{ sprintf(str, "J         0x%04x        %s", RSPJumpTarget(op, address), "?" ); }
-void SprintRSPOp_JAL( char * str, u32 address, OpCode op )		{ sprintf(str, "JAL       0x%04x        %s", RSPJumpTarget(op, address), "?" ); }
+void SprintRSPOp_J( char * str, u32 address, OpCode op )		{ sprintf(str, "J         0x%04" PRIx32 "        %s", static_cast<uint32_t>(RSPJumpTarget(op, address)), "?" ); }
+void SprintRSPOp_JAL( char * str, u32 address, OpCode op )		{ sprintf(str, "JAL       0x%04" PRIx32 "        %s", static_cast<uint32_t>(RSPJumpTarget(op, address)), "?" ); }
 void SprintRSPOp_BEQ( char * str, u32 address, OpCode op ) {
-						if (op.rs == 0 && op.rt == 0)             sprintf(str, "B         --> 0x%04x", address+4 + (s16)op.immediate*4);
-						else                                      sprintf(str, "BEQ       %s == %s --> 0x%04x", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
-void SprintRSPOp_BNE( char * str, u32 address, OpCode op )		{ sprintf(str, "BNE       %s != %s --> 0x%04x", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
-void SprintRSPOp_BLEZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BLEZ      %s <= 0 --> 0x%04x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintRSPOp_BGTZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BGTZ      %s > 0 --> 0x%04x", RegNames[op.rs], BranchAddress(op, address)); }
+						if (op.rs == 0 && op.rt == 0)             sprintf(str, "B         --> 0x%04" PRIx32 "", address+4 + (s16)op.immediate*4);
+						else                                      sprintf(str, "BEQ       %s == %s --> 0x%04" PRIx32 "", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
+void SprintRSPOp_BNE( char * str, u32 address, OpCode op )		{ sprintf(str, "BNE       %s != %s --> 0x%04" PRIx32 "", RegNames[op.rs], RegNames[op.rt], BranchAddress(op, address)); }
+void SprintRSPOp_BLEZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BLEZ      %s <= 0 --> 0x%04" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintRSPOp_BGTZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BGTZ      %s > 0 --> 0x%04" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
 void SprintRSPOp_ADDI( char * str, u32 address, OpCode op )		{ sprintf(str, "ADDI      %s = %s + 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
 void SprintRSPOp_ADDIU( char * str, u32 address, OpCode op )	{ sprintf(str, "ADDIU     %s = %s + 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
 void SprintRSPOp_SLTI( char * str, u32 address, OpCode op )		{ sprintf(str, "SLTI      %s = (%s < 0x%04x)", RegNames[op.rt], RegNames[op.rs], op.immediate); }
@@ -950,7 +951,7 @@ void SprintRSPOp_SLTIU( char * str, u32 address, OpCode op )	{ sprintf(str, "SLT
 void SprintRSPOp_ANDI( char * str, u32 address, OpCode op )		{ sprintf(str, "ANDI      %s = %s & 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
 void SprintRSPOp_ORI( char * str, u32 address, OpCode op )		{ sprintf(str, "ORI       %s = %s | 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
 void SprintRSPOp_XORI( char * str, u32 address, OpCode op )		{ sprintf(str, "XORI      %s = %s ^ 0x%04x", RegNames[op.rt], RegNames[op.rs], op.immediate); }
-void SprintRSPOp_LUI( char * str, u32 address, OpCode op )		{ sprintf(str, "LUI       %s = 0x%08x", RegNames[op.rt], op.immediate<<16); }
+void SprintRSPOp_LUI( char * str, u32 address, OpCode op )		{ sprintf(str, "LUI       %s = 0x%08" PRIx32 "", RegNames[op.rt], static_cast<u32>(op.immediate) << 16); }
 void SprintRSPOp_LB( char * str, u32 address, OpCode op )		{ sprintf(str, "LB        %s <- 0x%04x(%s)", RegNames[op.rt], op.immediate, RegNames[op.rs]); }
 void SprintRSPOp_LH( char * str, u32 address, OpCode op )		{ sprintf(str, "LH        %s <- 0x%04x(%s)", RegNames[op.rt], op.immediate, RegNames[op.rs]); }
 void SprintRSPOp_LW( char * str, u32 address, OpCode op )		{ sprintf(str, "LW        %s <- 0x%04x(%s)", RegNames[op.rt], op.immediate, RegNames[op.rs]); }
@@ -972,7 +973,7 @@ void SprintRSPOp_Special_SRLV( char * str, u32 address, OpCode op )		{ sprintf(s
 void SprintRSPOp_Special_SRAV( char * str, u32 address, OpCode op )		{ sprintf(str, "SRAV      %s = %s >> %s", RegNames[op.rd], RegNames[op.rt], RegNames[op.rs]); }
 void SprintRSPOp_Special_JR( char * str, u32 address, OpCode op )		{ sprintf(str, "JR        %s", RegNames[op.rs]); }
 void SprintRSPOp_Special_JALR( char * str, u32 address, OpCode op )		{ sprintf(str, "JALR      %s, %s", RegNames[op.rd], RegNames[op.rs]); }
-void SprintRSPOp_Special_BREAK( char * str, u32 address, OpCode op )	{ sprintf(str, "BREAK     0x%08x", (op._u32>>6)&0xFFFFF); }
+void SprintRSPOp_Special_BREAK( char * str, u32 address, OpCode op )	{ sprintf(str, "BREAK     0x%08" PRIx32 "", (op._u32>>6)&0xFFFFF); }
 void SprintRSPOp_Special_ADD( char * str, u32 address, OpCode op )		{ sprintf(str, "ADD       %s = %s + %s", RegNames[op.rd], RegNames[op.rs], RegNames[op.rt]); }
 void SprintRSPOp_Special_ADDU( char * str, u32 address, OpCode op )		{ sprintf(str, "ADDU      %s = %s + %s", RegNames[op.rd], RegNames[op.rs], RegNames[op.rt]); }
 void SprintRSPOp_Special_SUB( char * str, u32 address, OpCode op )		{ sprintf(str, "SUB       %s = %s - %s", RegNames[op.rd], RegNames[op.rs], RegNames[op.rt]); }
@@ -992,10 +993,10 @@ void SprintRSPOp_Special_SLTU( char * str, u32 address, OpCode op )		{ sprintf(s
 
 void SprintRSPOp_RegImm_Unk( char * str, u32 address, OpCode op )		{ sprintf(str, "?"); }
 
-void SprintRSPOp_RegImm_BLTZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BLTZ      %s < 0 --> 0x%04x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintRSPOp_RegImm_BGEZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BGEZ      %s >= 0 --> 0x%04x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintRSPOp_RegImm_BLTZAL( char * str, u32 address, OpCode op )	{ sprintf(str, "BLTZAL    %s < 0 --> 0x%04x", RegNames[op.rs], BranchAddress(op, address)); }
-void SprintRSPOp_RegImm_BGEZAL( char * str, u32 address, OpCode op )	{ sprintf(str, "BGEZAL    %s >= 0 --> 0x%04x", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintRSPOp_RegImm_BLTZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BLTZ      %s < 0 --> 0x%04" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintRSPOp_RegImm_BGEZ( char * str, u32 address, OpCode op )		{ sprintf(str, "BGEZ      %s >= 0 --> 0x%04" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintRSPOp_RegImm_BLTZAL( char * str, u32 address, OpCode op )	{ sprintf(str, "BLTZAL    %s < 0 --> 0x%04" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
+void SprintRSPOp_RegImm_BGEZAL( char * str, u32 address, OpCode op )	{ sprintf(str, "BGEZAL    %s >= 0 --> 0x%04" PRIx32 "", RegNames[op.rs], BranchAddress(op, address)); }
 
 
 void SprintRSPOp_Cop0_Unk( char * str, u32 address, OpCode op )			{ sprintf(str, "?"); }

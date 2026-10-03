@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Fragment.h"
 
 #include <stdio.h>
+#include <inttypes.h>
 #include <cstring>
 
 #include <algorithm>
@@ -602,7 +603,7 @@ void CFragment::Assemble( CCodeBufferManager * p_manager,
 			trace[2].OpCode._u32 == 0x8C4F0000)
 		{
 #ifndef DAEDALUS_SILENT
-			printf("Speedhack complex %08x\n", trace[0].Address );
+			printf("Speedhack complex %08" PRIx32 "\n", trace[0].Address );
 #endif
 			p_generator->ExecuteNativeFunction( CCodeLabel( reinterpret_cast< const void * >( CPU_SkipToNextEvent ) ) );
 		}
@@ -657,10 +658,10 @@ void CFragment::Assemble( CCodeBufferManager * p_manager,
 
 					char opinfo[128] {};
 					SprintOpCodeInfo( opinfo, trace[i].Address, trace[i].OpCode );
-					printf("\t%p: <0x%08x> %s\n", (u32*)trace[i].Address, trace[i].OpCode._u32, opinfo);
+					printf("\t%p: <0x%08" PRIx32 "> %s\n", (void *)(uintptr_t)trace[i].Address, trace[i].OpCode._u32, opinfo);
 
 					SprintOpCodeInfo( opinfo, trace[i+1].Address, trace[i+1].OpCode );
-					printf("\t%p: <0x%08x> %s\n", (u32*)trace[i+1].Address, trace[i+1].OpCode._u32, opinfo);
+					printf("\t%p: <0x%08" PRIx32 "> %s\n", (void *)(uintptr_t)trace[i+1].Address, trace[i+1].OpCode._u32, opinfo);
 					#endif
 					p_generator->ExecuteNativeFunction( CCodeLabel( reinterpret_cast< const void * >( CPU_SkipToNextEvent ) ) );
 					}
@@ -672,10 +673,10 @@ void CFragment::Assemble( CCodeBufferManager * p_manager,
 					printf("Speedhack copyreg (not handled)\n");
 					char opinfo[128];
 					SprintOpCodeInfo( opinfo, trace[i].Address, trace[i].OpCode );
-					printf("\t%p: <0x%08x> %s\n", (u32*)trace[i].Address, trace[i].OpCode._u32, opinfo);
+					printf("\t%p: <0x%08" PRIx32 "> %s\n", (void *)(uintptr_t)trace[i].Address, trace[i].OpCode._u32, opinfo);
 
 					SprintOpCodeInfo( opinfo, trace[i+1].Address, trace[i+1].OpCode );
-					printf("\t%p: <0x%08x> %s\n", (u32*)trace[i+1].Address, trace[i+1].OpCode._u32, opinfo);
+					printf("\t%p: <0x%08" PRIx32 "> %s\n", (void *)(uintptr_t)trace[i+1].Address, trace[i+1].OpCode._u32, opinfo);
 					#endif
 					}
 					break;
@@ -686,10 +687,10 @@ void CFragment::Assemble( CCodeBufferManager * p_manager,
 					printf("Speedhack unknown (not handled)\n");
 					char opinfo[128];
 					SprintOpCodeInfo( opinfo, trace[i].Address, trace[i].OpCode );
-					printf("\t%p: <0x%08x> %s\n", (u32*)trace[i].Address, trace[i].OpCode._u32, opinfo);
+					printf("\t%p: <0x%08" PRIx32 "> %s\n", (void *)(uintptr_t)trace[i].Address, trace[i].OpCode._u32, opinfo);
 
 					SprintOpCodeInfo( opinfo, trace[i+1].Address, trace[i+1].OpCode );
-					printf("\t%p: <0x%08x> %s\n", (u32*)trace[i+1].Address, trace[i+1].OpCode._u32, opinfo);
+					printf("\t%p: <0x%08" PRIx32 "> %s\n", (void *)(uintptr_t)trace[i+1].Address, trace[i+1].OpCode._u32, opinfo);
 					#endif
 					}
 					break;
@@ -940,7 +941,7 @@ void DisassembleBuffer( const u8 * buf, int buf_size, FILE * fh )
 	while ( pos < buf_size )
 	{
 		strbuf = disasmx86((u8*)buf + pos, 0, &len);
-		fprintf( fh, "%08x: %s\n", buf + pos, Sanitise( strbuf ) );
+		fprintf( fh, "%08" PRIx32 ": %s\n", buf + pos, Sanitise( strbuf ) );
 		pos += len;
 	}
 }
@@ -961,7 +962,7 @@ void DisassembleBuffer( const u8 * buf, int buf_size, FILE * fh )
 		OpCode	op_code( *p_op );
 
 		SprintOpCodeInfo( strbuf, address, op_code );
-		fprintf( fh, "%08x: %08x %s\n", address, op_code._u32, Sanitise( strbuf ) );
+		fprintf( fh, "%08" PRIx32 ": %08" PRIx32 " %s\n", address, op_code._u32, Sanitise( strbuf ) );
 		p_op++;
 	}
 }
@@ -985,10 +986,10 @@ void CFragment::DumpFragmentInfoHtml( FILE * fh, u64 total_cycles ) const
 
 	fputs( "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">", fh );
 	fputs( "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n", fh );
-	fprintf( fh, "<head><title>Fragment %08x</title>\n", GetEntryAddress() );
+	fprintf( fh, "<head><title>Fragment %08" PRIx32 "</title>\n", GetEntryAddress() );
 	fputs( "<link rel=\"stylesheet\" href=\"default.css\" type=\"text/css\" media=\"all\" />\n", fh );
 	fputs( "</head><body>\n", fh );
-	fprintf( fh, "<h1>Fragment %8x</h1>\n", GetEntryAddress() );
+	fprintf( fh, "<h1>Fragment %8" PRIx32 "</h1>\n", GetEntryAddress() );
 
 	fputs( "<div align=\"center\"><table>\n", fh );
 		fprintf( fh, "<tr><td>Cycles</td><td>%d</td></tr>\n", GetCyclesExecuted() );
@@ -1080,7 +1081,7 @@ void CFragment::DumpFragmentInfoHtml( FILE * fh, u64 total_cycles ) const
 
 			bool				is_jump( address != last_address + 4 );
 
-			fprintf( fh, "<tr><td><pre>%08x</pre></td><td><pre>%c%s</pre></td><td><pre>", address, is_jump ? '*' : ' ', Sanitise( buf ) );
+			fprintf( fh, "<tr><td><pre>%08" PRIx32 "</pre></td><td><pre>%c%s</pre></td><td><pre>", address, is_jump ? '*' : ' ', Sanitise( buf ) );
 
 			if( branch_index != INVALID_IDX )
 			{
@@ -1088,7 +1089,7 @@ void CFragment::DumpFragmentInfoHtml( FILE * fh, u64 total_cycles ) const
 
 				const SBranchDetails &	details( mBranchBuffer[ branch_index ] );
 
-				fprintf( fh, "<a href=\"%08x.html\">%08x</a>", details.TargetAddress, details.TargetAddress );
+				fprintf( fh, "<a href=\"%08" PRIx32 ".html\">%08" PRIx32 "</a>", details.TargetAddress, details.TargetAddress );
 			}
 			fprintf( fh, "</pre></td></tr>\n");
 			last_address = address;
@@ -1132,7 +1133,7 @@ void CFragment::DumpFragmentInfoHtml( FILE * fh, u64 total_cycles ) const
 			char				buf[100];
 			SprintOpCodeInfo( buf, address, op_code );
 
-			fprintf( fh, "<tr valign=top><td><pre>%08x</pre></td><td><pre>%s</pre></td><td><pre>", address, Sanitise( buf ) );
+			fprintf( fh, "<tr valign=top><td><pre>%08" PRIx32 "</pre></td><td><pre>%s</pre></td><td><pre>", address, Sanitise( buf ) );
 			DisassembleBuffer( output_begin, output_end-output_begin, fh );
 			fputs( "</pre></td></tr>\n", fh );
 			output_begin = output_end;

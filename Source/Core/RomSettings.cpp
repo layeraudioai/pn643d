@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "RomSettings.h"
 
 #include <stdio.h>
+#include <inttypes.h>
 #include <stdlib.h>
 
 #include <set>
@@ -215,14 +216,14 @@ static bool	trim( char * p_string, const char * p_trim_chars )
 static RomID	RomIDFromString( const char * str )
 {
 	u32 crc1, crc2, country;
-	sscanf( str, "%08x%08x-%02x", &crc1, &crc2, &country );
+	sscanf( str, "%08" SCNx32 "%08" SCNx32 "-%02" SCNx32, &crc1, &crc2, &country );
 	return RomID( crc1, crc2, (u8)country );
 }
 
 bool IRomSettingsDB::OpenSettingsFile( const char * filename )
 {
 
-	strcpy(mFilename, filename);
+	IO::Path::Assign(mFilename, filename);
 
 	CIniFile * p_ini_file( CIniFile::Create( filename ) );
 	if( p_ini_file == nullptr )
@@ -331,11 +332,11 @@ bool IRomSettingsDB::OpenSettingsFile( const char * filename )
 
 void IRomSettingsDB::Commit()
 {
-	IO::Filename filename_tmp;
-	IO::Filename filename_del;
+	char filename_tmp[sizeof(IO::Filename) + 4];
+	char filename_del[sizeof(IO::Filename) + 4];
 
-	sprintf(filename_tmp, "%s.tmp", mFilename);
-	sprintf(filename_del, "%s.del", mFilename);
+	snprintf(filename_tmp, sizeof(filename_tmp), "%s.tmp", mFilename);
+	snprintf(filename_del, sizeof(filename_del), "%s.del", mFilename);
 
 	FILE * fh_src = fopen(mFilename, "r");
 	if (fh_src == nullptr)
@@ -421,7 +422,7 @@ void IRomSettingsDB::Commit()
 void IRomSettingsDB::OutputSectionDetails( const RomID & id, const RomSettings & settings, FILE * fh )
 {
 	// Generate the CRC-ID for this rom:
-	fprintf(fh, "{%08x%08x-%02x}\n", id.CRC[0], id.CRC[1], id.CountryID );
+	fprintf(fh, "{%08" PRIx32 "%08" PRIx32 "-%02x}\n", id.CRC[0], id.CRC[1], static_cast<unsigned int>(id.CountryID) );
 
 	fprintf(fh, "Name=%s\n", settings.GameName.c_str());
 
@@ -429,7 +430,7 @@ void IRomSettingsDB::OutputSectionDetails( const RomID & id, const RomSettings &
 	if( !settings.Info.empty() )				fprintf(fh, "Info=%s\n", settings.Info.c_str());
 	if( !settings.Preview.empty() )				fprintf(fh, "Preview=%s\n", settings.Preview.c_str());
 	if( !settings.PatchesEnabled )				fprintf(fh, "PatchesEnabled=no\n");
-	if( !settings.SpeedSyncEnabled )			fprintf(fh, "SpeedSyncEnabled=%d\n", settings.SpeedSyncEnabled);
+	if( !settings.SpeedSyncEnabled )			fprintf(fh, "SpeedSyncEnabled=%" PRIu32 "\n", settings.SpeedSyncEnabled);
 	if( !settings.DynarecSupported )			fprintf(fh, "DynarecSupported=no\n");
 	if( !settings.DynarecLoopOptimisation )		fprintf(fh, "DynarecLoopOptimisation=yes\n");
 	if( !settings.DynarecDoublesOptimisation )	fprintf(fh, "DynarecDoublesOptimisation=yes\n");

@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Dump.h"
 
 #include <ctype.h>
+#include <inttypes.h>
 
 #include "DebugLog.h"
 #include "DBGConsole.h"
@@ -141,7 +142,7 @@ void Dump_DisassembleMIPSRange(FILE * fh, u32 address_offset, const OpCode * b, 
 #endif
 
 		SprintOpCodeInfo( opinfo, address, op );
-		fprintf(fh, "0x%08x: <0x%08x> %s\n", address, op._u32, opinfo);
+		fprintf(fh, "0x%08" PRIx32 ": <0x%08" PRIx32 "> %s\n", address, op._u32, opinfo);
 
 		address += 4;
 		++p;
@@ -201,7 +202,7 @@ void Dump_MemoryRange(FILE * fh, u32 address_offset, const u32 * b, const u32 * 
 	const u32 * p( b );
 	while( p < e )
 	{
-		fprintf(fh, "0x%08x: %08x %08x %08x %08x ", address, p[0], p[1], p[2], p[3]);
+		fprintf(fh, "0x%08" PRIx32 ": %08" PRIx32 " %08" PRIx32 " %08" PRIx32 " %08" PRIx32 " ", address, p[0], p[1], p[2], p[3]);
 
 		const u8 * p8( reinterpret_cast< const u8 * >( p ) );
 		for (u32 i = 0; i < 16; i++)
@@ -230,7 +231,7 @@ void Dump_DisassembleRSPRange(FILE * fh, u32 address_offset, const OpCode * b, c
 	{
 		char opinfo[400];
 		SprintRSPOpCodeInfo( opinfo, address, *p );
-		fprintf(fh, "0x%08x: <0x%08x> %s\n", address, p->_u32, opinfo);
+		fprintf(fh, "0x%08" PRIx32 ": <0x%08" PRIx32 "> %s\n", address, p->_u32, opinfo);
 
 		address += 4;
 		++p;
@@ -327,7 +328,7 @@ void Dump_Strings( const char * p_file_name )
 		{
 			if ( ascii_count >= MIN_LENGTH )
 			{
-				fprintf( fp, "0x%08x: ", ascii_start );
+				fprintf( fp, "0x%08" PRIx32 ": ", ascii_start );
 
 				for ( u32 j = 0; j < ascii_count; j++ )
 				{

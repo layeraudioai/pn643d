@@ -28,6 +28,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 typedef uint8_t					u8;
 typedef uint16_t				u16;
+// Keep these aliases identical to libctru's typedefs. On devkitARM, uint32_t
+// may be unsigned long rather than unsigned int; matching it avoids conflicting
+// declarations when <3ds.h> is included after this header.
 typedef uint32_t				u32;
 typedef uint64_t				u64;
 

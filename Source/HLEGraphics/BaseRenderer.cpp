@@ -112,8 +112,12 @@ void	_ConvertVerticesIndexed( DaedalusVtx * dest, const DaedalusVtx4 * source, u
 u32		_ClipToHyperPlane( DaedalusVtx4 * dest, const DaedalusVtx4 * source, const v4 * plane, u32 num_verts );
 }
 
+#ifndef GL_TRUE
 #define GL_TRUE                           1
+#endif
+#ifndef GL_FALSE
 #define GL_FALSE                          0
+#endif
 
 #undef min
 #undef max
@@ -190,7 +194,20 @@ BaseRenderer::BaseRenderer()
 	mTnL.TextureScaleX = 1.0f;
 	mTnL.TextureScaleY = 1.0f;
 
-	memset( mTnL.Lights, 0, sizeof(mTnL.Lights) );
+	for (DaedalusLight & light : mTnL.Lights)
+	{
+		// v3/v4 default constructors intentionally leave components untouched,
+		// so value-initializing DaedalusLight alone does not clear these fields.
+		light.Direction = v3(0.0f, 0.0f, 0.0f);
+		light.SkipIfZero = 0;
+		light.Colour = v3(0.0f, 0.0f, 0.0f);
+		light.Iscale = 0.0f;
+		light.Position = v4(0.0f, 0.0f, 0.0f, 0.0f);
+		light.ca = 0.0f;
+		light.la = 0.0f;
+		light.qa = 0.0f;
+		light.Pad0 = 0;
+	}
 }
 
 

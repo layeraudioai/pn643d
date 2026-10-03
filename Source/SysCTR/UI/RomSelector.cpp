@@ -21,7 +21,7 @@
 #include "Utility/Preferences.h"
 #include "Utility/ROMFile.h"
 
-#define DAEDALUS_CTR_PATH(p)	"romfs:/" p
+#define DAEDALUS_CTR_ROM_PATH(p)	"romfs:/" p
 
 struct SRomInfo
 {
@@ -47,7 +47,7 @@ static std::vector<SRomInfo> PopulateRomList()
 	IO::FindHandleT		find_handle;
 	IO::FindDataT		find_data;
 	
-	if(IO::FindFileOpen( DAEDALUS_CTR_PATH("Roms/"), &find_handle, find_data ))
+	if(IO::FindFileOpen( DAEDALUS_CTR_ROM_PATH("Roms/"), &find_handle, find_data ))
 	{
 		do 
 		{
@@ -57,7 +57,7 @@ static std::vector<SRomInfo> PopulateRomList()
 			{
 				SRomInfo info;
 
-				full_path = DAEDALUS_CTR_PATH("Roms/");
+				full_path = DAEDALUS_CTR_ROM_PATH("Roms/");
 				full_path += rom_filename;
 
 				info.mFilename = rom_filename;

@@ -126,7 +126,7 @@ endif (MAC_RELEASE)
 if (CTR_RELEASE)
 	message("N3DS Release Build..")
 
-	set(CMAKE_EXE_LINKER_FLAGS "-L${DEVKITPRO}/libctru/lib -L${DEVKITPRO}/picaGL/lib -L${DEVKITPRO}/portlibs/3ds/lib -specs=3dsx.specs -Wl,--gc-sections")
+	set(CMAKE_EXE_LINKER_FLAGS "-L${DEVKITPRO}/libctru/lib -L${DEVKITPRO}/picaGL/lib -L${DEVKITPRO}/portlibs/3ds/lib -specs=3dsx.specs -Wl,--gc-sections -Wl,-z,noexecstack -Wl,--no-warn-execstack")
 
 	# Prefer this checkout's picaGL API header so Daedalus and the linked
 	# picaGL library agree on the stereo extensions used by Preferences.cpp.

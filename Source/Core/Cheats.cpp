@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include "Memory.h"
 #include "ROM.h"
@@ -416,7 +417,7 @@ bool CheatCodes_Read(const char *rom_name, const char *file, u8 countryID)
 			{
 				if (c2 < MAX_CHEATCODE_PER_ENTRY)
 				{
-					sscanf( line + c1 + 1 + c2 * 14,"%08x-%04x", &addr, &value );
+					sscanf( line + c1 + 1 + c2 * 14, "%08" SCNx32 "-%04" SCNx32, &addr, &value );
 					if( c2 > 0 && ((codegrouplist[codegroupcount].codelist[c2-1].addr >> 24) & 0xFF) == 0x50 )
 					{
 						//ToDO: Uncompress Serial Repeater cheat code; ex addr = (temp + offset) ^ U8_TWIDDLE

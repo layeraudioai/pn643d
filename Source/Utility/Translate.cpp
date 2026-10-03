@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Translate.h"
 
 #include <stdio.h>
+#include <inttypes.h>
 
 #include <vector>
 #include <string>
@@ -30,6 +31,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "VolatileMem.h"
 
 #include "System/Paths.h"
+#ifdef DAEDALUS_PSP
+#include "SysPSP/Utility/PathsPSP.h"
+#endif
 #include "Utility/Macros.h"
 
 #define TRANSLATE_DUMP_VALUE 0xDAEDDAED
@@ -119,7 +123,11 @@ void Translate_Unload()
 bool	Translate_Init()
 {
 	// Init translations if available
+#ifdef DAEDALUS_PSP
+	Translate_Load( DAEDALUS_PSP_PATH("Languages/") );
+#else
 	Translate_Load( "Languages/" );
+#endif
 
 	return /*gLanguage.empty() == 0*/ true;
 }
@@ -243,7 +251,7 @@ void Translate_Dump(const char *string, bool dump)
 		FILE * fh = fopen( "hash.txt", "a" );
 		if(fh)
 		{
-			fprintf( fh,  "%08x,%s\n", HashString(string), string );
+			fprintf( fh, "%08" PRIx32 ",%s\n", HashString(string), string );
 			fclose(fh);
 		}
 	}
@@ -295,7 +303,7 @@ bool Translate_Read(u32 idx, const char * dir)
 		{
 			string++;
 			len = strlen( string );
-			sscanf( line,"%08x", &hash );
+			sscanf( line, "%08" SCNx32, &hash );
 			if( count < ARRAYSIZE(text) )
 			{
 				// Write translated string and hash to array

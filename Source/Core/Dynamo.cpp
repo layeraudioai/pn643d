@@ -20,6 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "stdafx.h"
 #include "Dynamo.h"
 
+#include <inttypes.h>
+
 #include <stdio.h>
 
 #include <algorithm>
@@ -112,7 +114,7 @@ void R4300_CALL_TYPE CPU_InvalidateICacheRange( u32 address, u32 length )
 	if( gFragmentCache.ShouldInvalidateOnWrite( address, length ) )
 	{
 #ifndef DAEDALUS_SILENT
-		printf( "Write to %08x (%d bytes) overlaps fragment cache entries\n", address, length );
+		printf( "Write to %08" PRIx32 " (%" PRIu32 " bytes) overlaps fragment cache entries\n", address, length );
 #endif
 		CPU_ResetFragmentCache();
 	}

@@ -323,6 +323,7 @@ static void MirrorTexels( void * dst, u32 dst_stride, const void * src, u32 src_
 	#ifdef DAEDALUS_ENABLE_ASSERTS
 	DAEDALUS_ASSERT( handled, "Unhandled format" );
 	#endif
+	(void)handled;
 }
 
 

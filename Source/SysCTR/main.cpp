@@ -82,7 +82,7 @@ static void CheckDSPFirmware()
 		u32 len;
 		void* bin;
 		extern u32 fake_heap_end;
-		char* filename = "sdmc:/3ds/dspfirm.cdc";
+		const char* filename = "sdmc:/3ds/dspfirm.cdc";
 
 		u32 mapAddr = (fake_heap_end+0xFFF) &~ 0xFFF;
 		rc = svcMapMemoryBlock(rsrc, mapAddr, (MemPerm)0x3, (MemPerm)0x3);

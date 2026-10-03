@@ -41,9 +41,13 @@ static void ctrEnableAllServices(void)
 //-----------------------------------------------------------------------------
 int _SetMemoryPermission(void *buffer, int size, int permission)
 {
-	unsigned int currentHandle;
-	svcDuplicateHandle((Handle*) currentHandle, 0xFFFF8001);
-	int res = svcControlProcessMemory(currentHandle, (long unsigned int)buffer, 0, size, MEMOP_PROT, permission);
+	Handle currentHandle = 0;
+	Result res = svcDuplicateHandle(&currentHandle, (Handle)0xFFFF8001);
+	if (R_FAILED(res))
+		return res;
+
+	res = svcControlProcessMemory(currentHandle, (u32)buffer, 0, (u32)size,
+			MEMOP_PROT, (MemPerm)permission);
 	svcCloseHandle(currentHandle);
 
 	return res;

@@ -1,4 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
+
+# Source/ is also a supported standalone configure directory. When the
+# package root is used, its top-level CMakeLists.txt owns the project() call.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    project(DaedalusX64 LANGUAGES C CXX ASM)
+    option(CTR_RELEASE "Build the Nintendo 3DS (CTR) version" ON)
+    if(NOT CTR_RELEASE)
+        message(FATAL_ERROR "This source package supports only the CTR build; configure with -DCTR_RELEASE=ON.")
+    endif()
+endif()
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -54,7 +65,7 @@ set(CTR_MAIN_FILES SysCTR/main.cpp)
 set(CTR_DEBUG_FILES SysCTR/Debug/DaedalusAssertCTR.cpp SysCTR/Debug/DBGConsoleCTR.cpp)
 set(CTR_DYNAREC_FILES
     SysCTR/DynaRec/arm/AssemblyUtilsARM.cpp SysCTR/DynaRec/arm/AssemblyWriterARM.cpp
-    SysCTR/DynaRec/arm/CodeBufferManagerARM.cpp SysCTR/DynaRec/arm/DynarecStubARM.S
+    SysCTR/DynaRec/arm/CodeBufferManagerARM.cpp
     SysCTR/DynaRec/arm/CodeGeneratorARM.cpp SysCTR/DynaRec/arm/N64RegisterCacheARM.cpp)
 set(CTR_GRAPHICS_FILES SysCTR/Graphics/GraphicsContextCTR.cpp SysCTR/Graphics/NativeTextureCTR.cpp)
 set(CTR_HLEGRAPHICS_FILES
@@ -70,7 +81,9 @@ set(CTR_UI_FILES SysCTR/UI/UserInterface.cpp SysCTR/UI/RomSelector.cpp SysCTR/UI
 set(CTR_UTILITY_FILES
     SysCTR/Utility/CTRStorage.cpp SysCTR/Utility/ThreadCTR.cpp
     SysCTR/Utility/IOCTR.cpp SysCTR/Utility/TimingCTR.cpp
-    SysCTR/Utility/MemoryCTR.c SysCTR/Utility/MemoryCTR.cpp
+    SysCTR/Utility/MemoryCTR.c SysCTR/Utility/MemoryCTR.cpp)
+set(CTR_ASM_FILES
+    SysCTR/DynaRec/arm/DynarecStubARM.S
     SysCTR/Utility/CacheCTR.S)
 set(CTR_BUILD
     ${CTR_DEBUG_FILES} ${CTR_DYNAREC_FILES} ${CTR_GRAPHICS_FILES}
@@ -116,7 +129,10 @@ if(DAEDALUS_GAME_ID_VALUE AND EXISTS "${DAEDALUS_GAME_PROFILE}")
 endif()
 target_link_libraries(daedalus PRIVATE z png)
 
-add_executable(${PROJECT_NAME}.elf ${CTR_MAIN_FILES} ${CTR_INPUTMANAGER_FILES})
+# Keep architecture assembly stubs as direct executable objects, not archive
+# members. This guarantees the ARM dynarec/cache entry points reach the final link.
+add_executable(${PROJECT_NAME}.elf
+    ${CTR_MAIN_FILES} ${CTR_INPUTMANAGER_FILES} ${CTR_ASM_FILES})
 target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_TARGET_GAME_ID=${DAEDALUS_GAME_ID_VALUE})
 if(DAEDALUS_GAME_ID_VALUE AND EXISTS "${DAEDALUS_GAME_PROFILE}")
     target_compile_definitions(${PROJECT_NAME}.elf PRIVATE

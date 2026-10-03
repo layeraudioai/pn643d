@@ -24,6 +24,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "Core/Memory.h"
 #include "Core/ROM.h"
+#ifdef DAEDALUS_CTR
+#include "SysCTR/Utility/CTRPerfLearning.h"
+#endif
 
 #include <stdint.h>
 
@@ -232,6 +235,10 @@ void FramerateLimiter_Limit()
         gNextFrameDeadline = 0;
     }
 
+#ifdef DAEDALUS_CTR
+    if (gLastVITime != 0 && gTicksPerFrame > 0.0L)
+        CTRPerfLearning::RecordFrame(now - gLastVITime, (u64)gTicksPerFrame);
+#endif
     gLastOrigin = current_origin;
     gLastVITime = now;
     gVblsSinceFlip = 0;

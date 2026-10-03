@@ -149,6 +149,22 @@ static bool SdmcSaveRead(const char* n, void* d, size_t s, size_t* actual) {
     return CTRStorage::ImportFile("sdmc:/3ds/DaedalusX64/SaveGames", n, d, s, actual);
 }
 
+static bool SdmcSaveFileSize(const char* n, size_t* size) {
+    char path[512];
+    snprintf(path, sizeof(path), "sdmc:/3ds/DaedalusX64/SaveGames/%s", n);
+    FILE* file = fopen(path, "rb");
+    if (!file)
+        return false;
+    bool ok = fseek(file, 0, SEEK_END) == 0;
+    long fileSize = ok ? ftell(file) : -1;
+    fclose(file);
+    if (fileSize < 0)
+        return false;
+    *size = (size_t)fileSize;
+    return true;
+}
+
+
 static bool SdmcSaveWrite(const char* n, const void* d, size_t s) {
     IO::Directory::EnsureExists("sdmc:/3ds/DaedalusX64/SaveGames");
     return CTRStorage::ExportFile("sdmc:/3ds/DaedalusX64/SaveGames", n, d, s);
@@ -188,11 +204,14 @@ bool SaveDataRead(const char* n, void* d, size_t s, size_t* actual) {
         return false;
 
 #ifndef DAEDALUS_DISABLE_OS_STORAGE
-    // Import legacy SD-card saves into the title's savedata archive the first
-    // time they are read. Keep the SD copy unless the archive commit succeeds.
+    // Migrate only when the bounded read included the complete source file.
+    // Otherwise the archive would contain a truncated prefix and take
+    // precedence over the still-useful legacy SD copy on later reads.
+    size_t sourceSize = 0;
     size_t migrateSize = actual ? *actual : bytesRead;
-    if (migrateSize > 0 && OpenSaveArchive(&a)) {
-        bool written = WriteArchive(a, n, d, migrateSize);
+    if (SdmcSaveFileSize(n, &sourceSize) && sourceSize <= s &&
+        migrateSize == sourceSize && sourceSize > 0 && OpenSaveArchive(&a)) {
+        bool written = WriteArchive(a, n, d, sourceSize);
         bool committed = Commit(a);
         if (written && committed)
             SdmcSaveDelete(n);

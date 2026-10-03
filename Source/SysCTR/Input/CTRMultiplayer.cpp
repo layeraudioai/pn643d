@@ -428,7 +428,7 @@ namespace
                     if (s_onlinePeers[p].socket >= 0 && !s_onlinePeers[p].handshaking && s_onlinePeers[p].slot < 4)
                         slotUsed[s_onlinePeers[p].slot] = true;
                 unsigned slot;
-                for (slot = 1; slot < 4 && slotUsed[slot]; ++slot) {}
+                for (slot = 0; slot < 4 && slotUsed[slot]; ++slot) {}
                 if (slot == 4)
                 {
                     ResetServerPeer(peer);

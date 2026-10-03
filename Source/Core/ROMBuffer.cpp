@@ -40,9 +40,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Utility/IO.h"
 
 #ifdef DAEDALUS_CTR
-#include "SysCTR/Utility/CTRPerfLearning.h"
-#include "Utility/Timing.h"
-#include <3ds.h>
 extern bool isN3DS;
 #endif
 
@@ -61,17 +58,14 @@ namespace
 	const u32		SCRATCH_BUFFER_LENGTH = 16;
 	u8				sScratchBuffer[ SCRATCH_BUFFER_LENGTH ];
 
-	bool		ShouldLoadAsFixed( u32 rom_size, bool learned_preload )
+	bool		ShouldLoadAsFixed( u32 rom_size )
 	{
 #ifdef DAEDALUS_CTR
-		// Keep the established New 3DS fast path. On Old 3DS, only use the
-		// larger allocation after per-cartridge telemetry shows that streaming
-		// cache misses are expensive; CTRPerfLearning limits this to small ROMs.
-		if (isN3DS)
+		if(isN3DS)
 			return rom_size <= 32 * 1024 * 1024;
-		return learned_preload;
+		else
+			return false;
 #else
-		(void)learned_preload;
 		return true;
 #endif
 	}
@@ -210,56 +204,21 @@ bool RomBuffer::Open()
 
 	sRomSize = p_rom_file->GetRomSize();
 
-#ifdef DAEDALUS_CTR
-	// ROMBuffer opens before ROM_LoadFile fills g_ROM.mRomID, so identify the
-	// cartridge directly from its canonicalized header for the learning profile.
-	ROMHeader learning_header = {};
-	bool have_learning_id = p_rom_file->LoadData(
-		sizeof(learning_header), reinterpret_cast<u8 *>(&learning_header), messages);
-	if (have_learning_id)
+	if( ShouldLoadAsFixed( sRomSize ) )
 	{
-		ROMFile::ByteSwap_3210(&learning_header, sizeof(learning_header));
-		const RomID learning_id(learning_header);
-		if (!learning_id.Empty())
-			CTRPerfLearning::BeginGame(learning_id.CRC[0], learning_id.CRC[1],
-				learning_id.CountryID, sRomSize);
-	}
-	const bool learned_preload = CTRPerfLearning::ShouldPreloadROM(sRomSize, isN3DS);
-	u64 rom_load_start = 0;
-	NTiming::GetPreciseTime(&rom_load_start);
-#else
-	const bool learned_preload = false;
-#endif
-
-	const bool try_fixed_load = ShouldLoadAsFixed(sRomSize, learned_preload);
-	u8 *p_bytes = nullptr;
-	if (try_fixed_load)
-	{
-		// Now, allocate memory for rom - round up to a 4 byte boundary. Keep
-		// headroom for dynarec, textures, and audio; a successful allocation
-		// without this reserve can still leave the emulator unstable later.
-		const u32 size_aligned = AlignPow2(sRomSize, 4);
-#ifdef DAEDALUS_CTR
-		const u32 runtime_reserve = isN3DS ? (12 * 1024 * 1024) : (10 * 1024 * 1024);
-		const u32 free_memory = osGetMemRegionFree(MEMREGION_APPLICATION);
-		if (free_memory > size_aligned && free_memory - size_aligned > runtime_reserve)
-			p_bytes = (u8 *)CROMFileMemory::Get()->Alloc(size_aligned);
-#else
-		p_bytes = (u8 *)CROMFileMemory::Get()->Alloc(size_aligned);
-#endif
-	}
-
-	if (try_fixed_load && p_bytes != nullptr)
-	{
+		// Now, allocate memory for rom - round up to a 4 byte boundry
+		u32		size_aligned( AlignPow2( sRomSize, 4 ) );
+		u8 *	p_bytes( (u8*)CROMFileMemory::Get()->Alloc( size_aligned ) );
 
 #ifndef DAEDALUS_PSP
 		if( !p_rom_file->LoadData( sRomSize, p_bytes, messages ) )
 		{
 			#ifdef DAEDALUS_DEBUG_CONSOLE
-			DBGConsole_Msg(0, "Full ROM load failed for [C%s]; falling back to the ROM cache\n", filename);
+			DBGConsole_Msg(0, "Failed to load [C%s]\n", filename);
 			#endif
 			CROMFileMemory::Get()->Free( p_bytes );
-			p_bytes = nullptr;
+			delete p_rom_file;
+			return false;
 		}
 #else
 		u32 offset( 0 );
@@ -289,22 +248,13 @@ bool RomBuffer::Open()
 		}
 
 		intraFontUnload( ltn8 );
-		if (offset < sRomSize)
-		{
-			CROMFileMemory::Get()->Free(p_bytes);
-			p_bytes = nullptr;
-		}
 #endif
-		if (p_bytes != nullptr)
-		{
-			spRomData = p_bytes;
-			sRomFixed = true;
-			delete p_rom_file;
-			p_rom_file = nullptr;
-		}
-	}
+		spRomData = p_bytes;
+		sRomFixed = true;
 
-	if (!sRomFixed)
+		delete p_rom_file;
+	}
+	else
 	{
 #ifdef DAEDALUS_COMPRESSED_ROM_SUPPORT
 		if(DECOMPRESS_ROMS)
@@ -356,28 +306,9 @@ bool RomBuffer::Open()
 		}
 #endif
 		spRomFileCache = new ROMFileCache();
-		if (spRomFileCache == nullptr || !spRomFileCache->Open(p_rom_file))
-		{
-			delete spRomFileCache;
-			spRomFileCache = nullptr;
-			delete p_rom_file;
-#ifdef DAEDALUS_CTR
-			u64 load_end = 0;
-			NTiming::GetPreciseTime(&load_end);
-			CTRPerfLearning::RecordRomLoad(try_fixed_load, false, false,
-				load_end - rom_load_start);
-			CTRPerfLearning::EndGame();
-#endif
-			return false;
-		}
+		spRomFileCache->Open( p_rom_file );
 		sRomFixed = false;
 	}
-#ifdef DAEDALUS_CTR
-	u64 load_end = 0;
-	NTiming::GetPreciseTime(&load_end);
-	CTRPerfLearning::RecordRomLoad(try_fixed_load, sRomFixed, true,
-		load_end - rom_load_start);
-#endif
 	#ifdef DAEDALUS_DEBUG_CONSOLE
 	DBGConsole_Msg(0, "Opened [C%s]\n", filename);
 	#endif
@@ -390,9 +321,6 @@ bool RomBuffer::Open()
 //*****************************************************************************
 void	RomBuffer::Close()
 {
-#ifdef DAEDALUS_CTR
-	CTRPerfLearning::EndGame();
-#endif
 	if (spRomData)
 	{
 		CROMFileMemory::Get()->Free( spRomData );

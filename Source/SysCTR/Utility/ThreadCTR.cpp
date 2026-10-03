@@ -19,7 +19,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "stdafx.h"
 #include "Utility/Thread.h"
-#include "Utility/Timing.h"
 
 #include <3ds.h>
 
@@ -87,18 +86,7 @@ void ThreadSleepMs( u32 ms )
 
 void ThreadSleepTicks( u32 ticks )
 {
-	// svcSleepThread takes nanoseconds, while the limiter supplies ticks from
-	// NTiming's high-resolution counter. Convert using the active counter rate.
-	u64 frequency = 0;
-	if (!NTiming::GetPreciseFrequency(&frequency) || frequency == 0)
-	{
-		// Fail safely: this fallback is a short delay, not a tick-accurate wait.
-		svcSleepThread((s64)ticks);
-		return;
-	}
-
-	const u64 nanoseconds = ((u64)ticks * 1000000000ULL) / frequency;
-	svcSleepThread((s64)(nanoseconds ? nanoseconds : (ticks ? 1 : 0)));
+	svcSleepThread( ticks );		// Delay is specified in ticks
 }
 
 void ThreadYield()

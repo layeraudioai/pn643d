@@ -55,7 +55,7 @@ AccessControlInfo:
 
   # Process Settings
   MemoryType                    : Application # Application/System/Base
-  SystemMode                    : 80MB # diagnostic baseline: default memory mode
+  SystemMode                    : 64MB # diagnostic baseline: default memory mode
   IdealProcessor                : 0
   AffinityMask                  : 1
   Priority                      : 16
@@ -72,10 +72,10 @@ AccessControlInfo:
   SpecialMemoryArrange          : true
 
   # New3DS Exclusive Process Settings
-  SystemModeExt                 : 124MB # New 3DS uses the Old 3DS 80MB mode; no New-only memory expansion
-  CpuSpeed                      : 268MHz # diagnostic baseline: default clock
-  EnableL2Cache                 : true # diagnostic baseline: disable New 3DS cache request
-  CanAccessCore2                : true # diagnostic baseline: no New 3DS core 2 request
+  SystemModeExt                 : Legacy # New 3DS uses the Old 3DS 80MB mode; no New-only memory expansion
+  CpuSpeed                      : 256MHz # diagnostic baseline: default clock
+  EnableL2Cache                 : false # diagnostic baseline: disable New 3DS cache request
+  CanAccessCore2                : false # diagnostic baseline: no New 3DS core 2 request
 
   # Virtual Address Mappings
   IORegisterMapping:

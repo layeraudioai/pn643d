@@ -72,7 +72,7 @@ bool	JoinThread( ThreadHandle handle, s32 timeout );
 void	ThreadSleepMs( u32 ms );
 
 //
-//	Sleep for the specified number of high-resolution NTiming ticks
+//	Sleep for the specified number of ticks
 //
 void	ThreadSleepTicks( u32 ticks );
 

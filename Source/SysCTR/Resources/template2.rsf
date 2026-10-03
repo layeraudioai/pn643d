@@ -73,7 +73,7 @@ AccessControlInfo:
 
   # New3DS Exclusive Process Settings
   SystemModeExt                 : Legacy # New 3DS uses the Old 3DS 80MB mode; no New-only memory expansion
-  CpuSpeed                      : 256MHz # diagnostic baseline: default clock
+  CpuSpeed                      : 268MHz # diagnostic baseline: default clock
   EnableL2Cache                 : false # diagnostic baseline: disable New 3DS cache request
   CanAccessCore2                : false # diagnostic baseline: no New 3DS core 2 request
 

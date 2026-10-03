@@ -426,6 +426,10 @@ void SpecificGameHacks( const ROMHeader & id )
 	case 0x5543:	//Cruisn' USA
 		g_ROM.GameHacks = BODY_HARVEST;
 		break;
+	case 0x4254:	//Mischief Makers: correct VI-height scaling for 2D elements
+	case 0x5257:	//Wave Race 64: correct VI-height scaling for 2D elements
+		g_ROM.VIHEIGHT_HACK = true;
+		break;
 	default:
 		break;
 	}
@@ -500,6 +504,9 @@ bool ROM_LoadFile(const RomID & rom_id, const RomSettings & settings, const SRom
 	// Runtime per-ROM fixes remain enabled for all builds. A dedicated build
 	// may layer a verified compile-time profile on top of these defaults.
 	SpecificGameHacks( g_ROM.rh );
+	// Allow ROM-database entries to opt into title-specific renderer workarounds
+	// without requiring a dedicated build or adding another CartID switch.
+	g_ROM.VIHEIGHT_HACK = g_ROM.VIHEIGHT_HACK || g_ROM.settings.VIHeightHack;
 #if DAEDALUS_TARGET_GAME_ID != 0
 	if( g_ROM.rh.CartID == DAEDALUS_TARGET_GAME_ID )
 		DAEDALUS_GAME_PROFILE_APPLY();

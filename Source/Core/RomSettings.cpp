@@ -310,6 +310,10 @@ bool IRomSettingsDB::OpenSettingsFile( const char * filename )
 		{
 			settings.FogEnabled = p_property->GetBooleanValue( false );
 		}
+		if( p_section->FindProperty( "VIHeightHack", &p_property ) )
+		{
+			settings.VIHeightHack = p_property->GetBooleanValue( false );
+		}
 		if( p_section->FindProperty( "MemoryAccessOptimisation", &p_property ) )
 		{
 			settings.MemoryAccessOptimisation = p_property->GetBooleanValue( false );
@@ -440,6 +444,7 @@ void IRomSettingsDB::OutputSectionDetails( const RomID & id, const RomSettings &
 	if( settings.AudioRateMatch )				fprintf(fh, "AudioRateMatch=yes\n");
 	if( settings.VideoRateMatch )				fprintf(fh, "VideoRateMatch=yes\n");
 	if( settings.FogEnabled )					fprintf(fh, "FogEnabled=yes\n");
+	if( settings.VIHeightHack )					fprintf(fh, "VIHeightHack=yes\n");
 	if( settings.MemoryAccessOptimisation )		fprintf(fh, "MemoryAccessOptimisation=yes\n");
 	if( settings.CheatsEnabled )				fprintf(fh, "CheatsEnabled=yes\n");
 
@@ -502,6 +507,7 @@ RomSettings::RomSettings()
 ,	AudioRateMatch( false )
 ,	VideoRateMatch( false )
 ,	FogEnabled( false )
+,	VIHeightHack( false )
 ,   MemoryAccessOptimisation( false )
 ,   CheatsEnabled( false )
 {
@@ -530,6 +536,7 @@ void	RomSettings::Reset()
 	AudioRateMatch = false;
 	VideoRateMatch = false;
 	FogEnabled = false;
+	VIHeightHack = false;
 	CheatsEnabled = false;
 	MemoryAccessOptimisation = false;
 }

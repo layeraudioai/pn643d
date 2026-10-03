@@ -69,6 +69,7 @@ struct RomSettings
 	bool				AudioRateMatch;
 	bool				VideoRateMatch;
 	bool				FogEnabled;
+	bool				VIHeightHack;		// Keep the renderer's vertical VI scale at 1.0
 	bool                MemoryAccessOptimisation;
 	bool				CheatsEnabled;
 

@@ -37,13 +37,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static const u32	DESIRED_OUTPUT_FREQUENCY = 44100;
 u32	gSoundSync = 44100;
-// Large BUFFER_SIZE creates huge delay on sound //Corn
-static const u32	BUFFER_SIZE  = 1024 * 2;
+// Extra capacity absorbs short emulation/DSP scheduling stalls. This is not
+// fixed latency: the ring only accumulates audio when production gets ahead.
+static const u32	BUFFER_SIZE  = 1024 * 8;
 
 static const u32	CTR_NUM_SAMPLES = 512;
+static const u32	CTR_NUM_WAVE_BUFS = 4;
 
-static ndspWaveBuf waveBuf[2];
-static unsigned int waveBuf_id;
+static ndspWaveBuf waveBuf[CTR_NUM_WAVE_BUFS];
 
 bool audioOpen = false;
 
@@ -55,13 +56,17 @@ static void audioCallback(void *arg)
 {
 	(void)arg;
 
-	if(waveBuf[waveBuf_id].status == NDSP_WBUF_DONE)
+	// A callback can be delayed long enough for more than one block to finish.
+	// Refill every completed block rather than assuming strict callback/index
+	// alternation, otherwise the DSP queue can run dry and produce crackling.
+	for (u32 i = 0; i < CTR_NUM_WAVE_BUFS; ++i)
 	{
-		mAudioBuffer->Drain( reinterpret_cast< Sample * >( waveBuf[waveBuf_id].data_pcm16 ), CTR_NUM_SAMPLES );
-		DSP_FlushDataCache(waveBuf[waveBuf_id].data_pcm16, CTR_NUM_SAMPLES << 2);
-		ndspChnWaveBufAdd( 0, &waveBuf[waveBuf_id] );
+		if (waveBuf[i].status != NDSP_WBUF_DONE)
+			continue;
 
-		waveBuf_id = !waveBuf_id;
+		mAudioBuffer->Drain( reinterpret_cast< Sample * >( waveBuf[i].data_pcm16 ), CTR_NUM_SAMPLES );
+		DSP_FlushDataCache(waveBuf[i].data_pcm16, CTR_NUM_SAMPLES << 2);
+		ndspChnWaveBufAdd( 0, &waveBuf[i] );
 	}
 }
 
@@ -75,22 +80,25 @@ static void AudioInit()
 	
 	ndspChnSetRate(0, 44100.0f);
 
-	waveBuf[0].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * 4);
-	waveBuf[0].nsamples = CTR_NUM_SAMPLES;
-	waveBuf[0].status = 0;
-	waveBuf[1].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * 4);
-	waveBuf[1].nsamples = CTR_NUM_SAMPLES;
-	waveBuf[1].status = 0;
-
-	memset(waveBuf[0].data_pcm16, 0, CTR_NUM_SAMPLES * 4);
-	memset(waveBuf[1].data_pcm16, 0, CTR_NUM_SAMPLES * 4);
-
-	waveBuf_id = 0;
+	for (u32 i = 0; i < CTR_NUM_WAVE_BUFS; ++i)
+	{
+		waveBuf[i].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * sizeof(Sample));
+		if (waveBuf[i].data_vaddr == nullptr)
+		{
+			for (u32 j = 0; j < i; ++j)
+				linearFree((void *)waveBuf[j].data_vaddr);
+			ndspExit();
+			return;
+		}
+		waveBuf[i].nsamples = CTR_NUM_SAMPLES;
+		waveBuf[i].status = 0;
+		memset(waveBuf[i].data_pcm16, 0, CTR_NUM_SAMPLES * sizeof(Sample));
+	}
 
 	ndspSetCallback(&audioCallback, nullptr);
 
-	ndspChnWaveBufAdd(0, &waveBuf[0]);
-	ndspChnWaveBufAdd(0, &waveBuf[1]);
+	for (u32 i = 0; i < CTR_NUM_WAVE_BUFS; ++i)
+		ndspChnWaveBufAdd(0, &waveBuf[i]);
 
 	// Everything OK
 	audioOpen = true;
@@ -98,12 +106,18 @@ static void AudioInit()
 
 static void AudioExit()
 {
+	if (!audioOpen)
+		return;
+
 	// Stop stream
 	ndspChnWaveBufClear(0);
 	ndspExit();
 
-	linearFree((void*)waveBuf[0].data_vaddr);
-	linearFree((void*)waveBuf[1].data_vaddr);
+	for (u32 i = 0; i < CTR_NUM_WAVE_BUFS; ++i)
+	{
+		linearFree((void *)waveBuf[i].data_vaddr);
+		waveBuf[i].data_vaddr = nullptr;
+	}
 
 	audioOpen = false;
 }

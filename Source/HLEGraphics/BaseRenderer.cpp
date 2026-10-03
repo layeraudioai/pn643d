@@ -356,6 +356,14 @@ void BaseRenderer::InitViewport()
 		mN64ToScreenTranslate.x  = (f32)display_x - roundf(0.55f * (gZoomX - 1.0f) * fViWidth);
 		mN64ToScreenTranslate.y  = (f32)display_y - roundf(0.55f * (gZoomX - 1.0f) * fViHeight);
 
+		// These games use VI dimensions that distort 2D elements when the
+		// viewport is scaled to the nominal VI height. Keep their vertical
+		// scale at 1.0 while leaving every other title on the normal path.
+		if (g_ROM.VIHEIGHT_HACK)
+		{
+			mN64ToScreenScale.y = 1.0f;
+		}
+
 #ifndef DAEDALUS_CTR
 		if (gRumblePakActive)
 		{

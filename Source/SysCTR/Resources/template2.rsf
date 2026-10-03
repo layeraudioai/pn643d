@@ -72,7 +72,7 @@ AccessControlInfo:
   SpecialMemoryArrange          : true
 
   # New3DS Exclusive Process Settings
-  SystemModeExt                 : 124MB # Maximum New 3DS application memory mode (ignored by Old 3DS/2DS)
+  SystemModeExt                 : 196MB # Maximum New 3DS application memory mode (ignored by Old 3DS/2DS)
   CpuSpeed                      : 804MHz # 256MHz(Default)/804MHz
   EnableL2Cache                 : true # false(default)/true
   CanAccessCore2                : true 

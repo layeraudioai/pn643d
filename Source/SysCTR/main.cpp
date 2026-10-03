@@ -136,7 +136,7 @@ static u64 ShaderExtId()
 
     APT_GetProgramID(&programId);
 
-    return programId & 0xFFFFFFFFULL;
+    return (programId & 0xFFFFFFFFULL) >> 8;
 }
 
 static bool ApplyShaderCache(const u8 *cache, size_t got)

@@ -466,7 +466,7 @@ SRomPreferences::SRomPreferences()
 	,	CheckTextureHashFrequency( kDefaultTextureHashFrequency )
 	,	Frameskip( FV_DISABLED )
 	,	MaxFPS( 60.0f )
-	,	StereoSeparation( 0.050f )
+	,	StereoSeparation( 0.025f )
 	,	StereoPopout( false )
 	,	AudioEnabled( APM_ENABLED_ASYNC )
 	,	ZoomX( 1.0f )
@@ -495,7 +495,7 @@ void SRomPreferences::Reset()
 	//AudioAdaptFrequency      = false;
 	ZoomX                      = 1.0f;
 	MaxFPS                     = 60.0f;
-	StereoSeparation           = 0.050f;
+	StereoSeparation           = 0.025f;
 	StereoPopout               = false;
 	CheatsEnabled              = false;
 	ControllerIndex            = 0;

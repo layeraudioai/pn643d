@@ -353,7 +353,7 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 			 * orthographic sprites/UI much closer to the screen to avoid excessive
 			 * eye strain and sprite-edge ghosting. */
 			bool perspective = fabsf(pglState->matrix_projection.row[3].z) > 0.5f;
-			float reference_depth = perspective ? 800.0f : 12.0f;
+			float reference_depth = perspective ? 600.0f : 35.0f;
 			float focal_scale = fmaxf(fabsf(pglState->matrix_projection.row[0].x),
 				fabsf(pglState->matrix_projection.row[0].y));
 			focal_scale = fmaxf(focal_scale,

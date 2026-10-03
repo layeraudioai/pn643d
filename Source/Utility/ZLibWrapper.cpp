@@ -23,10 +23,32 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "ZlibWrapper.h"
 
 #include <string.h>
+#include <stdio.h>
 #include <zlib.h>
 
 #include "Math/MathUtil.h"
+#if defined(DAEDALUS_CTR)
+#include "SysCTR/Utility/CTRStorage.h"
+#endif
 
+namespace {
+static bool IsCTRSaveStatePath(const char* path) {
+#if defined(DAEDALUS_CTR)
+    const char* name = strrchr(path, '/');
+    name = name ? name + 1 : path;
+    size_t len = strlen(name);
+    return len >= 4 && name[len - 4] == '.' && name[len - 3] == 's' && name[len - 2] == 's' && name[len - 1] >= '0' && name[len - 1] <= '9';
+#else
+    (void)path;
+    return false;
+#endif
+}
+
+static const char* CTRArchiveBasename(const char* path) {
+    const char* name = strrchr(path, '/');
+    return name ? name + 1 : path;
+}
+}
 
 #define toGzipFile(fh) ((gzFile)fh)
 //*****************************************************************************
@@ -35,7 +57,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 COutStream::COutStream( const char * filename )
 :	mBufferCount( 0 )
 ,	mFile( gzopen( filename, "wb" ) )
+,	mSaveStateFile( IsCTRSaveStatePath(filename) )
+,	mStagedFromSaveData( false )
 {
+	snprintf(mFilename, sizeof(mFilename), "%s", filename);
 }
 
 //*****************************************************************************
@@ -47,6 +72,10 @@ COutStream::~COutStream()
 	{
 		Flush();
 		gzclose( toGzipFile(mFile) );
+#if defined(DAEDALUS_CTR)
+		if (mSaveStateFile && CTRStorage::SaveDataExportFile(CTRArchiveBasename(mFilename), mFilename))
+			remove(mFilename);
+#endif
 	}
 }
 
@@ -134,8 +163,16 @@ void	COutStream::Reset()
 CInStream::CInStream( const char * filename )
 :	mBufferOffset( 0 )
 ,	mBytesAvailable( 0 )
-,	mFile( gzopen( filename, "rb" ) )
+,	mFile( nullptr )
+,	mSaveStateFile( IsCTRSaveStatePath(filename) )
+,	mStagedFromSaveData( false )
 {
+	snprintf(mFilename, sizeof(mFilename), "%s", filename);
+#if defined(DAEDALUS_CTR)
+	if (mSaveStateFile)
+		mStagedFromSaveData = CTRStorage::SaveDataImportFile(CTRArchiveBasename(mFilename), mFilename);
+#endif
+	mFile = gzopen(filename, "rb");
 }
 
 //*****************************************************************************
@@ -147,6 +184,10 @@ CInStream::~CInStream()
 	{
 		gzclose( toGzipFile(mFile) );
 	}
+#if defined(DAEDALUS_CTR)
+	if (mStagedFromSaveData)
+		remove(mFilename);
+#endif
 }
 
 //*****************************************************************************

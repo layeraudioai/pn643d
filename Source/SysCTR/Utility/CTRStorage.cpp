@@ -47,7 +47,11 @@ static bool WriteArchive(FS_Archive a, const char* n, const void* d, size_t s) {
         r = FSUSER_OpenFile(&f, a, p, FS_OPEN_WRITE | FS_OPEN_CREATE, 0);
     if (R_FAILED(r))
         return false;
-    FSFILE_SetSize(f, s);
+    r = FSFILE_SetSize(f, s);
+    if (R_FAILED(r)) {
+        FSFILE_Close(f);
+        return false;
+    }
     u32 w = 0;
     r = FSFILE_Write(f, &w, 0, d, (u32)s, FS_WRITE_FLUSH);
     FSFILE_Close(f);
@@ -58,6 +62,86 @@ static bool Commit(FS_Archive a) {
     Result r = FSUSER_ControlArchive(a, ARCHIVE_ACTION_COMMIT_SAVE_DATA, nullptr, 0, nullptr, 0);
     FSUSER_CloseArchive(a);
     return R_SUCCEEDED(r);
+}
+
+static bool ImportArchiveFile(FS_Archive a, const char* name, const char* path) {
+    FS_Path p = fsMakePath(PATH_ASCII, name);
+    Handle in = 0;
+    if (R_FAILED(FSUSER_OpenFile(&in, a, p, FS_OPEN_READ, 0)))
+        return false;
+
+    u64 size = 0;
+    if (R_FAILED(FSFILE_GetSize(in, &size))) {
+        FSFILE_Close(in);
+        return false;
+    }
+
+    FILE* out = fopen(path, "wb");
+    if (!out) {
+        FSFILE_Close(in);
+        return false;
+    }
+
+    u8 buffer[0x4000];
+    u64 offset = 0;
+    bool ok = true;
+    while (offset < size) {
+        u32 want = (u32)((size - offset < sizeof(buffer)) ? size - offset : sizeof(buffer));
+        u32 got = 0;
+        Result r = FSFILE_Read(in, &got, offset, buffer, want);
+        if (R_FAILED(r) || got != want || fwrite(buffer, 1, got, out) != got) {
+            ok = false;
+            break;
+        }
+        offset += got;
+    }
+    if (fclose(out) != 0)
+        ok = false;
+    FSFILE_Close(in);
+    if (!ok)
+        remove(path);
+    return ok;
+}
+
+static bool ExportArchiveFile(FS_Archive a, const char* name, const char* path) {
+    FILE* in = fopen(path, "rb");
+    if (!in)
+        return false;
+    if (fseek(in, 0, SEEK_END) != 0) {
+        fclose(in);
+        return false;
+    }
+    long fileSize = ftell(in);
+    if (fileSize < 0 || fseek(in, 0, SEEK_SET) != 0) {
+        fclose(in);
+        return false;
+    }
+
+    FS_Path p = fsMakePath(PATH_ASCII, name);
+    Handle out = 0;
+    Result r = FSUSER_OpenFile(&out, a, p, FS_OPEN_READ | FS_OPEN_WRITE, 0);
+    if (R_FAILED(r))
+        r = FSUSER_OpenFile(&out, a, p, FS_OPEN_WRITE | FS_OPEN_CREATE, 0);
+    if (R_FAILED(r)) {
+        fclose(in);
+        return false;
+    }
+    r = FSFILE_SetSize(out, (u64)fileSize);
+    u8 buffer[0x4000];
+    u64 offset = 0;
+    bool ok = R_SUCCEEDED(r);
+    while (ok && offset < (u64)fileSize) {
+        size_t want = (size_t)(((u64)fileSize - offset < sizeof(buffer)) ? (u64)fileSize - offset : sizeof(buffer));
+        size_t got = fread(buffer, 1, want, in);
+        u32 written = 0;
+        if (got != want || R_FAILED(FSFILE_Write(out, &written, offset, buffer, (u32)got, FS_WRITE_FLUSH)) || written != got)
+            ok = false;
+        offset += got;
+    }
+    if (fclose(in) != 0)
+        ok = false;
+    FSFILE_Close(out);
+    return ok;
 }
 #endif
 
@@ -89,16 +173,32 @@ static bool SdmcExtWrite(u64 id, const char* n, const void* d, size_t s) {
 }
 
 namespace CTRStorage {
-bool SaveDataRead(const char* n, void* d, size_t s) {
+bool SaveDataRead(const char* n, void* d, size_t s, size_t* actual) {
 #ifndef DAEDALUS_DISABLE_OS_STORAGE
     FS_Archive a;
     if (OpenSaveArchive(&a)) {
-        bool ok = ReadArchive(a, n, d, s, nullptr);
+        bool ok = ReadArchive(a, n, d, s, actual);
         FSUSER_CloseArchive(a);
         if (ok) return true;
     }
 #endif
-    return SdmcSaveRead(n, d, s, nullptr);
+
+    size_t bytesRead = 0;
+    if (!SdmcSaveRead(n, d, s, actual ? actual : &bytesRead))
+        return false;
+
+#ifndef DAEDALUS_DISABLE_OS_STORAGE
+    // Import legacy SD-card saves into the title's savedata archive the first
+    // time they are read. Keep the SD copy unless the archive commit succeeds.
+    size_t migrateSize = actual ? *actual : bytesRead;
+    if (migrateSize > 0 && OpenSaveArchive(&a)) {
+        bool written = WriteArchive(a, n, d, migrateSize);
+        bool committed = Commit(a);
+        if (written && committed)
+            SdmcSaveDelete(n);
+    }
+#endif
+    return true;
 }
 
 bool SaveDataWrite(const char* n, const void* d, size_t s) {
@@ -106,8 +206,8 @@ bool SaveDataWrite(const char* n, const void* d, size_t s) {
     FS_Archive a;
     if (OpenSaveArchive(&a)) {
         bool ok = WriteArchive(a, n, d, s);
-        Commit(a);
-        if (ok) return true;
+        bool committed = Commit(a);
+        if (ok && committed) return true;
     }
 #endif
     return SdmcSaveWrite(n, d, s);
@@ -119,11 +219,49 @@ bool SaveDataDelete(const char* n) {
     if (OpenSaveArchive(&a)) {
         FS_Path p = fsMakePath(PATH_ASCII, n);
         bool ok = R_SUCCEEDED(FSUSER_DeleteFile(a, p));
-        Commit(a);
-        if (ok) return true;
+        bool committed = Commit(a);
+        if (ok && committed) return true;
     }
 #endif
     return SdmcSaveDelete(n);
+}
+
+bool SaveDataImportFile(const char* n, const char* path) {
+#ifndef DAEDALUS_DISABLE_OS_STORAGE
+    FS_Archive a;
+    if (OpenSaveArchive(&a)) {
+        bool ok = ImportArchiveFile(a, n, path);
+        FSUSER_CloseArchive(a);
+        if (ok) return true;
+    }
+
+    // An existing SD-card savestate is a legacy copy. Migrate it to
+    // savedata, but leave it in place for this read and as a fallback.
+    if (OpenSaveArchive(&a)) {
+        bool migrated = ExportArchiveFile(a, n, path);
+        bool committed = Commit(a);
+        (void)migrated;
+        (void)committed;
+    }
+#else
+    (void)n;
+    (void)path;
+#endif
+    return false;
+}
+
+bool SaveDataExportFile(const char* n, const char* path) {
+#ifndef DAEDALUS_DISABLE_OS_STORAGE
+    FS_Archive a;
+    if (OpenSaveArchive(&a)) {
+        bool ok = ExportArchiveFile(a, n, path);
+        bool committed = Commit(a);
+        if (ok && committed) return true;
+    }
+#endif
+    (void)n;
+    (void)path;
+    return false;
 }
 
 bool ExtDataEnsure(u64 id, u64 quota) {
@@ -156,8 +294,8 @@ bool ExtDataWrite(u64 id, const char* n, const void* d, size_t s) {
     FS_Archive a;
     if (OpenExtArchive(&a, id, true)) {
         bool ok = WriteArchive(a, n, d, s);
-        Commit(a);
-        if (ok) return true;
+        bool committed = Commit(a);
+        if (ok && committed) return true;
     }
 #endif
     return SdmcExtWrite(id, n, d, s);

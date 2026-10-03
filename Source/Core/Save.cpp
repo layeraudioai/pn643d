@@ -19,6 +19,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "stdafx.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 #include "ROM.h"
 #include "Memory.h"
 #include "Save.h"
@@ -27,8 +30,37 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Debug/DBGConsole.h"
 #include "Debug/Dump.h"
 #include "Utility/IO.h"
+#if defined(DAEDALUS_CTR)
+#include "SysCTR/Utility/CTRStorage.h"
+#endif
 
 static void InitMempackContent();
+
+static bool ReadSaveFile(const char* filename, void* data, size_t size)
+{
+#if defined(DAEDALUS_CTR)
+	return CTRStorage::SaveDataRead(IO::Path::FindFileName(filename), data, size);
+#else
+	FILE* fp = fopen(filename, "rb");
+	if (!fp) return false;
+	fread(data, 1, size, fp);
+	fclose(fp);
+	return true;
+#endif
+}
+
+static bool WriteSaveFile(const char* filename, const void* data, size_t size)
+{
+#if defined(DAEDALUS_CTR)
+	return CTRStorage::SaveDataWrite(IO::Path::FindFileName(filename), data, size);
+#else
+	FILE* fp = fopen(filename, "wb");
+	if (!fp) return false;
+	bool ok = fwrite(data, 1, size, fp) == size;
+	fclose(fp);
+	return ok;
+#endif
+}
 
 static IO::Filename		gSaveFileName;
 static bool				gSaveDirty;
@@ -71,26 +103,20 @@ bool Save_Reset()
 	{
 		Dump_GetSaveDirectory(gSaveFileName, g_ROM.mFileName, ext);
 
-		FILE * fp = fopen(gSaveFileName, "rb");
-		if (fp != nullptr)
+		u8 * dst = (u8*)g_pMemoryBuffers[MEM_SAVE];
+		u8 * file_data = (u8*)malloc(gSaveSize);
+		if (file_data)
 		{
-			#ifdef DAEDALUS_DEBUG_CONSOLE
-			DBGConsole_Msg(0, "Loading save from [C%s]", gSaveFileName);
-			#endif
-
-			u8 buffer[2048] {};
-			u8 * dst = (u8*)g_pMemoryBuffers[MEM_SAVE];
-
-			for (u32 d = 0; d < gSaveSize; d += sizeof(buffer))
+			memset(file_data, 0, gSaveSize);
+			if (ReadSaveFile(gSaveFileName, file_data, gSaveSize))
 			{
-				fread(buffer, sizeof(buffer), 1, fp);
-
-				for (u32 i = 0; i < sizeof(buffer); i++)
-				{
-					dst[d+i] = buffer[i^U8_TWIDDLE];
-				}
+				#ifdef DAEDALUS_DEBUG_CONSOLE
+				DBGConsole_Msg(0, "Loading save from [C%s]", gSaveFileName);
+				#endif
+				for (u32 i = 0; i < gSaveSize; i++)
+					dst[i] = file_data[(i & ~3u) + ((i & 3u) ^ U8_TWIDDLE)];
 			}
-			fclose(fp);
+			free(file_data);
 		}
 		#ifdef DAEDALUS_DEBUG_CONSOLE
 		else
@@ -103,14 +129,11 @@ bool Save_Reset()
 	// init mempack
 	{
 		Dump_GetSaveDirectory(gMempackFileName, g_ROM.mFileName, ".mpk");
-		FILE * fp = fopen(gMempackFileName, "rb");
-		if (fp != nullptr)
+		if (ReadSaveFile(gMempackFileName, g_pMemoryBuffers[MEM_MEMPACK], MemoryRegionSizes[MEM_MEMPACK]))
 		{
 			#ifdef DAEDALUS_DEBUG_CONSOLE
 			DBGConsole_Msg(0, "Loading MemPack from [C%s]", gMempackFileName);
 			#endif
-			fread(g_pMemoryBuffers[MEM_MEMPACK], MemoryRegionSizes[MEM_MEMPACK], 1, fp);
-			fclose(fp);
 			gMempackDirty = false;
 		}
 		else
@@ -150,23 +173,16 @@ void Save_Flush(bool force)
 		DBGConsole_Msg(0, "Saving to [C%s]", gSaveFileName);
 		#endif
 
-		FILE * fp = fopen(gSaveFileName, "wb");
-		if (fp != nullptr)
+		u8 * file_data = (u8*)malloc(gSaveSize);
+		if (file_data)
 		{
-			u8 buffer[2048];
-			u8 * src = (u8*)g_pMemoryBuffers[MEM_SAVE];
-
-			for (u32 d = 0; d < gSaveSize; d += sizeof(buffer))
-			{
-				for (u32 i = 0; i < sizeof(buffer); i++)
-				{
-					buffer[i^U8_TWIDDLE] = src[d+i];
-				}
-				fwrite(buffer, 1, sizeof(buffer), fp);
-			}
-			fclose(fp);
+			const u8 * src = (const u8*)g_pMemoryBuffers[MEM_SAVE];
+			for (u32 i = 0; i < gSaveSize; i++)
+				file_data[(i & ~3u) + ((i & 3u) ^ U8_TWIDDLE)] = src[i];
+			if (WriteSaveFile(gSaveFileName, file_data, gSaveSize))
+				gSaveDirty = false;
+			free(file_data);
 		}
-		gSaveDirty = false;
 	}
 
 	if (gMempackDirty || force)
@@ -175,13 +191,8 @@ void Save_Flush(bool force)
 		DBGConsole_Msg(0, "Saving MemPack to [C%s]", gMempackFileName);
 		#endif
 
-		FILE * fp = fopen(gMempackFileName, "wb");
-		if (fp != nullptr)
-		{
-			fwrite(g_pMemoryBuffers[MEM_MEMPACK], MemoryRegionSizes[MEM_MEMPACK], 1, fp);
-			fclose(fp);
-		}
-		gMempackDirty = false;
+		if (WriteSaveFile(gMempackFileName, g_pMemoryBuffers[MEM_MEMPACK], MemoryRegionSizes[MEM_MEMPACK]))
+			gMempackDirty = false;
 	}
 }
 

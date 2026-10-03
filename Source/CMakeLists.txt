@@ -3,7 +3,11 @@
 #Build instructions
 # Create a directory in the DaedalusX64 root directory and cd into it 'eg: mkdir tmp ~/DaedalusX64'
 # ensure you have cmake installed
-# CTR_RELEASE - Builds for Nintendo 3DS
+# For PSP:
+# cmake -DCMAKE_TOOLCHAIN_FILE=../Tools/psptoolchain.cmake ../Source/ -DPSP_OPTION
+
+#Options
+# PSP_RELEASE - Builds PSP Release
 
 cmake_minimum_required(VERSION 3.16)
 set(CMAKE_CXX_STANDARD 14)
@@ -32,6 +36,39 @@ set (DEBUG_ONLY Core/Registers.cpp)
 set (BUILD ${BASE_FILES} ${CONFIG_FILES} ${CORE_FILES} ${DEBUG_FILES} ${DYNAREC_FILES} ${GRAPHICS_FILES} ${HLEAUDIO_FILES} ${HLEGRAPHICS_FILES} ${INTERFACE_FILES} ${MATH_FILES} ${OSHLE_FILES} ${PLUGIN_FILES} ${SYSTEM_FILES} ${TEST_FILES} ${UTILITY_FILES})
 
 
+#PSP Build
+set (PSP_DEBUG_FILES SysPSP/Debug/DaedalusAssertPSP.cpp SysPSP/Debug/DBGConsolePSP.cpp )
+set (PSP_DVEMGR_FILES SysPSP/PRX/DveMgr/pspDveManager.S)
+set (PSP_DYNAREC_FILES SysPSP/DynaRec/AssemblyWriterPSP.cpp SysPSP/DynaRec/AssemblyUtilsPSP.cpp SysPSP/DynaRec/CodeBufferManagerPSP.cpp SysPSP/DynaRec/CodeGeneratorPSP.cpp SysPSP/DynaRec/DynaRecStubs.S SysPSP/DynaRec/N64RegisterCachePSP.cpp)
+set (PSP_GRAPHICS_FILES SysPSP/Graphics/DrawText.cpp SysPSP/Graphics/GraphicsContext.cpp SysPSP/Graphics/NativeTexturePSP.cpp SysPSP/Graphics/VideoMemoryManager.cpp SysPSP/Graphics/intraFont/intraFont.c SysPSP/Graphics/intraFont/libccc.c)
+set (PSP_HLEAUDIO_FILES SysPSP/HLEAudio/AudioPluginPSP.cpp)
+set (PSP_HLEGRAPHICS_FILES SysPSP/HLEGraphics/Blender.cpp SysPSP/HLEGraphics/BlendModes.cpp SysPSP/HLEGraphics/ColourAdjuster.cpp SysPSP/HLEGraphics/ConvertVertices.S SysPSP/HLEGraphics/DisplayListDebugger.cpp SysPSP/HLEGraphics/GraphicsPluginPSP.cpp SysPSP/HLEGraphics/RendererPSP.cpp SysPSP/HLEGraphics/Combiner/BlendConstant.cpp SysPSP/HLEGraphics/Combiner/CombinerExpression.cpp SysPSP/HLEGraphics/Combiner/CombinerTree.cpp SysPSP/HLEGraphics/Combiner/RenderSettings.cpp SysPSP/HLEGraphics/TnLVFPU.S SysPSP/HLEGraphics/VectorClipping.S)
+set (PSP_INPUTMANAGER_FILES SysPSP/Input/InputManagerPSP.cpp)
+set (PSP_KERNELBUTTON_FILES SysPSP/PRX/KernelButtons/imposectrl.S)
+set (PSP_MEDIAENGINEFILES SysPSP/PRX/MediaEngine/me.c SysPSP/PRX/MediaEngine/MediaEngine.S )
+set (PSP_UI_FILES SysPSP/UI/AboutComponent.cpp SysPSP/UI/AdjustDeadzoneScreen.cpp SysPSP/UI/AdvancedOptionsScreen.cpp SysPSP/UI/CheatOptionsScreen.cpp SysPSP/UI/ColourPulser.cpp SysPSP/UI/Dialogs.cpp SysPSP/UI/GlobalSettingsComponent.cpp SysPSP/UI/MainMenuScreen.cpp SysPSP/UI/PauseOptionsComponent.cpp SysPSP/UI/PauseScreen.cpp SysPSP/UI/RomPreferencesScreen.cpp SysPSP/UI/RomSelectorComponent.cpp SysPSP/UI/SavestateSelectorComponent.cpp SysPSP/UI/SelectedRomComponent.cpp SysPSP/UI/SplashScreen.cpp SysPSP/UI/UICommand.cpp SysPSP/UI/UIComponent.cpp SysPSP/UI/UIContext.cpp SysPSP/UI/UIElement.cpp SysPSP/UI/UIScreen.cpp SysPSP/UI/UISetting.cpp)
+set (PSP_UTILITY_FILES SysPSP/Utility/AtomicPrimitives.S SysPSP/Utility/BatteryPSP.cpp SysPSP/Utility/Buttons.cpp SysPSP/Utility/DebugMemory.cpp SysPSP/Utility/DisableFPUExceptions.S SysPSP/Utility/exception.cpp SysPSP/Utility/FastMemcpyPSP.cpp SysPSP/Utility/IOPSP.cpp SysPSP/Utility/JobManager.cpp SysPSP/Utility/ModulePSP.cpp SysPSP/Utility/ThreadPSP.cpp SysPSP/Utility/TimingPSP.cpp SysPSP/Utility/VolatileMemPSP.cpp)
+set (GPROF_SRCS SysPSP/Debug/prof.c SysPSP/Debug/mcount.S )
+set (PSP_MAIN_FILES SysPSP/main.cpp)
+
+
+set (PSP_BUILD ${PSP_DEBUG_FILES} ${PSP_DVEMGR_FILES} ${PSP_DYNAREC_FILES} ${PSP_GRAPHICS_FILES} ${PSP_HLEAUDIO_FILES} ${PSP_HLEGRAPHICS_FILES} ${PSP_INPUTMANAGER_FILES} ${PSP_KERNELBUTTON_FILES} ${PSP_MEDIAENGINEFILES} ${PSP_UI_FILES} ${PSP_UTILITY_FILES})
+Set(PSPSDK_LIBS -lpspdebug -lpspdisplay -lpspge -lpspctrl -lpspsdk -lpsplibc -lpsputility -lpspuser -lpspkernel -lpspaudiolib)
+
+
+#Handle .S files - Probably a better way to do this
+set_property(SOURCE SysPSP/HLEGraphics/ConvertVertices.S PROPERTY LANGUAGE C)
+set_property(SOURCE SysPSP/DynaRec/DynaRecStubs.S PROPERTY LANGUAGE C)
+set_property(SOURCE SysPSP/HLEGraphics/TnLVFPU.S PROPERTY LANGUAGE C)
+set_property(SOURCE SysPSP/HLEGraphics/VectorClipping.S PROPERTY LANGUAGE C)
+set_property(SOURCE SysPSP/Utility/AtomicPrimitives.S PROPERTY LANGUAGE C)
+set_property(SOURCE SysPSP/Utility/DisableFPUExceptions.S PROPERTY LANGUAGE C)
+set_property(SOURCE SysPSP/Debug/mcount.S PROPERTY LANGUAGE C)
+set_property(SOURCE SysPSP/PRX/DveMgr/pspDveManager.S PROPERTY LANGUAGE C)
+set_property(SOURCE SysPSP/PRX/KernelButtons/imposectrl.S PROPERTY LANGUAGE C)
+set_property(SOURCE SysPSP/PRX/MediaEngine/MediaEngine.S PROPERTY LANGUAGE C)
+
+
 #SysGL
 set (SYSGL_GRAPHICS SysGL/Graphics/GraphicsContextGL.cpp SysGL/Graphics/NativeTextureGL.cpp)
 set (SYSGL_HLEGRAPHICS SysGL/HLEGraphics/GraphicsPluginGL.cpp SysGL/HLEGraphics/RendererGL.cpp)
@@ -57,6 +94,18 @@ set (POSIX_BUILD ${POSIX_DEBUG} ${POSIX_DYNAREC} ${POSIX_HLEGRAPHICS} ${POSIX_UT
 set (LINUX_AUDIO SysPosix/HLEAudio/AudioPluginLinux.cpp)
 set (MAC_AUDIO SysPosix/HLEAudio/AudioPluginOSX.cpp)
 
+# Vita
+set (VITA_MAIN_FILES SysVita/main.cpp)
+set (VITA_DEBUG_FILES SysVita/Debug/DaedalusAssertVita.cpp SysVita/Debug/DBGConsoleVita.cpp )
+set (VITA_DYNAREC_FILES SysVita/DynaRec/CodeGeneratorVita.cpp)
+set (VITA_GRAPHICS_FILES SysVita/Graphics/GraphicsContextVita.cpp SysVita/Graphics/NativeTextureVita.cpp)
+set (VITA_HLEGRAPHICS_FILES SysVita/HLEGraphics/GraphicsPluginVita.cpp SysVita/HLEGraphics/RendererVita.cpp)
+set (VITA_HLEAUDIO_FILES SysVita/HLEAudio/AudioPluginVita.cpp SysVita/HLEAudio/AudioOutput.cpp)
+set (VITA_INPUTMANAGER_FILES SysVita/Input/InputManagerVita.cpp)
+set (VITA_UI_FILES SysVita/UI/MainMenuScreen.cpp)
+set (VITA_UTILITY_FILES SysVita/Utility/ThreadVita.cpp SysVita/Utility/IOVita.cpp SysVita/Utility/TimingVita.cpp)
+set (VITA_BUILD ${VITA_DEBUG_FILES} ${VITA_DYNAREC_FILES} ${VITA_GRAPHICS_FILES} ${VITA_HLEAUDIO_FILES} ${VITA_HLEGRAPHICS_FILES} ${VITA_INPUTMANAGER_FILES} ${VITA_UI_FILES} ${VITA_UTILITY_FILES})
+
 # N3DS(CTR)
 set (CTR_MAIN_FILES SysCTR/main.cpp)
 set (CTR_DEBUG_FILES SysCTR/Debug/DaedalusAssertCTR.cpp SysCTR/Debug/DBGConsoleCTR.cpp )
@@ -69,11 +118,41 @@ set (CTR_UI_FILES SysCTR/UI/UserInterface.cpp SysCTR/UI/RomSelector.cpp SysCTR/U
 set (CTR_UTILITY_FILES SysCTR/Utility/CTRStorage.cpp SysCTR/Utility/ThreadCTR.cpp SysCTR/Utility/IOCTR.cpp SysCTR/Utility/TimingCTR.cpp SysCTR/Utility/MemoryCTR.cpp SysCTR/Utility/CacheCTR.S)
 set (CTR_BUILD ${CTR_DEBUG_FILES} ${CTR_DYNAREC_FILES} ${CTR_GRAPHICS_FILES} ${CTR_HLEAUDIO_FILES} ${CTR_HLEGRAPHICS_FILES} ${CTR_INPUTMANAGER_FILES} ${CTR_UI_FILES} ${CTR_UTILITY_FILES})
 
+if (PSP_RELEASE)
+	message("PSP Release Build..")
+	add_definitions("-DNDEBUG  -march=allegrex -O2 -msingle-float -mfix-r4000 -Wall ")
+	add_compile_options(-DPSP_LARGE_MEMORY=1 -DPSP_FW_VERSION=661)
+	add_definitions(-DDAEDALUS_PSP)
+	include_directories(${PROJECT_SOURCE_DIR}/Config/Release)
+	add_library(pspkubridge STATIC IMPORTED)
+	set_property(TARGET pspkubridge PROPERTY IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/SysPSP/Include/lib/libpspkubridge.a)
+	include_directories(BEFORE ${PROJECT_SOURCE_DIR}/SysPSP/Include)
+	add_library(daedalus STATIC ${BUILD} ${PSP_BUILD})
+	add_executable(daedalus.elf ${PSP_MAIN_FILES})
+	set_target_properties(daedalus.elf PROPERTIES LINK_FLAGS "-specs=${PSPSDK}/lib/prxspecs -Wl,-q,-T${PSPSDK}/lib/linkfile.prx ${PSPSDK}/lib/prxexports.o -L${PSPSDK}/lib")
+	target_include_directories(daedalus.elf PUBLIC /usr/local/pspdev/psp/sdk/include )
+	target_link_libraries(daedalus.elf daedalus -lstdc++ -lpsppower -lpspgu -lpspaudiolib -lpspaudio -lpsprtc -lpng -lz -lc -lg -lm -lpspfpu pspkubridge ${PSPSDK_LIBS})
+endif (PSP_RELEASE)
 
 
 
 #Only difference between PSP Release and Debug is the definitions and Config Dev File - Try and merge
 
+if (PSP_DEBUG)
+	message("PSP Debug Build..")
+	include_directories(${PROJECT_SOURCE_DIR}/Config/Dev)
+	add_definitions("-g -O2 -fno-omit-frame-pointer -G0 -D_DEBUG -MD -Wall")
+	add_compile_options(-DPSP_FW_VERSION=661)
+	add_definitions(-DDAEDALUS_PSP )
+	add_library(pspkubridge STATIC IMPORTED)
+	set_property(TARGET pspkubridge PROPERTY IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/SysPSP/Include/lib/libpspkubridge.a)
+	include_directories(BEFORE ${PROJECT_SOURCE_DIR}/SysPSP/Include)
+	add_library(daedalus STATIC ${BUILD} ${PSP_BUILD} ${DEBUG_ONLY})
+	add_executable(daedalus.elf ${PSP_MAIN_FILES})
+	set_target_properties(daedalus.elf PROPERTIES LINK_FLAGS "-specs=${PSPSDK}/lib/prxspecs -Wl,-q,-T${PSPSDK}/lib/linkfile.prx ${PSPSDK}/lib/prxexports.o -L${PSPSDK}/lib")
+	target_include_directories(daedalus.elf PUBLIC /usr/local/pspdev/psp/sdk/include )
+	target_link_libraries(daedalus.elf daedalus -lstdc++ -lpsppower -lpspgu -lpspaudiolib -lpspaudio -lpsprtc -lpng -lz -lc -lg -lm -lpspfpu pspkubridge ${PSPSDK_LIBS})
+endif (PSP_DEBUG)
 
 if (MAC_RELEASE OR LINUX_RELEASE)
 
@@ -121,7 +200,115 @@ if (MAC_RELEASE)
 	target_link_libraries(daedalus LINK_PUBLIC daedalus.lib )
 endif (MAC_RELEASE)
 
+if (PSP_RELEASE)
+	message("PSP Release Build..")
+	add_definitions("-DNDEBUG  -march=allegrex -O2 -msingle-float -mfix-r4000 -Wall ")
+	add_compile_options(-DPSP_LARGE_MEMORY=1 -DPSP_FW_VERSION=661)
+	add_definitions(-DDAEDALUS_PSP)
+	include_directories(${PROJECT_SOURCE_DIR}/Config/Release)
+	add_library(pspkubridge STATIC IMPORTED)
+	set_property(TARGET pspkubridge PROPERTY IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/SysPSP/Include/lib/libpspkubridge.a)
+	include_directories(BEFORE ${PROJECT_SOURCE_DIR}/SysPSP/Include)
+	add_library(daedalus STATIC ${BUILD} ${PSP_BUILD})
+	add_executable(daedalus.elf ${PSP_MAIN_FILES})
+	set_target_properties(daedalus.elf PROPERTIES LINK_FLAGS "-specs=${PSPSDK}/lib/prxspecs -Wl,-q,-T${PSPSDK}/lib/linkfile.prx ${PSPSDK}/lib/prxexports.o -L${PSPSDK}/lib")
+	target_include_directories(daedalus.elf PUBLIC /usr/local/pspdev/psp/sdk/include )
+	target_link_libraries(daedalus.elf daedalus -lstdc++ -lpsppower -lpspgu -lpspaudiolib -lpspaudio -lpsprtc -lpng -lz -lc -lg -lm -lpspfpu pspkubridge ${PSPSDK_LIBS})
+endif (PSP_RELEASE)
 
+if (VITA_RELEASE)
+	include("${VITASDK}/share/vita.cmake" REQUIRED)
+
+	message("PSVita Release Build..")
+
+	set(VITA_APP_NAME "${PROJECT_NAME}")
+	set(VITA_TITLEID  "DAED00001")
+	set(VITA_VERSION  "01.00")
+
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -mfpu=neon -ftree-vectorize -fsingle-precision-constant -march=armv7-a -mtune=cortex-a9 -mfloat-abi=hard -ffast-math")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -O2 -mfpu=neon -ftree-vectorize -fsingle-precision-constant -march=armv7-a -mtune=cortex-a9 -mfloat-abi=hard -ffast-math -fpermissive")
+
+	add_definitions("-DDAEDALUS_VITA")
+
+	# Build SysGXM Lib
+	#add_library(sysGXM STATIC ${SYSGXM_BUILD})
+	#target_link_libraries(sysGL GL GLEW -lSDL2 dl X11  )
+
+	# Build Daedalus Lib
+	add_library(daedalus STATIC
+		${BUILD}
+		${DEBUG_ONLY}
+		${VITA_BUILD}
+	)
+
+	target_include_directories(daedalus PRIVATE
+		${PROJECT_SOURCE_DIR}
+		${PROJECT_SOURCE_DIR}/SysVita/Include
+		${PROJECT_SOURCE_DIR}/Config/Dev
+	)
+
+	target_link_libraries(daedalus
+		z
+		png
+	)
+
+	# Build and Link Executable
+	add_executable(${PROJECT_NAME}.elf
+		${VITA_MAIN_FILES}
+		${VITA_INPUTMANAGER_FILES}
+	)
+
+	target_include_directories(${PROJECT_NAME}.elf PRIVATE
+		${PROJECT_SOURCE_DIR}
+		${PROJECT_SOURCE_DIR}/SysVita/Include
+		${PROJECT_SOURCE_DIR}/Config/Dev
+	)
+
+	target_link_libraries(${PROJECT_NAME}.elf
+		daedalus
+		SceDisplay_stub
+		SceGxm_stub
+		ScePgf_stub
+		ScePvf_stub
+		SceSysmodule_stub
+		SceCommonDialog_stub
+		SceKernelThreadMgr_stub
+		SceCtrl_stub
+		SceTouch_stub
+		SceAudio_stub
+		-Wl,--whole-archive pthread -Wl,--no-whole-archive
+		-lc
+		-lstdc++
+		-lm
+		-lvitaGL
+		-lmathneon
+		-limgui
+	)
+
+	vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME}.elf)
+	vita_create_vpk(${PROJECT_NAME}.vpk ${VITA_TITLEID} ${PROJECT_NAME}.self
+		VERSION ${VITA_VERSION}
+		NAME ${VITA_APP_NAME}
+	)
+
+	add_custom_target(launch
+		COMMAND curl -T ${PROJECT_NAME}.self ftp://$(PSVITAIP):1337/ux0:/app/${VITA_TITLEID}/eboot.bin
+		COMMAND echo "launch ${VITA_TITLEID}" | nc $ENV{PSVITAIP} 1338
+		#COMMAND curl "ftp://${PSVITAIP}:1337/ux0:/Play/Play Data Files/logs/GSH_GXM.log"
+		DEPENDS ${PROJECT_NAME}.self
+	)
+
+	add_custom_target(send
+		COMMAND curl -T ${PROJECT_NAME}.self ftp://$(PSVITAIP):1337/ux0:/app/${VITA_TITLEID}/eboot.bin
+		DEPENDS ${PROJECT_NAME}.self
+	)
+
+	add_custom_target(vpksend
+		COMMAND curl -T ${PROJECT_NAME}.vpk ftp://$(PSVITAIP):1337/ux0:/
+		DEPENDS ${PROJECT_NAME}.vpk
+	)
+
+endif (VITA_RELEASE)
 
 if (CTR_RELEASE)
 	message("N3DS Release Build..")

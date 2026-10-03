@@ -3,7 +3,11 @@
 #Build instructions
 # Create a directory in the DaedalusX64 root directory and cd into it 'eg: mkdir tmp ~/DaedalusX64'
 # ensure you have cmake installed
-# CTR_RELEASE - Builds for Nintendo 3DS
+# For PSP:
+# cmake -DCMAKE_TOOLCHAIN_FILE=../Tools/psptoolchain.cmake ../Source/ -DPSP_OPTION
+
+#Options
+# PSP_RELEASE - Builds PSP Release
 
 cmake_minimum_required(VERSION 3.16)
 set(CMAKE_CXX_STANDARD 14)
@@ -31,7 +35,6 @@ set (UNKNOWN_FILES Utility/FastMemcpy_test.cpp)
 set (DEBUG_ONLY Core/Registers.cpp)
 set (BUILD ${BASE_FILES} ${CONFIG_FILES} ${CORE_FILES} ${DEBUG_FILES} ${DYNAREC_FILES} ${GRAPHICS_FILES} ${HLEAUDIO_FILES} ${HLEGRAPHICS_FILES} ${INTERFACE_FILES} ${MATH_FILES} ${OSHLE_FILES} ${PLUGIN_FILES} ${SYSTEM_FILES} ${TEST_FILES} ${UTILITY_FILES})
 
-
 # N3DS(CTR)
 set (CTR_MAIN_FILES SysCTR/main.cpp)
 set (CTR_DEBUG_FILES SysCTR/Debug/DaedalusAssertCTR.cpp SysCTR/Debug/DBGConsoleCTR.cpp )
@@ -43,13 +46,6 @@ set (CTR_INPUTMANAGER_FILES SysCTR/Input/InputManagerCTR.cpp SysCTR/Input/CTRMul
 set (CTR_UI_FILES SysCTR/UI/UserInterface.cpp SysCTR/UI/RomSelector.cpp SysCTR/UI/InGameMenu.cpp)
 set (CTR_UTILITY_FILES SysCTR/Utility/CTRStorage.cpp SysCTR/Utility/ThreadCTR.cpp SysCTR/Utility/IOCTR.cpp SysCTR/Utility/TimingCTR.cpp SysCTR/Utility/MemoryCTR.cpp SysCTR/Utility/CacheCTR.S)
 set (CTR_BUILD ${CTR_DEBUG_FILES} ${CTR_DYNAREC_FILES} ${CTR_GRAPHICS_FILES} ${CTR_HLEAUDIO_FILES} ${CTR_HLEGRAPHICS_FILES} ${CTR_INPUTMANAGER_FILES} ${CTR_UI_FILES} ${CTR_UTILITY_FILES})
-
-
-
-
-#Only difference between PSP Release and Debug is the definitions and Config Dev File - Try and merge
-
-
 
 if (CTR_RELEASE)
 	message("N3DS Release Build..")

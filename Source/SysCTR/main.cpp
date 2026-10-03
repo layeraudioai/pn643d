@@ -136,19 +136,21 @@ static u64 ShaderExtId()
 
     APT_GetProgramID(&programId);
 
-    return programId & 0xFFFFFFFFULL;
+    return (programId & 0xFFFFFFFFULL) >> 8;
 }
 
-static void ApplyShaderCache(const u8 *cache, size_t got)
+static bool ApplyShaderCache(const u8 *cache, size_t got)
 {
     if (got < 8)
-        return;
+        return false;
 
-    u32 vs = *(const u32 *)&cache[0];
-    u32 cs = *(const u32 *)&cache[4];
+    u32 vs = 0;
+    u32 cs = 0;
+    memcpy(&vs, cache, sizeof(vs));
+    memcpy(&cs, cache + sizeof(vs), sizeof(cs));
 
-    if (vs + cs + 8 > got || vs == 0 || cs == 0)
-        return;
+    if (vs == 0 || cs == 0 || vs > got - 8 || cs > got - 8 - vs)
+        return false;
 
     pglSetShaderCache(
         cache + 8,
@@ -156,11 +158,13 @@ static void ApplyShaderCache(const u8 *cache, size_t got)
         cache + 8 + vs,
         cs
     );
+    return true;
 }
 
 static void LoadShaderCache()
 {
     u64 extId = ShaderExtId();
+    CTRStorage::ExtDataEnsure(extId);
 
     static u8 cache[0x40000];
     size_t got = 0;
@@ -172,8 +176,8 @@ static void LoadShaderCache()
             sizeof(cache),
             &got))
     {
-        ApplyShaderCache(cache, got);
-        return;
+        if (ApplyShaderCache(cache, got))
+            return;
     }
 
     if (CTRStorage::ImportFile(
@@ -199,13 +203,15 @@ static void SaveShaderCache()
 
     pglGetShaderCache(&v, &vs, &c, &cs);
 
-    if (vs + cs + 8 > 0x40000)
+    if (!v || !c || vs == 0 || cs == 0 || vs > 0x40000 - 8 || cs > 0x40000 - 8 - vs)
         return;
 
     static u8 cache[0x40000];
 
-    *(u32 *)&cache[0] = (u32)vs;
-    *(u32 *)&cache[4] = (u32)cs;
+    u32 vertexSize = (u32)vs;
+    u32 clearSize = (u32)cs;
+    memcpy(cache, &vertexSize, sizeof(vertexSize));
+    memcpy(cache + sizeof(vertexSize), &clearSize, sizeof(clearSize));
 
     memcpy(cache + 8, v, vs);
     memcpy(cache + 8 + vs, c, cs);
@@ -234,7 +240,10 @@ static void Initialize()
 	_InitializeSvcHack();
 	
 	APT_CheckNew3DS(&isN3DS);
-	osSetSpeedupEnable(true);
+	// The RSF requests 804 MHz + L2 cache on New 3DS. Enable the runtime
+	// speedup only on hardware that supports it; Old 3DS runs at its platform
+	// maximum (its CPU clock cannot be raised by an application).
+	osSetSpeedupEnable(isN3DS);
 
 	gfxInit(GSP_BGR8_OES, GSP_BGR8_OES, true);
 	gfxSet3D(true);
@@ -278,6 +287,9 @@ int main(int argc, char* argv[])
 		CPU_Run();
 		CTRMultiplayer::Stop();
 		System_Close();
+		// Persist after the ROM teardown so a title switch or soft exit cannot
+		// discard newly compiled shaders.
+		SaveShaderCache();
 	}
 	
 	CTRMultiplayer::Stop();

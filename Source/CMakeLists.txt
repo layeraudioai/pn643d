@@ -115,7 +115,11 @@ set (CTR_HLEGRAPHICS_FILES SysCTR/HLEGraphics/GraphicsPluginCTR.cpp SysCTR/HLEGr
 set (CTR_HLEAUDIO_FILES SysCTR/HLEAudio/AudioPluginCTR.cpp SysCTR/HLEAudio/AudioOutput.cpp)
 set (CTR_INPUTMANAGER_FILES SysCTR/Input/InputManagerCTR.cpp SysCTR/Input/CTRMultiplayer.cpp)
 set (CTR_UI_FILES SysCTR/UI/UserInterface.cpp SysCTR/UI/RomSelector.cpp SysCTR/UI/InGameMenu.cpp)
+<<<<<<< HEAD
 set (CTR_UTILITY_FILES SysCTR/Utility/CTRPerfLearning.cpp SysCTR/Utility/CTRStorage.cpp SysCTR/Utility/ThreadCTR.cpp SysCTR/Utility/IOCTR.cpp SysCTR/Utility/TimingCTR.cpp SysCTR/Utility/MemoryCTR.cpp SysCTR/Utility/CacheCTR.S)
+=======
+set (CTR_UTILITY_FILES SysCTR/Utility/CTRStorage.cpp SysCTR/Utility/CTRPerfLearning.cpp SysCTR/Utility/ThreadCTR.cpp SysCTR/Utility/IOCTR.cpp SysCTR/Utility/TimingCTR.cpp SysCTR/Utility/MemoryCTR.cpp SysCTR/Utility/CacheCTR.S)
+>>>>>>> 9b15d14f43462799691a3b08bffae82f9bd0d18d
 set (CTR_BUILD ${CTR_DEBUG_FILES} ${CTR_DYNAREC_FILES} ${CTR_GRAPHICS_FILES} ${CTR_HLEAUDIO_FILES} ${CTR_HLEGRAPHICS_FILES} ${CTR_INPUTMANAGER_FILES} ${CTR_UI_FILES} ${CTR_UTILITY_FILES})
 
 if (PSP_RELEASE)

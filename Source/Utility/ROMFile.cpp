@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "stdafx.h"
 #include "ROMFile.h"
 #include "ROMFileCompressed.h"
+#include "ROMFileLZ4.h"
 #include "ROMFileUncompressed.h"
 
 #include "Debug/DBGConsole.h"
@@ -44,12 +45,17 @@ bool IsRomfilename( const char * rom_filename )
 		    _strcmpi(last_period, ".jap") == 0 ||
 		    _strcmpi(last_period, ".pal") == 0 ||
 		    _strcmpi(last_period, ".usa") == 0 ||
-		    _strcmpi(last_period, ".zip") == 0);
+		    _strcmpi(last_period, ".zip") == 0 ||
+		    _strcmpi(last_period, ".lz4") == 0);
 }
 
 ROMFile * ROMFile::Create( const char * filename )
 {
 	const char * ext = IO::Path::FindExtension( filename );
+	if (ext && _strcmpi(ext, ".lz4") == 0)
+	{
+		return new ROMFileLZ4(filename);
+	}
 	if (ext && _strcmpi(ext, ".zip") == 0)
 	{
 #ifdef DAEDALUS_COMPRESSED_ROM_SUPPORT

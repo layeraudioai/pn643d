@@ -48,6 +48,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Utility/ROMFile.h"
 #include "Utility/Stream.h"
 #include "Utility/Synchroniser.h"
+#ifdef DAEDALUS_CTR
+#include "SysCTR/Utility/CTRPerfLearning.h"
+#endif
 
 #if defined(DAEDALUS_ENABLE_DYNAREC_PROFILE) || defined(DAEDALUS_W32)
 // This isn't really the most appropriate place. Need to check with
@@ -477,6 +480,9 @@ bool ROM_LoadFile()
 
 void ROM_UnloadFile()
 {
+#ifdef DAEDALUS_CTR
+	CTRPerfLearning::EndGame();
+#endif
 	// Copy across various bits
 	g_ROM.mRomID = RomID();
 	g_ROM.settings = RomSettings();
@@ -499,6 +505,9 @@ bool ROM_LoadFile(const RomID & rom_id, const RomSettings & settings, const SRom
 	// Copy across various bits
 	g_ROM.mRomID   = rom_id;
 	g_ROM.settings = settings;
+#ifdef DAEDALUS_CTR
+	CTRPerfLearning::BeginGame(rom_id.CRC[0], rom_id.CRC[1], rom_id.CountryID, 0);
+#endif
 	g_ROM.TvType   = ROM_GetTvTypeFromID( g_ROM.rh.CountryID );
 
 	// Runtime per-ROM fixes remain enabled for all builds. A dedicated build

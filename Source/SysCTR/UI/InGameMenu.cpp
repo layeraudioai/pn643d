@@ -1,6 +1,7 @@
 #include <3ds.h>
 #include <GL/picaGL.h>
 #include <stdio.h>
+#include <string.h>
 
 // Defines platform calling-convention and attribute macros used by Core headers.
 #include "BuildOptions.h"
@@ -22,6 +23,129 @@ extern RomInfo g_ROM;
 
 static uint64_t timer;
 static uint8_t currentPage = 0;
+
+// The speedrun clock is deliberately kept outside save states so loading a
+// state cannot rewind the run. Persist accumulated time per ROM, keyed by its
+// CRC/country ID rather than its display name.
+static bool sSpeedrunInitialized = false;
+static bool sSpeedrunRunning = false;
+static uint64_t sSpeedrunElapsedMs = 0;
+static uint64_t sSpeedrunStartedAtMs = 0;
+static uint32_t sSpeedrunCRC1 = 0;
+static uint32_t sSpeedrunCRC2 = 0;
+static uint8_t sSpeedrunCountryID = 0;
+
+static void GetSpeedrunPathForROM(IO::Filename path, uint32_t crc1, uint32_t crc2, uint8_t countryID)
+{
+	snprintf(path, sizeof(IO::Filename), "%sSaveStates/Speedrun_%08X_%08X_%02X.dat",
+		DAEDALUS_CTR_PATH(""), (unsigned int)crc1, (unsigned int)crc2,
+		(unsigned int)countryID);
+}
+
+static void GetSpeedrunPath(IO::Filename path)
+{
+	GetSpeedrunPathForROM(path, g_ROM.mRomID.CRC[0], g_ROM.mRomID.CRC[1],
+		g_ROM.mRomID.CountryID);
+}
+
+static void SaveSpeedrunTime()
+{
+	IO::Filename path;
+	GetSpeedrunPathForROM(path, sSpeedrunCRC1, sSpeedrunCRC2, sSpeedrunCountryID);
+	IO::Directory::EnsureExists(DAEDALUS_CTR_PATH("SaveStates"));
+
+	FILE *file = fopen(path, "wb");
+	if (file)
+	{
+		fprintf(file, "DAEDALUS_SPEEDRUN_V1 %llu",
+			(unsigned long long)sSpeedrunElapsedMs);
+		fclose(file);
+	}
+}
+
+static void EnsureSpeedrunTimerLoaded()
+{
+	if (sSpeedrunInitialized &&
+		sSpeedrunCRC1 == g_ROM.mRomID.CRC[0] &&
+		sSpeedrunCRC2 == g_ROM.mRomID.CRC[1] &&
+		sSpeedrunCountryID == g_ROM.mRomID.CountryID)
+		return;
+
+	// Commit the previous game's timer before switching the cached ROM identity.
+	if (sSpeedrunInitialized && sSpeedrunRunning)
+	{
+		sSpeedrunElapsedMs += osGetTime() - sSpeedrunStartedAtMs;
+		sSpeedrunRunning = false;
+		SaveSpeedrunTime();
+	}
+
+	sSpeedrunInitialized = true;
+	sSpeedrunRunning = false;
+	sSpeedrunElapsedMs = 0;
+	sSpeedrunCRC1 = g_ROM.mRomID.CRC[0];
+	sSpeedrunCRC2 = g_ROM.mRomID.CRC[1];
+	sSpeedrunCountryID = g_ROM.mRomID.CountryID;
+
+	IO::Filename path;
+	GetSpeedrunPath(path);
+	FILE *file = fopen(path, "rb");
+	if (file)
+	{
+		char header[32] = {};
+		unsigned long long elapsed = 0;
+		if (fscanf(file, "%31s %llu", header, &elapsed) == 2 &&
+			strcmp(header, "DAEDALUS_SPEEDRUN_V1") == 0)
+			sSpeedrunElapsedMs = (uint64_t)elapsed;
+		fclose(file);
+	}
+}
+
+static uint64_t GetSpeedrunElapsedMs()
+{
+	return sSpeedrunElapsedMs + (sSpeedrunRunning ? osGetTime() - sSpeedrunStartedAtMs : 0);
+}
+
+static void DrawSpeedrunTimer()
+{
+	EnsureSpeedrunTimerLoaded();
+
+	const uint64_t elapsed = GetSpeedrunElapsedMs();
+	const uint64_t centiseconds = elapsed / 10;
+	const unsigned long long hours = (unsigned long long)(centiseconds / 360000);
+	const unsigned long long minutes = (unsigned long long)((centiseconds / 6000) % 60);
+	const unsigned long long seconds = (unsigned long long)((centiseconds / 100) % 60);
+	const unsigned long long hundredths = (unsigned long long)(centiseconds % 100);
+	char timerString[64];
+	char controlString[16];
+	snprintf(timerString, sizeof(timerString), "Speedrun: %02llu:%02llu:%02llu.%02llu",
+		hours, minutes, seconds, hundredths);
+	snprintf(controlString, sizeof(controlString), "%s timer", sSpeedrunRunning ? "Pause" : "Start");
+	UI::DrawText(10, 158, timerString);
+
+	if (UI::DrawButton(10, 166, 145, 32, controlString))
+	{
+		EnsureSpeedrunTimerLoaded();
+		if (sSpeedrunRunning)
+		{
+			sSpeedrunElapsedMs += osGetTime() - sSpeedrunStartedAtMs;
+			sSpeedrunRunning = false;
+		}
+		else
+		{
+			sSpeedrunStartedAtMs = osGetTime();
+			sSpeedrunRunning = true;
+		}
+		SaveSpeedrunTime();
+	}
+
+	if (UI::DrawButton(165, 166, 145, 32, "Reset timer"))
+	{
+		EnsureSpeedrunTimerLoaded();
+		sSpeedrunElapsedMs = 0;
+		sSpeedrunRunning = false;
+		SaveSpeedrunTime();
+	}
+}
 
 static void ExecSaveState(int slot)
 {
@@ -49,13 +173,14 @@ static void DrawSaveStatePage()
 	{
 		sprintf(buttonString, "Save slot: %i", i);
 
-		if(UI::DrawButton(10, 22 + (54 * i), 300, 44, buttonString))
+		if(UI::DrawButton(10, 22 + (42 * i), 300, 36, buttonString))
 		{
 			ExecSaveState(i);
 		}
 	}
 
-	if(UI::DrawButton(10, 184, 300, 44, "Back"))
+	DrawSpeedrunTimer();
+	if(UI::DrawButton(10, 204, 300, 28, "Back"))
 		currentPage = 0;
 }
 
@@ -69,13 +194,14 @@ static void DrawLoadStatePage()
 	{
 		sprintf(buttonString, "Load slot: %i", i);
 
-		if(UI::DrawButton(10, 22 + (54 * i), 300, 44, buttonString))
+		if(UI::DrawButton(10, 22 + (42 * i), 300, 36, buttonString))
 		{
 			LoadSaveState(i);
 		}
 	}
 
-	if(UI::DrawButton(10, 184, 300, 44, "Back"))
+	DrawSpeedrunTimer();
+	if(UI::DrawButton(10, 204, 300, 28, "Back"))
 		currentPage = 0;
 }
 

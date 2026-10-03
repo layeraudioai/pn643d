@@ -1,6 +1,6 @@
 #pragma once
 #include <stddef.h>
-#include <3ds.h>
+#include "Utility/DaedalusTypes.h"
 namespace CTRStorage {
 bool SaveDataRead(const char *name, void *data, size_t size, size_t *actual_size = nullptr);
 bool SaveDataImportFile(const char *name, const char *sdmc_file);

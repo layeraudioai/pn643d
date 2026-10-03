@@ -31,6 +31,7 @@ f32				FramerateLimiter_GetPerformanceScale();
 u32				FramerateLimiter_GetTargetClockRateHz();
 u32				FramerateLimiter_GetHostClockRateHz();
 u32				FramerateLimiter_GetTvFrequencyHz();
+u32				FramerateLimiter_GetBackendMaxFPS();	// Adaptive VI rate; output remains capped by the user target.
 
 // Override the sync function, e.g. if the audio plugin wants to control sync.
 typedef void (*FramerateSyncFn)(void * arg);

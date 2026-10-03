@@ -43,7 +43,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //#define DAEDALUS_FRAMERATE_ANALYSIS
 
 extern bool gFrameskipActive;
-extern float gMaxFPS;
 extern u32 gSoundSync;
 
 u32		gVISyncRate = 1500;
@@ -210,21 +209,20 @@ void CGraphicsPluginImpl::UpdateScreen()
 			smoothed_sound_rate += (target_sound_rate - smoothed_sound_rate) * 0.10f;
 			gSoundSync = (u32)smoothed_sound_rate;
 
-			const f32 inv_Fsync = 1.0f / Fsync;
-			gVISyncRate = (u32)(1500.0f * inv_Fsync);
-			
-			u32 max_vi = (gMaxFPS > 0.0f) ? (u32)(1500.0f * (gMaxFPS / 60.0f)) : 4000u;
-			if (max_vi < 4000u) max_vi = 4000u;
-
-			if( gVISyncRate > max_vi ) gVISyncRate = max_vi;
-			else if ( gVISyncRate < 300 ) gVISyncRate = 300;
+			// Follow the adaptive backend VI cadence, not the measured sync
+			// ratio. The latter used to feed back and lower the emulated rate
+			// when behind, creating extra slowdown. The limiter still enforces
+			// the user's MaxFPS cap when presenting each flip.
+			u32 backend_fps = FramerateLimiter_GetBackendMaxFPS();
+			gVISyncRate = (u32)(1500.0f * ((f32)backend_fps / 60.0f));
+			if (gVISyncRate < 300u) gVISyncRate = 300u;
 		}
 		else
 		{
 			smoothed_sound_rate = 44100.0f;
 			gSoundSync = 44100;
-			u32 target_fps = FramerateLimiter_GetTvFrequencyHz();
-			gVISyncRate = (u32)(1500.0f * ((f32)target_fps / 60.0f));
+			u32 backend_fps = FramerateLimiter_GetBackendMaxFPS();
+			gVISyncRate = (u32)(1500.0f * ((f32)backend_fps / 60.0f));
 		}
 		
 		if(!gFrameskipActive)

@@ -38,6 +38,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "RSP_HLE.h"
 #include "Save.h"
 #include "SaveState.h"
+#ifdef DAEDALUS_CTR
+#include "SysCTR/Utility/CTRPerfLearning.h"
+#endif
 
 #include "Config/ConfigOptions.h"
 #include "Debug/DBGConsole.h"
@@ -651,6 +654,9 @@ void CPU_HANDLE_COUNT_INTERRUPT()
 	{
 	case CPU_EVENT_VBL:
 		{
+#ifdef DAEDALUS_CTR
+			CTR_PERF_SCOPE(CTRPerfLearning::PROFILE_CPU_VBL);
+#endif
 			//Todo: Work on VI_INTR_CYCLES should be 62500 * (60/Real game FPS)
 			u32 vertical_sync_reg {Memory_VI_GetRegister( VI_V_SYNC_REG )};
 			const f32 performance_scale = FramerateLimiter_GetPerformanceScale();

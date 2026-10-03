@@ -130,71 +130,15 @@ static void CheckDSPFirmware()
 	}
 }
 
-static u64 ShaderExtId()
-{
-    u64 programId = 0;
-
-    APT_GetProgramID(&programId);
-
-    return (programId & 0xFFFFFFFFULL) >> 8;
-}
-
-static bool ApplyShaderCache(const u8 *cache, size_t got)
-{
-    if (got < 8)
-        return false;
-
-    u32 vs = 0;
-    u32 cs = 0;
-    memcpy(&vs, cache, sizeof(vs));
-    memcpy(&cs, cache + sizeof(vs), sizeof(cs));
-
-    if (vs == 0 || cs == 0 || vs > got - 8 || cs > got - 8 - vs)
-        return false;
-
-    pglSetShaderCache(
-        cache + 8,
-        vs,
-        cache + 8 + vs,
-        cs
-    );
-    return true;
-}
-
 static void LoadShaderCache()
 {
-    u64 extId = ShaderExtId();
-    CTRStorage::ExtDataEnsure(extId);
-
-    static u8 cache[0x40000];
-    size_t got = 0;
-
-    if (CTRStorage::ExtDataRead(
-            extId,
-            "shader_cache.bin",
-            cache,
-            sizeof(cache),
-            &got))
-    {
-        if (ApplyShaderCache(cache, got))
-            return;
-    }
-
-    if (CTRStorage::ImportFile(
-            "sdmc:/3ds/DaedalusX64",
-            "shader_cache.bin",
-            cache,
-            sizeof(cache),
-            &got))
-    {
-        ApplyShaderCache(cache, got);
-    }
+    // Diagnostic: disable all shader-cache loading (OS ExtData and SD-card
+    // mirror) to rule out a stale or invalid cache as the startup failure.
+    // SaveData archive handling is unchanged.
 }
 
 static void SaveShaderCache()
 {
-    u64 extId = ShaderExtId();
-
     const void *v;
     const void *c;
 
@@ -215,13 +159,6 @@ static void SaveShaderCache()
 
     memcpy(cache + 8, v, vs);
     memcpy(cache + 8 + vs, c, cs);
-
-    CTRStorage::ExtDataWrite(
-        extId,
-        "shader_cache.bin",
-        cache,
-        vs + cs + 8
-    );
 
     IO::Directory::EnsureExists("sdmc:/3ds/DaedalusX64");
 

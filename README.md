@@ -23,4 +23,5 @@
 - OpenAI: for GPT Luna
 - CodingFleet: for AI chat services
 - UnZip: for UnZip.exe
+- lz4: for lz4.exe and more lz4 usage stuff
 -

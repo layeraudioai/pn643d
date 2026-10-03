@@ -25,7 +25,7 @@ AccessControlInfo:
   ReleaseKernelMinor            : "33" 
 
   # ExtData
-  UseExtSaveData                : true  # shader cache extdata archive
+  UseExtSaveData                : false # enables ExtData       
   #ExtSaveDataId                : 0x300 # only set this when the ID is different to the UniqueId
 
   # FS:USER Archive Access Permissions
@@ -55,7 +55,7 @@ AccessControlInfo:
 
   # Process Settings
   MemoryType                    : Application # Application/System/Base
-  SystemMode                    : 96MB # Extended-memory mode on Old 3DS/2DS (reduced HOME Menu memory)
+  SystemMode                    : 80MB # 64MB(Default)/96MB/80MB/72MB/32MB
   IdealProcessor                : 0
   AffinityMask                  : 1
   Priority                      : 16
@@ -72,7 +72,7 @@ AccessControlInfo:
   SpecialMemoryArrange          : true
 
   # New3DS Exclusive Process Settings
-  SystemModeExt                 : 124MB # Maximum New 3DS application memory mode (ignored by Old 3DS/2DS)
+  SystemModeExt                 : 124MB # Legacy(Default)/124MB/178MB  Legacy:Use Old3DS SystemMode
   CpuSpeed                      : 804MHz # 256MHz(Default)/804MHz
   EnableL2Cache                 : true # false(default)/true
   CanAccessCore2                : true 
@@ -172,7 +172,7 @@ AccessControlInfo:
 
 
 SystemControlInfo:
-  SaveDataSize: 32768KB # Save data and compressed save states
+  SaveDataSize: 0KB # Change if the app uses savedata
   RemasterVersion: 2
   StackSize: 0x40000
 

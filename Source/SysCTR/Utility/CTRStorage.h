@@ -2,9 +2,7 @@
 #include <stddef.h>
 #include <3ds.h>
 namespace CTRStorage {
-bool SaveDataRead(const char *name, void *data, size_t size, size_t *actual_size = nullptr);
-bool SaveDataImportFile(const char *name, const char *sdmc_file);
-bool SaveDataExportFile(const char *name, const char *sdmc_file);
+bool SaveDataRead(const char *name, void *data, size_t size);
 bool SaveDataWrite(const char *name, const void *data, size_t size);
 bool SaveDataDelete(const char *name);
 bool ExtDataRead(u64 id, const char *name, void *data, size_t size, size_t *actual_size = nullptr);

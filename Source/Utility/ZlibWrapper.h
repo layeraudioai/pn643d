@@ -38,10 +38,7 @@ class COutStream
 		static const u32		BUFFER_SIZE = 4096;
 		u8						mBuffer[ BUFFER_SIZE ];
 		u32						mBufferCount;
-		void *					mFile;
-		char					mFilename[512];
-		bool					mSaveStateFile;
-		bool					mStagedFromSaveData;
+		void * const			mFile;
 };
 
 class CInStream
@@ -62,10 +59,7 @@ class CInStream
 		u8						mBuffer[ BUFFER_SIZE ];
 		u32						mBufferOffset;
 		s32						mBytesAvailable;
-		void *					mFile;
-		char					mFilename[512];
-		bool					mSaveStateFile;
-		bool					mStagedFromSaveData;
+		void * const			mFile;
 };
 
 #endif // UTILITY_ZLIBWRAPPER_H_

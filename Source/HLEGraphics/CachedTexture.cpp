@@ -298,8 +298,14 @@ bool CachedTexture::IsFresh() const
 	// since we last updated it.
 	if (!kUpdateTexturesEveryFrame)
 	{
+		// Use a wrap-aware frame delta so the freshness window remains correct
+		// when the 32-bit frame counter wraps. A newly-created texture can
+		// also have a deliberately randomized update frame slightly in the
+		// future, which is correctly treated as fresh by this comparison.
+		const u32 frames_since_update = gRDPFrame - mFrameLastUpToDate;
 		return (gCheckTextureHashFrequency == 0 ||
-				gRDPFrame < mFrameLastUpToDate + gCheckTextureHashFrequency);
+				frames_since_update >= 0x80000000u ||
+				frames_since_update < gCheckTextureHashFrequency);
 	}
 
 	return false;

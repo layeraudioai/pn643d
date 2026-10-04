@@ -71,6 +71,10 @@ struct RomSettings
 	bool				FogEnabled;
 	bool				VIHeightHack;		// Keep the renderer's vertical VI scale at 1.0
 	bool                MemoryAccessOptimisation;
+	// Optional per-ROM limit for cached native textures. Zero preserves the
+	// default uncapped cache; useful on memory-constrained devices for verified
+	// titles that otherwise retain too many textures.
+	u32					TextureCacheMaxEntries;
 	bool				CheatsEnabled;
 
 	RomSettings();

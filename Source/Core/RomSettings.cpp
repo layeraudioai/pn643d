@@ -318,6 +318,12 @@ bool IRomSettingsDB::OpenSettingsFile( const char * filename )
 		{
 			settings.MemoryAccessOptimisation = p_property->GetBooleanValue( false );
 		}
+		if( p_section->FindProperty( "TextureCacheMaxEntries", &p_property ) )
+		{
+			// Negative values are invalid; zero means no cache limit.
+			const int max_entries = p_property->GetIntValue( 0 );
+			settings.TextureCacheMaxEntries = max_entries > 0 ? static_cast<u32>( max_entries ) : 0;
+		}
 		if( p_section->FindProperty( "CheatsEnabled", &p_property ) )
 		{
 			settings.CheatsEnabled = p_property->GetBooleanValue( false );
@@ -446,6 +452,7 @@ void IRomSettingsDB::OutputSectionDetails( const RomID & id, const RomSettings &
 	if( settings.FogEnabled )					fprintf(fh, "FogEnabled=yes\n");
 	if( settings.VIHeightHack )					fprintf(fh, "VIHeightHack=yes\n");
 	if( settings.MemoryAccessOptimisation )		fprintf(fh, "MemoryAccessOptimisation=yes\n");
+	if( settings.TextureCacheMaxEntries )			fprintf(fh, "TextureCacheMaxEntries=%" PRIu32 "\n", settings.TextureCacheMaxEntries);
 	if( settings.CheatsEnabled )				fprintf(fh, "CheatsEnabled=yes\n");
 
 	if ( settings.ExpansionPakUsage != PAK_STATUS_UNKNOWN )	fprintf(fh, "ExpansionPakUsage=%s\n", ROM_GetExpansionPakUsageName( settings.ExpansionPakUsage ) );
@@ -509,6 +516,7 @@ RomSettings::RomSettings()
 ,	FogEnabled( false )
 ,	VIHeightHack( false )
 ,   MemoryAccessOptimisation( false )
+,	TextureCacheMaxEntries( 0 )
 ,   CheatsEnabled( false )
 {
 }
@@ -539,4 +547,5 @@ void	RomSettings::Reset()
 	VIHeightHack = false;
 	CheatsEnabled = false;
 	MemoryAccessOptimisation = false;
+	TextureCacheMaxEntries = 0;
 }

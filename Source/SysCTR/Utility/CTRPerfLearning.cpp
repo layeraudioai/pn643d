@@ -9,7 +9,6 @@
 namespace CTRPerfLearning {
 namespace {
 const u32 kProfileVersion = 1;
-const u32 kPersistEveryFrames = 120;
 const u32 kMinimumSamplesForTuning = 120;
 const u32 kMaximumBackendFPS = 240;
 char sProfileFile[40] = "perf-profile-v1.dat";
@@ -29,14 +28,14 @@ struct SStoredProfile {
 
 SStoredProfile sProfile;
 bool sActive = false;
-u32 sDirtyFrames = 0;
+bool sDirty = false;
 u32 sAppIdLow = 0;
 u32 sLastTargetFPS = 0;
 
 void Persist() {
     if (sActive)
         CTRStorage::ExtDataWrite(sAppIdLow, sProfileFile, &sProfile, sizeof(sProfile));
-    sDirtyFrames = 0;
+    sDirty = false;
 }
 }
 
@@ -63,14 +62,14 @@ void BeginGame(u32 crc1, u32 crc2, u8 country, u32 rom_size) {
         // ROM size can vary for overdumps; the header identity is authoritative.
         sProfile.rom_size = rom_size;
     }
-    sDirtyFrames = 0;
+    sDirty = false;
     sLastTargetFPS = 0;
     sActive = true;
 }
 
 void EndGame() {
     if (sActive) {
-        if (sDirtyFrames != 0)
+        if (sDirty)
             Persist();
         WriteReport(sLastTargetFPS);
     }
@@ -91,9 +90,10 @@ void RecordFrame(u32 work_ticks, u32 target_ticks) {
         sProfile.average_work_ticks_x100 = (sProfile.average_work_ticks_x100 * 7u + work) / 8u;
         sProfile.average_target_ticks_x100 = (sProfile.average_target_ticks_x100 * 7u + target) / 8u;
     }
-    ++sDirtyFrames;
-    if (sDirtyFrames >= kPersistEveryFrames)
-        Persist();
+    // Do not write extdata from the per-frame path: the archive flush blocks
+    // emulation and was causing a visible hitch about once per second. Save
+    // the accumulated profile once, when the ROM is closed.
+    sDirty = true;
 }
 
 void RecordZone(EProfileZone zone, u32 elapsed_ticks) {
@@ -104,9 +104,10 @@ void RecordZone(EProfileZone zone, u32 elapsed_ticks) {
     ++stats.calls;
     if (elapsed_ticks > stats.max_ticks)
         stats.max_ticks = elapsed_ticks;
-    ++sDirtyFrames;
-    if (sDirtyFrames >= kPersistEveryFrames)
-        Persist();
+    // Do not write extdata from the per-frame path: the archive flush blocks
+    // emulation and was causing a visible hitch about once per second. Save
+    // the accumulated profile once, when the ROM is closed.
+    sDirty = true;
 }
 
 u32 GetRecommendedBackendCeilingFPS(u32 user_target_fps) {

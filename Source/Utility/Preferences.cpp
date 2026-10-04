@@ -310,12 +310,12 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 		if (section->FindProperty("TouchStickX", &property))
 		{
 			int value = atoi(property->GetValue());
-			if (value >= 56 && value <= 264) preferences.CTRTouchStickX = (u32)value;
+			if (value >= CTR_TOUCH_STICK_RADIUS && value <= 320 - CTR_TOUCH_STICK_RADIUS) preferences.CTRTouchStickX = (u32)value;
 		}
 		if (section->FindProperty("TouchStickY", &property))
 		{
 			int value = atoi(property->GetValue());
-			if (value >= 56 && value <= 184) preferences.CTRTouchStickY = (u32)value;
+			if (value >= CTR_TOUCH_STICK_RADIUS && value <= 240 - CTR_TOUCH_STICK_RADIUS) preferences.CTRTouchStickY = (u32)value;
 		}
 #endif
 		if( section->FindProperty( "MemoryAccessOptimisation", &property ) )
@@ -502,8 +502,8 @@ SRomPreferences::SRomPreferences()
 	,	SpeedSyncEnabled( 1 )
 	,	ControllerIndex( 0 )
 #ifdef DAEDALUS_CTR
-	,	CTRTouchStickX( 78 )
-	,	CTRTouchStickY( 164 )
+	,	CTRTouchStickX( 90 )
+	,	CTRTouchStickY( 150 )
 #endif
 {
 #ifdef DAEDALUS_CTR
@@ -541,8 +541,8 @@ void SRomPreferences::Reset()
 	CTRStickDestinations[0] = 0;
 	CTRStickDestinations[1] = 2;
 	CTRStickDestinations[2] = 0;
-	CTRTouchStickX = 78;
-	CTRTouchStickY = 164;
+	CTRTouchStickX = 90;
+	CTRTouchStickY = 150;
 #endif
 }
 

@@ -7,6 +7,7 @@
 #include "stb_truetype.h"
 
 #include "UserInterface.h"
+#include "SysCTR/Input/CTRInput.h"
 
 static stbtt_bakedchar charData[96];
 
@@ -191,13 +192,14 @@ bool UI::DrawToggle(float x, float y, float width, float height, const char *tex
 
 void UI::DrawVirtualStick(float x, float y, bool active)
 {
+	const float radius = (float)CTR_TOUCH_STICK_RADIUS;
 	glDisable(GL_TEXTURE_2D);
 	glColor4f(0.15f, 0.75f, 0.95f, active ? 0.9f : 0.45f);
 	glBegin(GL_LINE_LOOP);
 	for (int i = 0; i < 24; ++i)
 	{
 		const float angle = (float)i * 6.28318530718f / 24.0f;
-		glVertex2f(x + cosf(angle) * 54.0f, y + sinf(angle) * 54.0f);
+		glVertex2f(x + cosf(angle) * radius, y + sinf(angle) * radius);
 	}
 	glEnd();
 	glBegin(GL_LINES);
@@ -209,13 +211,14 @@ void UI::DrawVirtualStick(float x, float y, bool active)
 
 void UI::DrawVirtualStickPreview(float x, float y, bool active)
 {
+	const float radius = (float)CTR_TOUCH_STICK_RADIUS * 0.5f;
 	glDisable(GL_TEXTURE_2D);
 	glColor4f(0.15f, 0.75f, 0.95f, active ? 0.9f : 0.45f);
 	glBegin(GL_LINE_LOOP);
 	for (int i = 0; i < 16; ++i)
 	{
 		const float angle = (float)i * 6.28318530718f / 16.0f;
-		glVertex2f(x + cosf(angle) * 27.0f, y + sinf(angle) * 27.0f);
+		glVertex2f(x + cosf(angle) * radius, y + sinf(angle) * radius);
 	}
 	glEnd();
 	glBegin(GL_LINES);

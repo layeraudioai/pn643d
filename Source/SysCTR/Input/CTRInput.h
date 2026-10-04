@@ -1,6 +1,10 @@
 #ifndef SYSCTR_INPUT_CTRINPUT_H
 #define SYSCTR_INPUT_CTRINPUT_H
 
+// The on-screen touch stick is intentionally larger than the default hardware
+// stick overlay; keep its hit radius, rendering and position limits in sync.
+#define CTR_TOUCH_STICK_RADIUS 80
+
 // Select which N64 controller port receives this console's physical input.
 // Port indices are 0..3 (N64 controllers 1..4).
 unsigned int CTRInput_GetLocalControllerPort();

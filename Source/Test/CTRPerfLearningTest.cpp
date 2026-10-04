@@ -46,6 +46,7 @@ int main() {
     CTRPerfLearning::SZoneStats stats = {};
     CHECK(CTRPerfLearning::GetZoneStats(CTRPerfLearning::PROFILE_CPU_VBL, &stats));
     CHECK(stats.calls == 120 && stats.max_ticks == 25 && stats.total_ticks == 3000);
+    CHECK(gFiles.empty()); // No blocking storage writes in the frame loop.
     CTRPerfLearning::EndGame();
     CHECK(gFiles.size() == 2); // binary profile and human-readable report
     bool report_found = false;

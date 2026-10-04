@@ -26,8 +26,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static unsigned int gLocalControllerPort = 0;
 static unsigned int gStickDestinations[3] = { CTR_STICK_ANALOG, CTR_STICK_CBUTTONS, CTR_STICK_ANALOG };
-static unsigned int gTouchStickX = 78;
-static unsigned int gTouchStickY = 164;
+static unsigned int gTouchStickX = 90;
+static unsigned int gTouchStickY = 150;
 
 unsigned int CTRInput_GetStickDestination(unsigned int source)
 {
@@ -48,8 +48,12 @@ void CTRInput_GetTouchStickPosition(unsigned int *x, unsigned int *y)
 
 void CTRInput_SetTouchStickPosition(unsigned int x, unsigned int y)
 {
-    gTouchStickX = x < 56 ? 56 : (x > 264 ? 264 : x);
-    gTouchStickY = y < 56 ? 56 : (y > 184 ? 184 : y);
+    const unsigned int minX = CTR_TOUCH_STICK_RADIUS;
+    const unsigned int maxX = 320 - CTR_TOUCH_STICK_RADIUS;
+    const unsigned int minY = CTR_TOUCH_STICK_RADIUS;
+    const unsigned int maxY = 240 - CTR_TOUCH_STICK_RADIUS;
+    gTouchStickX = x < minX ? minX : (x > maxX ? maxX : x);
+    gTouchStickY = y < minY ? minY : (y > maxY ? maxY : y);
 }
 
 const char *CTRInput_GetStickSourceName(unsigned int source)
@@ -72,7 +76,7 @@ void CTRInput_ApplyTouchStick(unsigned int heldKeys, int touchX, int touchY, int
 
     const int dx = touchX - (int)gTouchStickX;
     const int dy = (int)gTouchStickY - touchY;
-    const int radius = 56;
+    const int radius = CTR_TOUCH_STICK_RADIUS;
     const int distanceSquared = dx * dx + dy * dy;
     if (distanceSquared > radius * radius) return;
 

@@ -327,13 +327,13 @@ static void DrawControllerPage()
 
 	UI::DrawText(12, 137, "Touch stick position:");
 	if (UI::DrawButton(10, 144, 42, 30, "<"))
-		preferences.CTRTouchStickX = preferences.CTRTouchStickX > 68 ? preferences.CTRTouchStickX - 12 : 56;
+		preferences.CTRTouchStickX = preferences.CTRTouchStickX > CTR_TOUCH_STICK_RADIUS + 12 ? preferences.CTRTouchStickX - 12 : CTR_TOUCH_STICK_RADIUS;
 	if (UI::DrawButton(56, 144, 42, 30, "^"))
-		preferences.CTRTouchStickY = preferences.CTRTouchStickY > 68 ? preferences.CTRTouchStickY - 12 : 56;
+		preferences.CTRTouchStickY = preferences.CTRTouchStickY > CTR_TOUCH_STICK_RADIUS + 12 ? preferences.CTRTouchStickY - 12 : CTR_TOUCH_STICK_RADIUS;
 	if (UI::DrawButton(102, 144, 42, 30, "v"))
-		preferences.CTRTouchStickY = preferences.CTRTouchStickY < 172 ? preferences.CTRTouchStickY + 12 : 184;
+		preferences.CTRTouchStickY = preferences.CTRTouchStickY < 240 - CTR_TOUCH_STICK_RADIUS - 12 ? preferences.CTRTouchStickY + 12 : 240 - CTR_TOUCH_STICK_RADIUS;
 	if (UI::DrawButton(148, 144, 42, 30, ">"))
-		preferences.CTRTouchStickX = preferences.CTRTouchStickX < 252 ? preferences.CTRTouchStickX + 12 : 264;
+		preferences.CTRTouchStickX = preferences.CTRTouchStickX < 320 - CTR_TOUCH_STICK_RADIUS - 12 ? preferences.CTRTouchStickX + 12 : 320 - CTR_TOUCH_STICK_RADIUS;
 
 	CTRInput_SetTouchStickPosition(preferences.CTRTouchStickX, preferences.CTRTouchStickY);
 	unsigned int stickX, stickY;
@@ -507,7 +507,7 @@ static void DrawMainPage()
 		const int sx = dx - (int)stickX;
 		const int sy = dy - (int)stickY;
 		const bool usingVirtualStick = (keysHeld() & KEY_TOUCH) &&
-			CTRInput_GetStickDestination(2) != CTR_STICK_DISABLED && sx * sx + sy * sy <= 56 * 56;
+			CTRInput_GetStickDestination(2) != CTR_STICK_DISABLED && sx * sx + sy * sy <= CTR_TOUCH_STICK_RADIUS * CTR_TOUCH_STICK_RADIUS;
 		if ((keysHeld() & KEY_TOUCH) && !usingVirtualStick)
 			timer = osGetTime();
 		return;

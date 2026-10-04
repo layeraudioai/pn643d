@@ -1,5 +1,7 @@
 # DaedalusX64
 --
+EXPERIMENTAL: there is a boot.firm in the repo/source if you are feeling ballzing you can try it its a modified LumaCFW
+--
 0: remove all !s in file names if they exist, essential
 ---
 1: install the dependencies by double clicking the bat in the deps folder

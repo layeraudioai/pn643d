@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "TextureCache.h"
 #include "TextureInfo.h"
+#include "Core/ROM.h"
 
 #include "Utility/Profiler.h"
 
@@ -81,28 +82,48 @@ void CTextureCache::PurgeOldTextures()
 	//	Erase expired textures in reverse order, which should require less
 	//	copying when large clumps of textures are released simultaneously.
 	//
-	for( s32 i = mTextures.size() - 1; i >= 0; --i )
+	for( size_t i = mTextures.size(); i > 0; )
 	{
-		CachedTexture * texture = mTextures[ i ];
-		if ( texture->HasExpired() )
+		--i;
+		if ( mTextures[i]->HasExpired() )
 		{
-			u32	ixa = MakeHashIdxA( texture->GetTextureInfo() );
-			u32 ixb = MakeHashIdxB( texture->GetTextureInfo() );
-
-			if( mpCacheHashTable[ixa] == texture )
-			{
-				mpCacheHashTable[ixa] = nullptr;
-			}
-			if( mpCacheHashTable[ixb] == texture )
-			{
-				mpCacheHashTable[ixb] = nullptr;
-			}
-
-			mTextures.erase( mTextures.begin() + i );
-
-			delete texture;
+			RemoveTextureAt( i );
 		}
 	}
+
+	// Some games generate many unique textures in a short period. Their
+	// per-ROM opt-in limit bounds cache-owned native texture memory without
+	// changing the default cache policy or evicting anything during rendering.
+	const u32 max_entries = g_ROM.settings.TextureCacheMaxEntries;
+	while ( max_entries != 0 && mTextures.size() > max_entries )
+	{
+		size_t oldest_index = 0;
+		u32 oldest_age = 0;
+		for ( size_t i = 0; i < mTextures.size(); ++i )
+		{
+			const u32 age = mTextures[i]->FramesSinceLastUse();
+			if ( age >= oldest_age )
+			{
+				oldest_age = age;
+				oldest_index = i;
+			}
+		}
+		RemoveTextureAt( oldest_index );
+	}
+}
+
+void CTextureCache::RemoveTextureAt( size_t index )
+{
+	CachedTexture * texture = mTextures[index];
+	const u32 ixa = MakeHashIdxA( texture->GetTextureInfo() );
+	const u32 ixb = MakeHashIdxB( texture->GetTextureInfo() );
+
+	// A slot may have been replaced by a colliding, more recently-used entry.
+	if ( mpCacheHashTable[ixa] == texture ) mpCacheHashTable[ixa] = nullptr;
+	if ( mpCacheHashTable[ixb] == texture ) mpCacheHashTable[ixb] = nullptr;
+
+	mTextures.erase( mTextures.begin() + index );
+	delete texture;
 }
 
 void CTextureCache::DropTextures()

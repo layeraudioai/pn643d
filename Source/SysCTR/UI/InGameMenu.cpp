@@ -23,6 +23,7 @@ extern RomInfo g_ROM;
 
 static uint64_t timer;
 static uint8_t currentPage = 0;
+static uint8_t optionsSubpage = 0;
 
 // The speedrun clock is deliberately kept outside save states so loading a
 // state cannot rewind the run. Persist accumulated time per ROM, keyed by its
@@ -224,81 +225,165 @@ static void DrawConfirmPage()
 
 static void DrawOptionsPage()
 {
-	SRomPreferences	preferences;
-
+	SRomPreferences preferences;
 	CPreferences::Get()->GetRomPreferences( g_ROM.mRomID, &preferences );
 
-	char frameskipString[30];
-	char framerateString[30];
-	sprintf(frameskipString, "Frameskip: %s", Preferences_GetFrameskipDescription( preferences.Frameskip ));
-	sprintf(framerateString, "Max FPS: %.0f", preferences.MaxFPS);
-	char stereoString[30];
-	sprintf(stereoString, "Stereo: %.3f", preferences.StereoSeparation);
-	char hostPlayerString[24];
-	sprintf(hostPlayerString, "Host Player: P%u", CTRInput_GetLocalControllerPort() + 1);
-	UI::DrawHeader("Options");
+	char header[32];
+	snprintf(header, sizeof(header), "Options %u/4", (unsigned int)optionsSubpage + 1);
+	UI::DrawHeader(header);
 
-	if(UI::DrawToggle(10,  22, 145, 48, "Toggle Audio", preferences.AudioEnabled == APM_ENABLED_ASYNC))
+	// Audio modes are intentionally cycled independently of speed sync: audio
+	// output and video/frame pacing are separate user choices.
+	if (optionsSubpage == 0)
 	{
-		preferences.AudioEnabled = (preferences.AudioEnabled == APM_ENABLED_ASYNC ? APM_DISABLED : APM_ENABLED_ASYNC);
-		preferences.SpeedSyncEnabled = (preferences.AudioEnabled == APM_ENABLED_ASYNC ? false : true);
-	}
-
-	if(UI::DrawButton(165,  22, 145, 48, "Aspect Ratio"))
-	{
-		aspectRatio = !aspectRatio;
-	}
-
-	if(UI::DrawButton(10,  76, 145, 48, frameskipString))
-	{
-		preferences.Frameskip = (EFrameskipValue) (preferences.Frameskip + 1);
-
-		if(preferences.Frameskip > FV_2)
-			preferences.Frameskip = FV_DISABLED;
-	}
-
-	if(UI::DrawButton(165,  76, 145, 48, framerateString))
-	{
-		if(preferences.MaxFPS > 420.0f)
-			preferences.MaxFPS = 40.0f;
-		else
-			preferences.MaxFPS += 5.0f;
-	}
-
-	if(UI::DrawButton(10, 130, 145, 48, stereoString))
-	{
-		preferences.StereoSeparation += 0.025f;
-		if(preferences.StereoSeparation > 0.2001f)
-			preferences.StereoSeparation = 0.0f;
-	}
-
-	if(UI::DrawButton(165, 130, 145, 48,
-		preferences.StereoPopout ? "3D: Pop-out" : "3D: Depth"))
-	{
-		preferences.StereoPopout = !preferences.StereoPopout;
-	}
-
-	if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
-	{
-		if(UI::DrawButton(10, 184, 145, 44, hostPlayerString))
+		char label[48];
+		switch (preferences.AudioEnabled)
 		{
-			unsigned int port = CTRInput_GetLocalControllerPort();
-			CTRInput_SetLocalControllerPort((port + 1) % 4);
+			case APM_DISABLED:     snprintf(label, sizeof(label), "Audio: Off"); break;
+			case APM_ENABLED_SYNC: snprintf(label, sizeof(label), "Audio: Sync"); break;
+			default:               snprintf(label, sizeof(label), "Audio: Async"); break;
 		}
+		if (UI::DrawButton(10, 22, 145, 32, label))
+			preferences.AudioEnabled = static_cast<EAudioPluginMode>((preferences.AudioEnabled + 1) % 3);
+
+		snprintf(label, sizeof(label), "Video sync: %s", preferences.VideoRateMatch ? "Sync" : "Async");
+		if (UI::DrawToggle(165, 22, 145, 32, label, preferences.VideoRateMatch))
+			preferences.VideoRateMatch = !preferences.VideoRateMatch;
+
+		if (UI::DrawToggle(10, 59, 145, 32, "Audio rate match", preferences.AudioRateMatch))
+			preferences.AudioRateMatch = !preferences.AudioRateMatch;
+
+		snprintf(label, sizeof(label), "Frameskip: %s", Preferences_GetFrameskipDescription(preferences.Frameskip));
+		if (UI::DrawButton(10, 96, 145, 32, label))
+			preferences.Frameskip = static_cast<EFrameskipValue>((preferences.Frameskip + 1) % NUM_FRAMESKIP_VALUES);
+
+		snprintf(label, sizeof(label), "Max FPS: %.0f", preferences.MaxFPS);
+		if (UI::DrawButton(165, 96, 145, 32, label))
+			preferences.MaxFPS = preferences.MaxFPS > 420.0f ? 40.0f : preferences.MaxFPS + 5.0f;
+
+		if (UI::DrawToggle(10, 133, 145, 32, "Aspect ratio", aspectRatio != 0))
+			aspectRatio = !aspectRatio;
+		if (UI::DrawToggle(165, 133, 145, 32, "Speed sync", preferences.SpeedSyncEnabled != 0))
+			preferences.SpeedSyncEnabled = preferences.SpeedSyncEnabled ? 0 : 1;
+
+		snprintf(label, sizeof(label), "Stereo: %.3f", preferences.StereoSeparation);
+		if (UI::DrawButton(10, 170, 145, 32, label))
+		{
+			preferences.StereoSeparation += 0.025f;
+			if (preferences.StereoSeparation > 0.2001f) preferences.StereoSeparation = 0.0f;
+		}
+		if (UI::DrawToggle(165, 170, 145, 32,
+			preferences.StereoPopout ? "3D: Pop-out" : "3D: Depth", preferences.StereoPopout))
+			preferences.StereoPopout = !preferences.StereoPopout;
+	}
+	else if (optionsSubpage == 1)
+	{
+		// All remaining per-ROM boolean settings are available here. Keeping
+		// these on a separate page avoids crowding the touchscreen controls.
+		if (UI::DrawToggle(10, 22, 145, 32, "Patches", preferences.PatchesEnabled))
+			preferences.PatchesEnabled = !preferences.PatchesEnabled;
+		if (UI::DrawToggle(165, 22, 145, 32, "Dynarec", preferences.DynarecEnabled))
+			preferences.DynarecEnabled = !preferences.DynarecEnabled;
+
+		if (UI::DrawToggle(10, 59, 145, 32, "Dynarec loops", preferences.DynarecLoopOptimisation))
+			preferences.DynarecLoopOptimisation = !preferences.DynarecLoopOptimisation;
+		if (UI::DrawToggle(165, 59, 145, 32, "Dynarec doubles", preferences.DynarecDoublesOptimisation))
+			preferences.DynarecDoublesOptimisation = !preferences.DynarecDoublesOptimisation;
+
+		if (UI::DrawToggle(10, 96, 145, 32, "Double display", preferences.DoubleDisplayEnabled))
+			preferences.DoubleDisplayEnabled = !preferences.DoubleDisplayEnabled;
+		if (UI::DrawToggle(165, 96, 145, 32, "Clean scene", preferences.CleanSceneEnabled))
+			preferences.CleanSceneEnabled = !preferences.CleanSceneEnabled;
+
+		if (UI::DrawToggle(10, 133, 145, 32, "Clear depth", preferences.ClearDepthFrameBuffer))
+			preferences.ClearDepthFrameBuffer = !preferences.ClearDepthFrameBuffer;
+		if (UI::DrawToggle(165, 133, 145, 32, "Fog", preferences.FogEnabled))
+			preferences.FogEnabled = !preferences.FogEnabled;
+
+		if (UI::DrawToggle(10, 170, 145, 32, "Memory optimize", preferences.MemoryAccessOptimisation))
+			preferences.MemoryAccessOptimisation = !preferences.MemoryAccessOptimisation;
+		if (UI::DrawToggle(165, 170, 145, 32, "Cheats", preferences.CheatsEnabled))
+			preferences.CheatsEnabled = !preferences.CheatsEnabled;
+	}
+	else if (optionsSubpage == 2)
+	{
+		char label[48];
+		snprintf(label, sizeof(label), "Tex hash: %s",
+			Preferences_GetTextureHashFrequencyDescription(preferences.CheckTextureHashFrequency));
+		if (UI::DrawButton(10, 22, 145, 32, label))
+			preferences.CheckTextureHashFrequency = static_cast<ETextureHashFrequency>(
+				(preferences.CheckTextureHashFrequency + 1) % NUM_THF);
+
+		snprintf(label, sizeof(label), "Zoom: %.2f", preferences.ZoomX);
+		if (UI::DrawButton(165, 22, 145, 32, label))
+		{
+			preferences.ZoomX += 0.05f;
+			if (preferences.ZoomX > 1.5001f) preferences.ZoomX = 0.50f;
+		}
+
+		if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
+		{
+			char hostPlayerString[24];
+			snprintf(hostPlayerString, sizeof(hostPlayerString), "Host player: P%u", CTRInput_GetLocalControllerPort() + 1);
+			if (UI::DrawButton(10, 59, 145, 32, hostPlayerString))
+			{
+				const unsigned int port = CTRInput_GetLocalControllerPort();
+				CTRInput_SetLocalControllerPort((port + 1) % 4);
+			}
+		}
+		else
+			UI::DrawText(10, 80, "Host player locked during multiplayer");
 	}
 	else
 	{
-		UI::DrawText(10, 212, "Port locked");
+		if (UI::DrawToggle(10, 22, 145, 32, "FPS display", gGlobalPreferences.DisplayFramerate != 0))
+			gGlobalPreferences.DisplayFramerate = gGlobalPreferences.DisplayFramerate ? 0 : 1;
+		if (UI::DrawToggle(165, 22, 145, 32, "Linear filter", gGlobalPreferences.ForceLinearFilter))
+			gGlobalPreferences.ForceLinearFilter = !gGlobalPreferences.ForceLinearFilter;
+
+		if (UI::DrawToggle(10, 59, 145, 32, "Battery warning", gGlobalPreferences.BatteryWarning))
+			gGlobalPreferences.BatteryWarning = !gGlobalPreferences.BatteryWarning;
+		if (UI::DrawToggle(165, 59, 145, 32, "Large ROM buffer", gGlobalPreferences.LargeROMBuffer))
+			gGlobalPreferences.LargeROMBuffer = !gGlobalPreferences.LargeROMBuffer;
+
+		if (UI::DrawToggle(10, 96, 145, 32, "Rumble pak", gGlobalPreferences.RumblePak))
+			gGlobalPreferences.RumblePak = !gGlobalPreferences.RumblePak;
+		if (UI::DrawToggle(165, 96, 145, 32, "TV output", gGlobalPreferences.TVEnable))
+			gGlobalPreferences.TVEnable = !gGlobalPreferences.TVEnable;
+
+		if (UI::DrawToggle(10, 133, 145, 32, "TV interlace", gGlobalPreferences.TVLaced))
+			gGlobalPreferences.TVLaced = !gGlobalPreferences.TVLaced;
+#ifdef DAEDALUS_DEBUG_DISPLAYLIST
+		if (UI::DrawToggle(165, 133, 145, 32, "Custom blend", gGlobalPreferences.CustomBlendModes))
+			gGlobalPreferences.CustomBlendModes = !gGlobalPreferences.CustomBlendModes;
+		if (UI::DrawToggle(10, 170, 145, 32, "Highlight blends", gGlobalPreferences.HighlightInexactBlendModes))
+			gGlobalPreferences.HighlightInexactBlendModes = !gGlobalPreferences.HighlightInexactBlendModes;
+#endif
 	}
 
-	if(UI::DrawButton(165, 184, 145, 44, "Back"))
+	if (UI::DrawButton(10, 210, 145, 26, optionsSubpage == 0 ? "Back" : "Previous"))
 	{
-		CPreferences::Get()->Commit();
-		currentPage = 0;
+		if (optionsSubpage == 0)
+		{
+			CPreferences::Get()->Commit();
+			currentPage = 0;
+		}
+		else
+			--optionsSubpage;
 	}
-	
-	CPreferences::Get()->SetRomPreferences( g_ROM.mRomID, preferences );
+	if (UI::DrawButton(165, 210, 145, 26, optionsSubpage == 3 ? "Back to menu" : "Next page"))
+	{
+		if (optionsSubpage == 3)
+		{
+			CPreferences::Get()->Commit();
+			currentPage = 0;
+			optionsSubpage = 0;
+		}
+		else
+			++optionsSubpage;
+	}
 
+	CPreferences::Get()->SetRomPreferences(g_ROM.mRomID, preferences);
 	preferences.Apply();
 }
 

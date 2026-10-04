@@ -44,6 +44,7 @@ class CachedTexture
 		static void						DumpTexture( const TextureInfo & ti, const CNativeTexture * texture );
 #endif
 		bool							HasExpired() const;
+		inline u32						FramesSinceLastUse() const { return gRDPFrame - mFrameLastUsed; }
 
 	private:
 		friend class CTextureCache;

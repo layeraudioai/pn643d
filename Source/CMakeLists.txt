@@ -147,27 +147,70 @@ if (CTR_RELEASE)
 	endif()
 	set(APP_AUDIO "${PROJECT_NAME}.wav")
 	set(APP_RSF "${PROJECT_NAME}.rsf")
-	set(APP_ROMFS_DIR "romfs")
-	set(APP_ROMFS_BIN "${PROJECT_NAME}.bin")
+	set(APP_ROMFS_DIR "${CMAKE_CURRENT_BINARY_DIR}/romfs")
+	set(APP_ROMFS_BIN "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.bin")
+	set(APP_ROMFS_SOURCE_DIR "${PROJECT_SOURCE_DIR}/SysCTR/Resources/romfs")
+	set(APP_ROMFS_STAGE_STAMP "${CMAKE_CURRENT_BINARY_DIR}/romfs.stage.stamp")
+	set(APP_ROMFS_PACKER "${PROJECT_SOURCE_DIR}/../Tools/3dstool.exe")
+	set(APP_3DSX_PACKER "${PROJECT_SOURCE_DIR}/../Tools/3dsxtool.exe")
+	set(APP_MAKEROM "${PROJECT_SOURCE_DIR}/../Tools/makerom.exe")
 
+	# Keep the staged ROMFS up to date, while preserving per-game files that
+	# build scripts/users may already have placed in the build's romfs folder.
+	file(GLOB_RECURSE APP_ROMFS_FILES CONFIGURE_DEPENDS LIST_DIRECTORIES false
+		"${APP_ROMFS_SOURCE_DIR}/*")
+	set(APP_ROMFS_DATA_INI "${PROJECT_SOURCE_DIR}/../Data/roms.ini")
+	if(EXISTS "${APP_ROMFS_DATA_INI}")
+		list(APPEND APP_ROMFS_FILES "${APP_ROMFS_DATA_INI}")
+	endif()
+	set(APP_ROMFS_STAGE_COMMANDS
+		COMMAND ${CMAKE_COMMAND} -E make_directory "${APP_ROMFS_DIR}"
+		COMMAND ${CMAKE_COMMAND} -E copy_directory "${APP_ROMFS_SOURCE_DIR}" "${APP_ROMFS_DIR}"
+	)
+	if(EXISTS "${APP_ROMFS_DATA_INI}")
+		list(APPEND APP_ROMFS_STAGE_COMMANDS
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${APP_ROMFS_DATA_INI}" "${APP_ROMFS_DIR}/roms.ini")
+	endif()
 	add_custom_command(
-		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.3dsx
-		COMMAND ../Tools/3dsxtool.exe ${PROJECT_NAME}.elf ${PROJECT_NAME}.3dsx --romfs=${APP_ROMFS_DIR} --smdh=${APP_SMDH}
-		DEPENDS ${PROJECT_NAME}.elf
+		OUTPUT "${APP_ROMFS_STAGE_STAMP}"
+		${APP_ROMFS_STAGE_COMMANDS}
+		COMMAND ${CMAKE_COMMAND} -E touch "${APP_ROMFS_STAGE_STAMP}"
+		DEPENDS ${APP_ROMFS_FILES}
+		VERBATIM
+	)
+
+	# makerom's -romfs input is a packed RomFS image, not the source directory.
+	# Generate it as a build output and make the CIA depend on it explicitly.
+	add_custom_command(
+		OUTPUT "${APP_ROMFS_BIN}"
+		COMMAND "${APP_ROMFS_PACKER}" -c --type romfs --romfs-dir "${APP_ROMFS_DIR}" --file "${APP_ROMFS_BIN}"
+		DEPENDS "${APP_ROMFS_STAGE_STAMP}" ${APP_ROMFS_FILES}
+		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+		VERBATIM
 	)
 
 	add_custom_command(
-		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.cia
-		COMMAND ../Tools/makerom.exe	-f cia
+		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.3dsx"
+		COMMAND "${APP_3DSX_PACKER}" "${PROJECT_NAME}.elf" "${PROJECT_NAME}.3dsx" "--romfs=${APP_ROMFS_DIR}" "--smdh=${APP_SMDH}"
+		DEPENDS ${PROJECT_NAME}.elf "${APP_ROMFS_STAGE_STAMP}" ${APP_ROMFS_FILES}
+		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+		VERBATIM
+	)
+
+	add_custom_command(
+		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.cia"
+		COMMAND "${APP_MAKEROM}" -f cia
 				-target t
 				-exefslogo
-				-o ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.cia
-				-elf ${PROJECT_NAME}.elf
-				-rsf ${APP_RSF}
-				-banner ${APP_BANNER}
-				-icon ${APP_SMDH}
-				-romfs ${APP_ROMFS_BIN}
-		DEPENDS ${PROJECT_NAME}.elf
+				-o "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.cia"
+				-elf "${PROJECT_NAME}.elf"
+				-rsf "${APP_RSF}"
+				-banner "${APP_BANNER}"
+				-icon "${APP_SMDH}"
+				-romfs "${APP_ROMFS_BIN}"
+			DEPENDS ${PROJECT_NAME}.elf "${APP_ROMFS_BIN}"
+			WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+			VERBATIM
     )
 
 	add_custom_target( N3DS ALL

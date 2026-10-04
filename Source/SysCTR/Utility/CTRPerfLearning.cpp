@@ -4,6 +4,7 @@
 #include "Utility/Timing.h"
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 namespace CTRPerfLearning {
 namespace {
@@ -49,8 +50,8 @@ void BeginGame(u32 crc1, u32 crc2, u8 country, u32 rom_size) {
     sProfile.rom_size = rom_size;
     // The storage backend has a single application extdata namespace; use a
     // collision-resistant per-ROM file so profiles never overwrite each other.
-    snprintf(sProfileFile, sizeof(sProfileFile), "perf-%08X%08X-%02X.dat",
-        crc1, crc2, (unsigned)country);
+    snprintf(sProfileFile, sizeof(sProfileFile), "perf-%08" PRIX32 "%08" PRIX32 "-%02X.dat",
+        (uint32_t)crc1, (uint32_t)crc2, (unsigned)country);
     sAppIdLow = 0;
     CTRStorage::ExtDataEnsure(sAppIdLow);
     size_t bytes = 0;
@@ -141,27 +142,27 @@ bool WriteReport(u32 user_target_fps) {
     if (!sActive)
         return false;
     char reportName[40];
-    snprintf(reportName, sizeof(reportName), "perf-%08X%08X-%02X.txt",
-        sProfile.crc1, sProfile.crc2, (unsigned)sProfile.country);
+    snprintf(reportName, sizeof(reportName), "perf-%08" PRIX32 "%08" PRIX32 "-%02X.txt",
+        (uint32_t)sProfile.crc1, (uint32_t)sProfile.crc2, (unsigned)sProfile.country);
     char report[512];
     int used = snprintf(report, sizeof(report),
         "DaedalusX64 per-game performance profile\n"
-        "ROM CRC: %08X %08X  country: %02X  size: %u\n"
-        "frame samples: %u  average work/target: %llu/%llu ticks\n"
-        "backend ceiling recommendation: %u FPS (user cap remains unchanged)\n",
-        sProfile.crc1, sProfile.crc2, (unsigned)sProfile.country, sProfile.rom_size,
-        sProfile.frame_samples,
+        "ROM CRC: %08" PRIX32 " %08" PRIX32 "  country: %02X  size: %" PRIu32 "\n"
+        "frame samples: %" PRIu32 "  average work/target: %llu/%llu ticks\n"
+        "backend ceiling recommendation: %" PRIu32 " FPS (user cap remains unchanged)\n",
+        (uint32_t)sProfile.crc1, (uint32_t)sProfile.crc2, (unsigned)sProfile.country,
+        (uint32_t)sProfile.rom_size, (uint32_t)sProfile.frame_samples,
         (unsigned long long)(sProfile.average_work_ticks_x100 / 100u),
         (unsigned long long)(sProfile.average_target_ticks_x100 / 100u),
-        GetRecommendedBackendCeilingFPS(user_target_fps));
+        (uint32_t)GetRecommendedBackendCeilingFPS(user_target_fps));
     if (used < 0 || (size_t)used >= sizeof(report))
         return false;
     for (u32 i = 0; i < PROFILE_ZONE_COUNT; ++i) {
         const SZoneStats &zone = sProfile.zones[i];
         const char *name = i == PROFILE_CPU_VBL ? "CPU_VBL" : "FRAME_LIMITER";
         int written = snprintf(report + used, sizeof(report) - (size_t)used,
-            "%s calls=%u total=%llu max=%u\n", name, zone.calls,
-            (unsigned long long)zone.total_ticks, zone.max_ticks);
+            "%s calls=%" PRIu32 " total=%llu max=%" PRIu32 "\n", name,
+            (uint32_t)zone.calls, (unsigned long long)zone.total_ticks, (uint32_t)zone.max_ticks);
         if (written < 0 || (size_t)written >= sizeof(report) - (size_t)used)
             return false;
         used += written;

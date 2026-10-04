@@ -363,11 +363,11 @@ void IPreferences::OutputSectionDetails( const RomID & id, const SRomPreferences
 	fprintf(fh, "MemoryAccessOptimisation=%d\n",   preferences.MemoryAccessOptimisation);
 	fprintf(fh, "CheatsEnabled=%d\n",              preferences.CheatsEnabled);
 #ifdef DAEDALUS_CTR
-	fprintf(fh, "CirclePadDestination=%u\n", preferences.CTRStickDestinations[0]);
-	fprintf(fh, "CStickDestination=%u\n", preferences.CTRStickDestinations[1]);
-	fprintf(fh, "TouchStickDestination=%u\n", preferences.CTRStickDestinations[2]);
-	fprintf(fh, "TouchStickX=%u\n", preferences.CTRTouchStickX);
-	fprintf(fh, "TouchStickY=%u\n", preferences.CTRTouchStickY);
+	fprintf(fh, "CirclePadDestination=%" PRIu32 "\n", preferences.CTRStickDestinations[0]);
+	fprintf(fh, "CStickDestination=%" PRIu32 "\n", preferences.CTRStickDestinations[1]);
+	fprintf(fh, "TouchStickDestination=%" PRIu32 "\n", preferences.CTRStickDestinations[2]);
+	fprintf(fh, "TouchStickX=%" PRIu32 "\n", preferences.CTRTouchStickX);
+	fprintf(fh, "TouchStickY=%" PRIu32 "\n", preferences.CTRTouchStickY);
 #endif
 #ifdef DAEDALUS_PSP
 	fprintf(fh, "Controller=%s\n",                CInputManager::Get()->GetConfigurationName( preferences.ControllerIndex ));

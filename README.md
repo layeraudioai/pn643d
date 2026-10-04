@@ -1,6 +1,6 @@
 # DaedalusX64
 --
-EXPERIMENTAL: there is a boot.firm in the repo/source if you are feeling ballzing you can try it its a modified LumaCFW
+EXPERIMENTAL: there is a boot.firm in the repo/source if you are feeling ballzing you can try it its a modified LumaCFW. contains minor optimizations for performance and also higher volume (150% in rosalina) plus press x to close process in process manager
 --
 0: remove all !s in file names if they exist, essential
 ---

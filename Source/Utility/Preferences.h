@@ -156,6 +156,11 @@ struct SRomPreferences
 	f32							ZoomX;
 	u32							SpeedSyncEnabled;
 	u32							ControllerIndex;
+#ifdef DAEDALUS_CTR
+	u32							CTRStickDestinations[3];
+	u32							CTRTouchStickX;
+	u32							CTRTouchStickY;
+#endif
 //	u32							PAD1;	//Some Bug in GCC that require to pad the struct some times...(?) 
 
 	SRomPreferences();

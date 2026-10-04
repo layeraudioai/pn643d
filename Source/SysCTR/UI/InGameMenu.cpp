@@ -302,6 +302,58 @@ static void DrawOptionsPage()
 	preferences.Apply();
 }
 
+static void DrawControllerPage()
+{
+	SRomPreferences preferences;
+	CPreferences::Get()->GetRomPreferences(g_ROM.mRomID, &preferences);
+	for (unsigned int i = 0; i < 3; ++i)
+		CTRInput_SetStickDestination(i, preferences.CTRStickDestinations[i]);
+	CTRInput_SetTouchStickPosition(preferences.CTRTouchStickX, preferences.CTRTouchStickY);
+
+	UI::DrawHeader("Controller");
+	UI::DrawText(12, 25, "Route each stick to a control type:");
+	for (unsigned int i = 0; i < 3; ++i)
+	{
+		const float y = 34.0f + (float)i * 34.0f;
+		UI::DrawText(14, y + 20, CTRInput_GetStickSourceName(i));
+		char route[32];
+		snprintf(route, sizeof(route), "-> %s", CTRInput_GetStickDestinationName(preferences.CTRStickDestinations[i]));
+		if (UI::DrawButton(150, y, 160, 28, route))
+		{
+			preferences.CTRStickDestinations[i] = (preferences.CTRStickDestinations[i] + 1) % 4;
+			CTRInput_SetStickDestination(i, preferences.CTRStickDestinations[i]);
+		}
+	}
+
+	UI::DrawText(12, 137, "Touch stick position:");
+	if (UI::DrawButton(10, 144, 42, 30, "<"))
+		preferences.CTRTouchStickX = preferences.CTRTouchStickX > 68 ? preferences.CTRTouchStickX - 12 : 56;
+	if (UI::DrawButton(56, 144, 42, 30, "^"))
+		preferences.CTRTouchStickY = preferences.CTRTouchStickY > 68 ? preferences.CTRTouchStickY - 12 : 56;
+	if (UI::DrawButton(102, 144, 42, 30, "v"))
+		preferences.CTRTouchStickY = preferences.CTRTouchStickY < 172 ? preferences.CTRTouchStickY + 12 : 184;
+	if (UI::DrawButton(148, 144, 42, 30, ">"))
+		preferences.CTRTouchStickX = preferences.CTRTouchStickX < 252 ? preferences.CTRTouchStickX + 12 : 264;
+
+	CTRInput_SetTouchStickPosition(preferences.CTRTouchStickX, preferences.CTRTouchStickY);
+	unsigned int stickX, stickY;
+	CTRInput_GetTouchStickPosition(&stickX, &stickY);
+	UI::DrawVirtualStickPreview(258.0f, 151.0f,
+		CTRInput_GetStickDestination(2) != CTR_STICK_DISABLED);
+	char position[24];
+	snprintf(position, sizeof(position), "X%u Y%u", stickX, stickY);
+	UI::DrawText(236, 184, position);
+	UI::DrawText(12, 178, "Touch stick works during gameplay.");
+
+	if (UI::DrawButton(10, 190, 300, 38, "Back / Save"))
+	{
+		CPreferences::Get()->SetRomPreferences(g_ROM.mRomID, preferences);
+		CPreferences::Get()->Commit();
+		currentPage = 0;
+	}
+	CPreferences::Get()->SetRomPreferences(g_ROM.mRomID, preferences);
+}
+
 static void DrawMultiplayerPage()
 {
 	UI::DrawHeader("Multiplayer");
@@ -440,10 +492,24 @@ static void DrawMainPage()
 
 	if((osGetTime() - timer) > 5000)
 	{
-		if(keysHeld() & KEY_TOUCH)
+		if (CTRInput_GetStickDestination(2) != CTR_STICK_DISABLED)
 		{
-			timer = osGetTime();
+			unsigned int x, y;
+			CTRInput_GetTouchStickPosition(&x, &y);
+			UI::DrawVirtualStick((float)x, (float)y, (keysHeld() & KEY_TOUCH) != 0);
 		}
+		touchPosition touch;
+		hidTouchRead(&touch);
+		const int dx = (int)touch.px;
+		const int dy = (int)touch.py;
+		unsigned int stickX, stickY;
+		CTRInput_GetTouchStickPosition(&stickX, &stickY);
+		const int sx = dx - (int)stickX;
+		const int sy = dy - (int)stickY;
+		const bool usingVirtualStick = (keysHeld() & KEY_TOUCH) &&
+			CTRInput_GetStickDestination(2) != CTR_STICK_DISABLED && sx * sx + sy * sy <= 56 * 56;
+		if ((keysHeld() & KEY_TOUCH) && !usingVirtualStick)
+			timer = osGetTime();
 		return;
 	}
 
@@ -451,7 +517,8 @@ static void DrawMainPage()
 	if(UI::DrawButton(165, 22, 145, 48, "Load State")) currentPage = 2;
 	if(UI::DrawButton(10,  76, 145, 48, "Multiplayer")) currentPage = 5;
 	if(UI::DrawButton(165, 76, 145, 48, "Options")) currentPage = 4;
-	if(UI::DrawButton(10,  130, 300, 62, "Close ROM")) currentPage = 3;
+	if(UI::DrawButton(10,  130, 145, 48, "Controller")) currentPage = 10;
+	if(UI::DrawButton(165, 130, 145, 48, "Close ROM")) currentPage = 3;
 }
 
 void UI::DrawInGameMenu()
@@ -471,6 +538,7 @@ void UI::DrawInGameMenu()
 		case 7: DrawJoinPage(); break;
 		case 8: DrawOnlineInfoPage(true); break;
 		case 9: DrawOnlineInfoPage(false); break;
+		case 10: DrawControllerPage(); break;
 	}
 
 	pglSwapBuffers();

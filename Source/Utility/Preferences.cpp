@@ -41,6 +41,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #ifdef DAEDALUS_CTR
 #include <GL/picaGL.h>
+#include "SysCTR/Input/CTRInput.h"
 #endif
 
 #ifdef DAEDALUS_PSP
@@ -296,6 +297,27 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 			preferences.ControllerIndex = CInputManager::Get()->GetConfigurationFromName( property->GetValue() );
 		}
 #endif
+#ifdef DAEDALUS_CTR
+		static const char *stickKeys[] = { "CirclePadDestination", "CStickDestination", "TouchStickDestination" };
+		for (unsigned int i = 0; i < 3; ++i)
+		{
+			if (section->FindProperty(stickKeys[i], &property))
+			{
+				int value = atoi(property->GetValue());
+				if (value >= 0 && value <= 3) preferences.CTRStickDestinations[i] = (u32)value;
+			}
+		}
+		if (section->FindProperty("TouchStickX", &property))
+		{
+			int value = atoi(property->GetValue());
+			if (value >= 56 && value <= 264) preferences.CTRTouchStickX = (u32)value;
+		}
+		if (section->FindProperty("TouchStickY", &property))
+		{
+			int value = atoi(property->GetValue());
+			if (value >= 56 && value <= 184) preferences.CTRTouchStickY = (u32)value;
+		}
+#endif
 		if( section->FindProperty( "MemoryAccessOptimisation", &property ) )
 		{
 			preferences.MemoryAccessOptimisation = property->GetBooleanValue( false );
@@ -340,6 +362,13 @@ void IPreferences::OutputSectionDetails( const RomID & id, const SRomPreferences
 	fprintf(fh, "StereoPopout=%d\n",              preferences.StereoPopout );
 	fprintf(fh, "MemoryAccessOptimisation=%d\n",   preferences.MemoryAccessOptimisation);
 	fprintf(fh, "CheatsEnabled=%d\n",              preferences.CheatsEnabled);
+#ifdef DAEDALUS_CTR
+	fprintf(fh, "CirclePadDestination=%u\n", preferences.CTRStickDestinations[0]);
+	fprintf(fh, "CStickDestination=%u\n", preferences.CTRStickDestinations[1]);
+	fprintf(fh, "TouchStickDestination=%u\n", preferences.CTRStickDestinations[2]);
+	fprintf(fh, "TouchStickX=%u\n", preferences.CTRTouchStickX);
+	fprintf(fh, "TouchStickY=%u\n", preferences.CTRTouchStickY);
+#endif
 #ifdef DAEDALUS_PSP
 	fprintf(fh, "Controller=%s\n",                CInputManager::Get()->GetConfigurationName( preferences.ControllerIndex ));
 #endif
@@ -472,7 +501,16 @@ SRomPreferences::SRomPreferences()
 	,	ZoomX( 1.0f )
 	,	SpeedSyncEnabled( 1 )
 	,	ControllerIndex( 0 )
+#ifdef DAEDALUS_CTR
+	,	CTRTouchStickX( 78 )
+	,	CTRTouchStickY( 164 )
+#endif
 {
+#ifdef DAEDALUS_CTR
+	CTRStickDestinations[0] = 0;
+	CTRStickDestinations[1] = 2;
+	CTRStickDestinations[2] = 0;
+#endif
 }
 
 void SRomPreferences::Reset()
@@ -499,6 +537,13 @@ void SRomPreferences::Reset()
 	StereoPopout               = false;
 	CheatsEnabled              = false;
 	ControllerIndex            = 0;
+#ifdef DAEDALUS_CTR
+	CTRStickDestinations[0] = 0;
+	CTRStickDestinations[1] = 2;
+	CTRStickDestinations[2] = 0;
+	CTRTouchStickX = 78;
+	CTRTouchStickY = 164;
+#endif
 }
 
 void SRomPreferences::Apply() const
@@ -522,6 +567,9 @@ void SRomPreferences::Apply() const
 #ifdef DAEDALUS_CTR
 	pglSetStereo(true, StereoSeparation);
 	pglSetStereoPopout(StereoPopout);
+	for (unsigned int i = 0; i < 3; ++i)
+		CTRInput_SetStickDestination(i, CTRStickDestinations[i]);
+	CTRInput_SetTouchStickPosition(CTRTouchStickX, CTRTouchStickY);
 #endif
 	gCheatsEnabled              = g_ROM.settings.CheatsEnabled || CheatsEnabled;
 	gAudioPluginEnabled         = AudioEnabled;

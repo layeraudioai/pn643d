@@ -1,6 +1,7 @@
 #include <3ds.h>
 #include <GL/picaGL.h>
 #include <stdio.h>
+#include <math.h>
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
@@ -186,6 +187,42 @@ bool UI::DrawToggle(float x, float y, float width, float height, const char *tex
 	}
 
 	return false;
+}
+
+void UI::DrawVirtualStick(float x, float y, bool active)
+{
+	glDisable(GL_TEXTURE_2D);
+	glColor4f(0.15f, 0.75f, 0.95f, active ? 0.9f : 0.45f);
+	glBegin(GL_LINE_LOOP);
+	for (int i = 0; i < 24; ++i)
+	{
+		const float angle = (float)i * 6.28318530718f / 24.0f;
+		glVertex2f(x + cosf(angle) * 54.0f, y + sinf(angle) * 54.0f);
+	}
+	glEnd();
+	glBegin(GL_LINES);
+		glVertex2f(x - 8.0f, y); glVertex2f(x + 8.0f, y);
+		glVertex2f(x, y - 8.0f); glVertex2f(x, y + 8.0f);
+	glEnd();
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+void UI::DrawVirtualStickPreview(float x, float y, bool active)
+{
+	glDisable(GL_TEXTURE_2D);
+	glColor4f(0.15f, 0.75f, 0.95f, active ? 0.9f : 0.45f);
+	glBegin(GL_LINE_LOOP);
+	for (int i = 0; i < 16; ++i)
+	{
+		const float angle = (float)i * 6.28318530718f / 16.0f;
+		glVertex2f(x + cosf(angle) * 27.0f, y + sinf(angle) * 27.0f);
+	}
+	glEnd();
+	glBegin(GL_LINES);
+		glVertex2f(x - 5.0f, y); glVertex2f(x + 5.0f, y);
+		glVertex2f(x, y - 5.0f); glVertex2f(x, y + 5.0f);
+	glEnd();
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 void UI::DrawText(float x, float y, const char *text)

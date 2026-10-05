@@ -43,6 +43,7 @@ static u32				gCurrentAverageTicksPerVbl = 0;
 static f32				sPerformanceScale = 1.0f;
 static FramerateSyncFn 	gAuxSyncFn = NULL;
 static void *			gAuxSyncArg = NULL;
+static bool				gFastForwardEnabled = false;
 
 static const u32		gTvFrequencies[] =
 {
@@ -52,6 +53,29 @@ static const u32		gTvFrequencies[] =
 };
 
 extern float gMaxFPS;
+
+static u32 GetRequestedTargetFPS(u32 tv_type)
+{
+	if (tv_type >= sizeof(gTvFrequencies) / sizeof(gTvFrequencies[0]))
+		tv_type = 0;
+	u32 target = (gMaxFPS > 0.0f) ? (u32)gMaxFPS : gTvFrequencies[tv_type];
+	if (target == 0) target = 60;
+	// Fast-forward raises the emulated VI/frame pacing target without
+	// overwriting the user's saved per-ROM MaxFPS preference.
+	if (gFastForwardEnabled && target < 240u)
+		target = 240u;
+	return target;
+}
+
+void FramerateLimiter_SetFastForward(bool enabled)
+{
+	gFastForwardEnabled = enabled;
+}
+
+bool FramerateLimiter_IsFastForwardEnabled()
+{
+	return gFastForwardEnabled;
+}
 
 void FramerateLimiter_SetAuxillarySyncFunction(FramerateSyncFn fn, void * arg)
 {
@@ -84,8 +108,7 @@ bool FramerateLimiter_Reset()
 		DAEDALUS_ASSERT(tv_type < sizeof(gTvFrequencies) / sizeof(u32), "Unknown TV type: %d", g_ROM.TvType);
 		#endif
 
-		u32 target_fps = (gMaxFPS > 0.0f) ? (u32)gMaxFPS : gTvFrequencies[ tv_type ];
-		if (target_fps == 0) target_fps = 60;
+		u32 target_fps = GetRequestedTargetFPS(tv_type);
 		// Keep the user-selected limit as a hard wall-clock cap. The backend
 		// VI rate is separate and may rise to improve games that update more
 		// often when they receive additional VI interrupts.
@@ -136,12 +159,12 @@ void FramerateLimiter_Limit()
 	// resetting the timer (or the adaptive backend) on every menu draw.
 	u32 tv_type = g_ROM.TvType;
 	if (tv_type >= sizeof(gTvFrequencies) / sizeof(u32)) tv_type = 0;
-	u32 target_fps = (gMaxFPS > 0.0f) ? (u32)gMaxFPS : gTvFrequencies[tv_type];
-	if (target_fps == 0) target_fps = 60;
+	u32 target_fps = GetRequestedTargetFPS(tv_type);
 	if (gClockFrequency != 0 && target_fps != gUserTargetFPS)
 	{
 		gUserTargetFPS = target_fps;
 		gTicksBetweenVbls = (u32)(gClockFrequency / target_fps);
+		gTicksPerSecond = (u32)((gClockFrequency * ((f32)target_fps / 60.0f)) * 3);
 		gBackendMaxFPS = target_fps;
 #ifdef DAEDALUS_CTR
 		gBackendCeilingFPS = CTRPerfLearning::GetRecommendedBackendCeilingFPS(target_fps);
@@ -240,7 +263,9 @@ f32 FramerateLimiter_GetPerformanceScale()
 
 u32 FramerateLimiter_GetTargetClockRateHz()
 {
-	u32 base_clock = (gMaxFPS > 120.0f) ? 20000000u : 30000000u;
+	u32 tv_type = g_ROM.TvType;
+	if (tv_type >= sizeof(gTvFrequencies) / sizeof(u32)) tv_type = 0;
+	u32 base_clock = (GetRequestedTargetFPS(tv_type) > 120u) ? 20000000u : 30000000u;
 	return (u32)((f32)base_clock * sPerformanceScale);
 }
 
@@ -253,12 +278,7 @@ u32 FramerateLimiter_GetHostClockRateHz()
 
 u32 FramerateLimiter_GetTvFrequencyHz()
 {
-	u32 tv_type = g_ROM.TvType;
-	if (tv_type >= sizeof(gTvFrequencies) / sizeof(u32))
-	{
-		tv_type = 0;
-	}
-	return (gMaxFPS > 0.0f) ? (u32)gMaxFPS : gTvFrequencies[ tv_type ];
+	return GetRequestedTargetFPS(g_ROM.TvType);
 }
 
 u32 FramerateLimiter_GetBackendMaxFPS()

@@ -31,6 +31,16 @@ namespace CTRMultiplayer
     const char *GetOnlineRoomCode();
     bool IsOnline();
 
+    // Bounded media transport (independent of controller polling/packets).
+    // Frames are delivered as opaque payloads; producers should keep chunks
+    // small and call these APIs outside latency-critical input handling.
+    static const size_t kMaxMediaPayload = 1024;
+    enum MediaType { MEDIA_AUDIO = 1, MEDIA_VIDEO = 2 };
+    bool SendMediaFrame(unsigned char type, const void *payload, size_t size);
+    bool ReceiveMediaFrame(unsigned char *type, unsigned short *sequence,
+                           unsigned short *sourceNode, void *payload,
+                           size_t capacity, size_t *size);
+
     void Stop();
 
     State GetState();

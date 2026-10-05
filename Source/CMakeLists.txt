@@ -17,6 +17,21 @@ option(DAEDALUS_ENABLE_FUNCTION_PROFILING "Enable CTR function profiling" OFF)
 option(DAEDALUS_ENABLE_SDMC_DIAGNOSTICS "Enable SD-card logging and profiler snapshots" OFF)
 option(DAEDALUS_ENABLE_DEBUG_CONSOLE "Enable the CTR debug console" OFF)
 option(DAEDALUS_ENABLE_BATCH_TESTS "Compile emulator batch-test support" OFF)
+option(DAEDALUS_DOWNLOADPLAY "Build a ROM-specific Download Play child CIA" OFF)
+set(DAEDALUS_DOWNLOADPLAY_ROM "" CACHE FILEPATH "Compressed .lz4 N64 ROM to bundle in the Download Play child")
+set(DAEDALUS_DOWNLOADPLAY_CHILD_CIA "" CACHE FILEPATH "Child CIA payload to bundle in the host application's RomFS")
+set(DAEDALUS_DOWNLOADPLAY_CHILD_INDEX "0xD3" CACHE STRING "DLP child index (must match UniqueId low byte in template2.rsf)")
+if(DAEDALUS_DOWNLOADPLAY AND NOT DAEDALUS_DOWNLOADPLAY_ROM)
+	message(FATAL_ERROR "DAEDALUS_DOWNLOADPLAY requires DAEDALUS_DOWNLOADPLAY_ROM")
+endif()
+if(DAEDALUS_DOWNLOADPLAY)
+	get_filename_component(DAEDALUS_DOWNLOADPLAY_ROM_FILENAME "${DAEDALUS_DOWNLOADPLAY_ROM}" NAME)
+	if(NOT DAEDALUS_DOWNLOADPLAY_ROM_FILENAME MATCHES "\\.lz4$")
+		message(FATAL_ERROR "DAEDALUS_DOWNLOADPLAY_ROM must be the Daedalus .lz4 ROM container")
+	endif()
+	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/downloadplay_config.h"
+		"#define DAEDALUS_DOWNLOADPLAY_ROM_FILENAME \"${DAEDALUS_DOWNLOADPLAY_ROM_FILENAME}\"\n")
+endif()
 if(DAEDALUS_ENABLE_SDMC_DIAGNOSTICS)
 	set(DAEDALUS_ENABLE_FUNCTION_PROFILING ON)
 endif()
@@ -67,7 +82,7 @@ set (CTR_DYNAREC_FILES SysCTR/DynaRec/arm/AssemblyUtilsARM.cpp SysCTR/DynaRec/ar
 set (CTR_GRAPHICS_FILES SysCTR/Graphics/GraphicsContextCTR.cpp SysCTR/Graphics/NativeTextureCTR.cpp)
 set (CTR_HLEGRAPHICS_FILES SysCTR/HLEGraphics/GraphicsPluginCTR.cpp SysCTR/HLEGraphics/RendererCTR.cpp SysCTR/HLEGraphics/ColourAdjuster.cpp SysCTR/HLEGraphics/BlendModes.cpp SysCTR/HLEGraphics/Combiner/BlendConstant.cpp SysCTR/HLEGraphics/Combiner/CombinerExpression.cpp SysCTR/HLEGraphics/Combiner/CombinerTree.cpp SysCTR/HLEGraphics/Combiner/RenderSettings.cpp)
 set (CTR_HLEAUDIO_FILES SysCTR/HLEAudio/AudioPluginCTR.cpp SysCTR/HLEAudio/AudioOutput.cpp)
-set (CTR_INPUTMANAGER_FILES SysCTR/Input/InputManagerCTR.cpp SysCTR/Input/CTRMultiplayer.cpp)
+set (CTR_INPUTMANAGER_FILES SysCTR/Input/InputManagerCTR.cpp SysCTR/Input/CTRMultiplayer.cpp SysCTR/DownloadPlayHost.cpp)
 set (CTR_UI_FILES SysCTR/UI/UserInterface.cpp SysCTR/UI/RomSelector.cpp SysCTR/UI/InGameMenu.cpp)
 set (CTR_UTILITY_FILES SysCTR/Utility/CTRPerfLearning.cpp SysCTR/Utility/CTRStorage.cpp SysCTR/Utility/ThreadCTR.cpp SysCTR/Utility/IOCTR.cpp SysCTR/Utility/TimingCTR.cpp SysCTR/Utility/MemoryCTR.cpp SysCTR/Utility/CacheCTR.S SysCTR/Utility/FastMemcpyCTR.S)
 set (CTR_BUILD ${CTR_DEBUG_FILES} ${CTR_DYNAREC_FILES} ${CTR_GRAPHICS_FILES} ${CTR_HLEAUDIO_FILES} ${CTR_HLEGRAPHICS_FILES} ${CTR_INPUTMANAGER_FILES} ${CTR_UI_FILES} ${CTR_UTILITY_FILES})
@@ -166,6 +181,16 @@ if (CTR_RELEASE)
 		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_BATCH_TEST_ENABLED)
 	endif()
 	target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_TARGET_GAME_ID=${DAEDALUS_GAME_ID_VALUE})
+	if(DAEDALUS_DOWNLOADPLAY)
+		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_DOWNLOADPLAY)
+	endif()
+	if(DAEDALUS_DOWNLOADPLAY_CHILD_CIA)
+		# Host-side DLP server support is opt-in with the matching bundled child.
+		# The runtime child index must match the child's TitleInfo UniqueId low byte.
+		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE
+			DAEDALUS_DOWNLOADPLAY_HOST
+			DAEDALUS_DOWNLOADPLAY_CHILD_INDEX=${DAEDALUS_DOWNLOADPLAY_CHILD_INDEX})
+	endif()
 	if(DAEDALUS_GAME_ID_VALUE AND EXISTS "${DAEDALUS_GAME_PROFILE}")
 		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE
 			"DAEDALUS_GAME_PROFILE_HEADER=\"Core/GameProfiles/${DAEDALUS_GAME_ID_HEX}.h\"")
@@ -173,6 +198,7 @@ if (CTR_RELEASE)
 
 	target_include_directories(${PROJECT_NAME}.elf PRIVATE
 		${PROJECT_SOURCE_DIR}
+		${CMAKE_CURRENT_BINARY_DIR}
 		${PROJECT_SOURCE_DIR}/SysCTR/Include
 		${PROJECT_SOURCE_DIR}/Config/Release
 	)
@@ -202,6 +228,22 @@ if (CTR_RELEASE)
 	endif()
 	set(APP_AUDIO "${PROJECT_NAME}.wav")
 	set(APP_RSF "${PROJECT_NAME}.rsf")
+	if(NOT EXISTS "${APP_RSF}")
+		set(APP_RSF "${PROJECT_SOURCE_DIR}/SysCTR/Resources/template2.rsf")
+	endif()
+	if(DAEDALUS_DOWNLOADPLAY)
+		file(READ "${APP_RSF}" APP_RSF_CONTENT)
+		string(REPLACE "Category                : Application" "Category                : DlpChild" APP_RSF_CONTENT "${APP_RSF_CONTENT}")
+		set(APP_RSF "${CMAKE_CURRENT_BINARY_DIR}/downloadplay.rsf")
+		file(WRITE "${APP_RSF}" "${APP_RSF_CONTENT}")
+	elseif(DAEDALUS_DOWNLOADPLAY_CHILD_CIA)
+		# Request the server service in the host's exheader. Whether retail
+		# firmware grants this title the service remains a console test item.
+		file(READ "${APP_RSF}" APP_RSF_CONTENT)
+		string(REPLACE "   - boss:U" "   - boss:U\n   - dlp:SRVR" APP_RSF_CONTENT "${APP_RSF_CONTENT}")
+		set(APP_RSF "${CMAKE_CURRENT_BINARY_DIR}/downloadplay-host.rsf")
+		file(WRITE "${APP_RSF}" "${APP_RSF_CONTENT}")
+	endif()
 	set(APP_ROMFS_DIR "${CMAKE_CURRENT_BINARY_DIR}/romfs")
 	set(APP_ROMFS_BIN "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.bin")
 	set(APP_ROMFS_SOURCE_DIR "${PROJECT_SOURCE_DIR}/SysCTR/Resources/romfs")
@@ -222,6 +264,24 @@ if (CTR_RELEASE)
 		COMMAND ${CMAKE_COMMAND} -E make_directory "${APP_ROMFS_DIR}"
 		COMMAND ${CMAKE_COMMAND} -E copy_directory "${APP_ROMFS_SOURCE_DIR}" "${APP_ROMFS_DIR}"
 	)
+	if(DAEDALUS_DOWNLOADPLAY)
+		if(NOT EXISTS "${DAEDALUS_DOWNLOADPLAY_ROM}")
+			message(FATAL_ERROR "Download Play ROM does not exist: ${DAEDALUS_DOWNLOADPLAY_ROM}")
+		endif()
+		get_filename_component(APP_DLP_ROM_FILENAME "${DAEDALUS_DOWNLOADPLAY_ROM}" NAME)
+		list(APPEND APP_ROMFS_FILES "${DAEDALUS_DOWNLOADPLAY_ROM}")
+		list(APPEND APP_ROMFS_STAGE_COMMANDS
+			COMMAND ${CMAKE_COMMAND} -E make_directory "${APP_ROMFS_DIR}/Roms"
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DAEDALUS_DOWNLOADPLAY_ROM}" "${APP_ROMFS_DIR}/Roms/${APP_DLP_ROM_FILENAME}")
+	endif()
+	if(DAEDALUS_DOWNLOADPLAY_CHILD_CIA)
+		if(NOT EXISTS "${DAEDALUS_DOWNLOADPLAY_CHILD_CIA}")
+			message(FATAL_ERROR "Download Play child CIA does not exist: ${DAEDALUS_DOWNLOADPLAY_CHILD_CIA}")
+		endif()
+		list(APPEND APP_ROMFS_FILES "${DAEDALUS_DOWNLOADPLAY_CHILD_CIA}")
+		list(APPEND APP_ROMFS_STAGE_COMMANDS
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DAEDALUS_DOWNLOADPLAY_CHILD_CIA}" "${APP_ROMFS_DIR}/downloadplay-child.cia")
+	endif()
 	if(EXISTS "${APP_ROMFS_DATA_INI}")
 		list(APPEND APP_ROMFS_STAGE_COMMANDS
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${APP_ROMFS_DATA_INI}" "${APP_ROMFS_DIR}/roms.ini")

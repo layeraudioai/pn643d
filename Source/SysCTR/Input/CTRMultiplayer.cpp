@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "SysCTR/Input/CTRMultiplayer.h"
 #include "SysCTR/Input/CTRInput.h"
+#include "SysCTR/Input/CTRMediaFrame.h"
+#include "Core/ROM.h"
 
 #include <3ds.h>
 #include <string.h>
@@ -26,10 +28,15 @@ namespace
     // installations can see one another in the UDS beacon scan.
     static const u32 kWlanCommId = 0x504E643D; // "PNd="
     static const u8 kNetworkId = 0x01;
+    // Keep media on its own UDS data channel so audio/video traffic cannot
+    // consume controller packet receive queues or delay input snapshots.
     static const u8 kDataChannel = 1;
+    static const u8 kMediaChannel = 2;
     static const u32 kSharedMemorySize = 0x3000;
     static const u32 kPacketMagic = 0x504E3634; // "PN64"
-    static const u8 kProtocolVersion = 1;
+    // Version 2 adds the active ROM identity to local UDS packets so consoles
+    // cannot accidentally combine inputs from different games/regions.
+    static const u8 kProtocolVersion = 2;
     static const size_t kMaxRooms = 8;
     static const u64 kInputTimeoutMs = 500;
     static const u32 kOnlineSocBufferSize = 0x100000;
@@ -59,6 +66,9 @@ namespace
         u8 playerSlot;
         u8 nodeSlots[UDS_MAXNODES];
         WirePad pads[4];
+        u32 gameCrc1;
+        u32 gameCrc2;
+        u8 gameCountry;
     };
 
     struct PeerInput
@@ -69,9 +79,26 @@ namespace
         OSContPad pad;
     };
 
+    struct QueuedMediaFrame
+    {
+        u8 type;
+        u16 sequence;
+        u16 source;
+        size_t size;
+        u8 payload[CTRMediaFrame::kMaxPayload];
+    };
+    static const unsigned kMediaQueueCapacity = 8;
+    static QueuedMediaFrame s_mediaQueue[kMediaQueueCapacity];
+    static unsigned s_mediaRead = 0;
+    static unsigned s_mediaWrite = 0;
+    static unsigned s_mediaCount = 0;
+    static u16 s_mediaSequence = 0;
+
     static State s_state = STATE_OFF;
     static bool s_udsInitialized = false;
     static udsBindContext s_bindContext;
+    static udsBindContext s_mediaBindContext;
+    static bool s_mediaBound = false;
     static udsNetworkScanInfo *s_rooms = NULL;
     static size_t s_roomCount = 0;
     static u8 s_scanBuffer[0x10000] __attribute__((aligned(4)));
@@ -156,6 +183,62 @@ namespace
         s_roomCount = 0;
     }
 
+    static void UnbindMedia()
+    {
+        if (s_mediaBound)
+        {
+            udsUnbind(&s_mediaBindContext);
+            s_mediaBound = false;
+            memset(&s_mediaBindContext, 0, sizeof(s_mediaBindContext));
+        }
+        s_mediaRead = s_mediaWrite = s_mediaCount = 0;
+        s_mediaSequence = 0;
+    }
+
+    static bool BindMedia(u16 nodeId)
+    {
+        memset(&s_mediaBindContext, 0, sizeof(s_mediaBindContext));
+        Result rc = udsBind(&s_mediaBindContext, nodeId, false, kMediaChannel,
+                            UDS_DEFAULT_RECVBUFSIZE);
+        if (R_FAILED(rc))
+        {
+            SetStatus("Controller session active; media channel unavailable");
+            return false;
+        }
+        s_mediaBound = true;
+        return true;
+    }
+
+    static void PumpUdsMedia()
+    {
+        if (!s_mediaBound)
+            return;
+        // Strict per-frame and per-poll bounds prevent media bursts from
+        // monopolizing the emulator's controller update path.
+        for (unsigned n = 0; n < 4 && s_mediaCount < kMediaQueueCapacity; ++n)
+        {
+            if (!udsWaitDataAvailable(&s_mediaBindContext, false, false))
+                break;
+            u8 wire[CTRMediaFrame::kMaxWireSize];
+            size_t actualSize = 0;
+            u16 source = 0;
+            Result rc = udsPullPacket(&s_mediaBindContext, wire, sizeof(wire),
+                                      &actualSize, &source);
+            if (R_FAILED(rc))
+                break;
+            QueuedMediaFrame &frame = s_mediaQueue[s_mediaWrite];
+            const u8 *payload = NULL;
+            if (!CTRMediaFrame::Decode(wire, actualSize, &frame.type,
+                                       &frame.sequence, &payload, &frame.size))
+                continue;
+            frame.source = source;
+            if (frame.size)
+                memcpy(frame.payload, payload, frame.size);
+            s_mediaWrite = (s_mediaWrite + 1) % kMediaQueueCapacity;
+            ++s_mediaCount;
+        }
+    }
+
     static void ClearInputs()
     {
         memset(s_peers, 0, sizeof(s_peers));
@@ -186,6 +269,20 @@ namespace
             pads[i].stick_x = packet.pads[i].stickX;
             pads[i].stick_y = packet.pads[i].stickY;
         }
+    }
+
+    static void SetPacketGameIdentity(Packet &packet)
+    {
+        packet.gameCrc1 = g_ROM.mRomID.CRC[0];
+        packet.gameCrc2 = g_ROM.mRomID.CRC[1];
+        packet.gameCountry = g_ROM.mRomID.CountryID;
+    }
+
+    static bool PacketMatchesCurrentGame(const Packet &packet)
+    {
+        return packet.gameCrc1 == g_ROM.mRomID.CRC[0] &&
+               packet.gameCrc2 == g_ROM.mRomID.CRC[1] &&
+               packet.gameCountry == g_ROM.mRomID.CountryID;
     }
 
     static int AllocateSlot(u16 nodeId)
@@ -236,6 +333,14 @@ namespace
 
             if (s_state == STATE_HOSTING && packet.type == PACKET_INPUT)
             {
+                // A room is only meaningful when every console is running the
+                // same ROM revision and region. Ignore input from mismatches;
+                // the authoritative state packet below tells that client why.
+                if (!PacketMatchesCurrentGame(packet))
+                {
+                    SetStatus("Player rejected: different game or region");
+                    continue;
+                }
                 int slot = AllocateSlot(source);
                 if (slot < 0 || slot == 0)
                     continue;
@@ -255,6 +360,14 @@ namespace
             }
             else if (s_state == STATE_JOINED && packet.type == PACKET_STATE)
             {
+                if (!PacketMatchesCurrentGame(packet))
+                {
+                    udsDisconnectNetwork();
+                    s_state = STATE_OFF;
+                    ClearInputs();
+                    SetStatus("Game mismatch: load the host's same ROM/region");
+                    return true;
+                }
                 if (!s_haveRxSequence || (s16)(packet.sequence - s_rxSequence) > 0)
                 {
                     s_haveRxSequence = true;
@@ -873,6 +986,11 @@ bool Host()
         return false;
     }
 
+    if (!BindMedia(UDS_BROADCAST_NETWORKNODEID))
+    {
+        udsDestroyNetwork();
+        return false;
+    }
     s_nodeSlots[UDS_HOST_NETWORKNODEID] = (u8)CTRInput_GetLocalControllerPort();
     s_state = STATE_HOSTING;
     SetStatus("Hosting nearby room - waiting for players");
@@ -948,6 +1066,14 @@ bool Join(size_t roomIndex)
         SetStatus("Could not join room - try scanning again");
         return false;
     }
+    udsConnectionStatus connection;
+    memset(&connection, 0, sizeof(connection));
+    if (R_FAILED(udsGetConnectionStatus(&connection)) ||
+        !BindMedia(connection.cur_NetworkNodeID))
+    {
+        udsDisconnectNetwork();
+        return false;
+    }
     s_state = STATE_JOINED;
     SetStatus("Joined nearby room - syncing controllers");
     return true;
@@ -989,8 +1115,46 @@ bool IsOnline()
     return s_state == STATE_ONLINE_HOSTING || s_state == STATE_ONLINE_JOINED;
 }
 
+bool SendMediaFrame(unsigned char type, const void *payload, size_t size)
+{
+    if ((s_state != STATE_HOSTING && s_state != STATE_JOINED) || !s_mediaBound ||
+        size > CTRMediaFrame::kMaxPayload)
+        return false;
+    u8 wire[CTRMediaFrame::kMaxWireSize];
+    const size_t wireSize = CTRMediaFrame::Encode(wire, sizeof(wire), type,
+                                                   ++s_mediaSequence, payload, size);
+    if (!wireSize || wireSize > UDS_DATAFRAME_MAXSIZE)
+        return false;
+    const Result rc = udsSendTo(UDS_BROADCAST_NETWORKNODEID, kMediaChannel,
+                                UDS_SENDFLAG_Default, wire, wireSize);
+    return R_SUCCEEDED(rc);
+}
+
+bool ReceiveMediaFrame(unsigned char *type, unsigned short *sequence,
+                       unsigned short *sourceNode, void *payload,
+                       size_t capacity, size_t *size)
+{
+    if (size)
+        *size = 0;
+    if (!s_mediaCount || !size)
+        return false;
+    const QueuedMediaFrame &frame = s_mediaQueue[s_mediaRead];
+    *size = frame.size;
+    if (!payload || capacity < frame.size)
+        return false;
+    if (type) *type = frame.type;
+    if (sequence) *sequence = frame.sequence;
+    if (sourceNode) *sourceNode = frame.source;
+    if (frame.size)
+        memcpy(payload, frame.payload, frame.size);
+    s_mediaRead = (s_mediaRead + 1) % kMediaQueueCapacity;
+    --s_mediaCount;
+    return true;
+}
+
 void Stop()
 {
+    UnbindMedia();
     if (s_state == STATE_HOSTING)
         udsDestroyNetwork();
     else if (s_state == STATE_JOINED)
@@ -1036,7 +1200,10 @@ void Update(const OSContPad localPad[4], OSContPad outputPads[4])
         return;
     }
 
+    PumpUdsMedia();
     ReadPackets();
+    if (s_state == STATE_OFF)
+        return;
     if (s_state == STATE_HOSTING)
     {
         memcpy(s_hostPads, localPad, sizeof(s_hostPads));
@@ -1066,6 +1233,7 @@ void Update(const OSContPad localPad[4], OSContPad outputPads[4])
             packet.sequence = ++s_txSequence;
             memcpy(packet.nodeSlots, s_nodeSlots, sizeof(s_nodeSlots));
             EncodePads(packet, s_hostPads);
+            SetPacketGameIdentity(packet);
             udsSendTo(UDS_BROADCAST_NETWORKNODEID, kDataChannel,
                       UDS_SENDFLAG_Default, &packet, sizeof(packet));
             s_lastStateSync = now;
@@ -1091,6 +1259,7 @@ void Update(const OSContPad localPad[4], OSContPad outputPads[4])
             packet.pads[0].buttons = (u16)ownPad.button;
             packet.pads[0].stickX = (s8)ownPad.stick_x;
             packet.pads[0].stickY = (s8)ownPad.stick_y;
+            SetPacketGameIdentity(packet);
             udsSendTo(UDS_HOST_NETWORKNODEID, kDataChannel,
                       UDS_SENDFLAG_Default, &packet, sizeof(packet));
 

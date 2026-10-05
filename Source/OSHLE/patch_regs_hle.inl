@@ -55,7 +55,14 @@ u32 Patch_osGetCount()
 {
 TEST_DISABLE_REG_FUNCS
 
-	gGPR[REG_v0]._s64 = (s64)gCPUState.CPUControl[C0_COUNT]._u32;
+	// The emulator's scheduler uses an instruction-cycle counter. Keep that
+	// counter unchanged, but scale the value returned through libultra's
+	// osGetCount hook so software observes the user-selected CPU clock.
+	u32 cpuRateMHz = gN64CPUClockMHz;
+	if (cpuRateMHz < 1) cpuRateMHz = 1;
+	if (cpuRateMHz > 1000) cpuRateMHz = 1000;
+	const u64 reportedCount = (u64)gCPUState.CPUControl[C0_COUNT]._u32 * cpuRateMHz / 93u;
+	gGPR[REG_v0]._s64 = (s64)(u32)reportedCount;
 
 	return PATCH_RET_JR_RA;
 }

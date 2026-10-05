@@ -43,6 +43,14 @@ extern bool gOSHooksEnabled;			// Apply os-hooks
 extern u32	gSpeedSyncEnabled;
 extern bool gDoubleDisplayEnabled;
 extern bool gAudioRateMatch;
+// CTR audio output tuning. Cache/stretch values are measured in stereo samples.
+extern u32 gAudioCacheSize;
+extern u32 gAudioStretchSize;
+extern u32 gAudioMaxLatencyMs;
+extern u32 gAudioVolume;
+// User-configured N64 clock values for software-visible clock reporting.
+extern u32 gN64CPUClockMHz;
+extern u32 gN64BusClockMHz;
 extern bool gVideoRateMatch;
 extern bool gFogEnabled;
 extern bool gMemoryAccessOptimisation;

@@ -39,6 +39,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "System/Paths.h"
 #include "Utility/IO.h"
 
+#ifdef DAEDALUS_ENABLE_OS_HOOKS
+#include "OSHLE/patch.h"
+#endif
+
 #ifdef DAEDALUS_CTR
 #include <GL/picaGL.h>
 #include "SysCTR/Input/CTRInput.h"
@@ -244,6 +248,32 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 		{
             preferences.AudioRateMatch = property->GetBooleanValue( false );
 		}
+#ifdef DAEDALUS_CTR
+		if( section->FindProperty( "AudioCacheSize", &property ) )
+		{
+			const int value = atoi(property->GetValue());
+			if (value == 4096 || value == 8192 || value == 16384 || value == 32768)
+				preferences.AudioCacheSize = (u32)value;
+		}
+		if( section->FindProperty( "AudioStretchSize", &property ) )
+		{
+			const int value = atoi(property->GetValue());
+			if (value == 128 || value == 256 || value == 512 || value == 1024)
+				preferences.AudioStretchSize = (u32)value;
+		}
+		if( section->FindProperty( "AudioMaxLatencyMs", &property ) )
+		{
+			const int value = atoi(property->GetValue());
+			if (value >= 50 && value <= 200)
+				preferences.AudioMaxLatencyMs = (u32)value;
+		}
+		if( section->FindProperty( "AudioVolume", &property ) )
+		{
+			const int value = atoi(property->GetValue());
+			if (value >= 0 && value <= 100 && value % 10 == 0)
+				preferences.AudioVolume = (u32)value;
+		}
+#endif
 		if( section->FindProperty( "VideoRateMatch", &property ) )
 		{
             preferences.VideoRateMatch = property->GetBooleanValue( false );
@@ -287,6 +317,16 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 			if( preferences.StereoSeparation < 0.0f ) preferences.StereoSeparation = 0.0f;
 			if( preferences.StereoSeparation > 0.20f ) preferences.StereoSeparation = 0.20f;
 		}
+		if( section->FindProperty( "N64CPUClockMHz", &property ) )
+		{
+			const int value = atoi(property->GetValue());
+			if (value >= 1 && value <= 1000) preferences.N64CPUClockMHz = (u32)value;
+		}
+		if( section->FindProperty( "N64BusClockMHz", &property ) )
+		{
+			const int value = atoi(property->GetValue());
+			if (value >= 1 && value <= 1000) preferences.N64BusClockMHz = (u32)value;
+		}
 		if( section->FindProperty( "StereoPopout", &property ) )
 		{
 			preferences.StereoPopout = property->GetBooleanValue( false );
@@ -316,6 +356,12 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 		{
 			int value = atoi(property->GetValue());
 			if (value >= CTR_TOUCH_STICK_RADIUS && value <= 240 - CTR_TOUCH_STICK_RADIUS) preferences.CTRTouchStickY = (u32)value;
+		}
+		// Migrate the old hard-coded default placement to the centered default.
+		if (preferences.CTRTouchStickX == 90 && preferences.CTRTouchStickY == 150)
+		{
+			preferences.CTRTouchStickX = 160;
+			preferences.CTRTouchStickY = 120;
 		}
 #endif
 		if( section->FindProperty( "MemoryAccessOptimisation", &property ) )
@@ -351,6 +397,12 @@ void IPreferences::OutputSectionDetails( const RomID & id, const SRomPreferences
 	fprintf(fh, "CleanSceneEnabled=%d\n",          preferences.CleanSceneEnabled);
 	fprintf(fh, "ClearDepthFrameBuffer=%d\n",	   preferences.ClearDepthFrameBuffer);
 	fprintf(fh, "AudioRateMatch=%d\n",             preferences.AudioRateMatch);
+#ifdef DAEDALUS_CTR
+	fprintf(fh, "AudioCacheSize=%" PRIu32 "\n", preferences.AudioCacheSize);
+	fprintf(fh, "AudioStretchSize=%" PRIu32 "\n", preferences.AudioStretchSize);
+	fprintf(fh, "AudioMaxLatencyMs=%" PRIu32 "\n", preferences.AudioMaxLatencyMs);
+	fprintf(fh, "AudioVolume=%" PRIu32 "\n", preferences.AudioVolume);
+#endif
 	fprintf(fh, "VideoRateMatch=%d\n",             preferences.VideoRateMatch);
 	fprintf(fh, "FogEnabled=%d\n",                 preferences.FogEnabled);
 	fprintf(fh, "CheckTextureHashFrequency=%" PRIu32 "\n", GetTexureHashFrequencyAsFrames( preferences.CheckTextureHashFrequency ) );
@@ -359,6 +411,8 @@ void IPreferences::OutputSectionDetails( const RomID & id, const SRomPreferences
 	fprintf(fh, "ZoomX=%f\n",                      preferences.ZoomX );
 	fprintf(fh, "MaxFPS=%d\n",                     (int)preferences.MaxFPS );
 	fprintf(fh, "StereoSeparation=%.3f\n",        preferences.StereoSeparation );
+	fprintf(fh, "N64CPUClockMHz=%" PRIu32 "\n", preferences.N64CPUClockMHz);
+	fprintf(fh, "N64BusClockMHz=%" PRIu32 "\n", preferences.N64BusClockMHz);
 	fprintf(fh, "StereoPopout=%d\n",              preferences.StereoPopout );
 	fprintf(fh, "MemoryAccessOptimisation=%d\n",   preferences.MemoryAccessOptimisation);
 	fprintf(fh, "CheatsEnabled=%d\n",              preferences.CheatsEnabled);
@@ -487,6 +541,10 @@ SRomPreferences::SRomPreferences()
 	,	CleanSceneEnabled( false )
 	,	ClearDepthFrameBuffer( false )
 	,	AudioRateMatch( true )
+	,	AudioCacheSize( 8192 )
+	,	AudioStretchSize( 512 )
+	,	AudioMaxLatencyMs( 100 )
+	,	AudioVolume( 100 )
 	,	VideoRateMatch( true )
 	,	FogEnabled( false )
 	,   MemoryAccessOptimisation( true )
@@ -496,14 +554,16 @@ SRomPreferences::SRomPreferences()
 	,	Frameskip( FV_DISABLED )
 	,	MaxFPS( 60.0f )
 	,	StereoSeparation( 0.050f )
+	,	N64CPUClockMHz( 93 )
+	,	N64BusClockMHz( 62 )
 	,	StereoPopout( false )
 	,	AudioEnabled( APM_ENABLED_ASYNC )
 	,	ZoomX( 1.0f )
 	,	SpeedSyncEnabled( 1 )
 	,	ControllerIndex( 0 )
 #ifdef DAEDALUS_CTR
-	,	CTRTouchStickX( 90 )
-	,	CTRTouchStickY( 150 )
+	,	CTRTouchStickX( 160 )
+	,	CTRTouchStickY( 120 )
 #endif
 {
 #ifdef DAEDALUS_CTR
@@ -524,6 +584,10 @@ void SRomPreferences::Reset()
 	CleanSceneEnabled          = false;
 	ClearDepthFrameBuffer	   = false;
 	AudioRateMatch             = true;
+	AudioCacheSize             = 8192;
+	AudioStretchSize           = 512;
+	AudioMaxLatencyMs           = 100;
+	AudioVolume                = 100;
 	VideoRateMatch             = true;
 	FogEnabled                 = false;
 	MemoryAccessOptimisation   = true;
@@ -534,6 +598,8 @@ void SRomPreferences::Reset()
 	ZoomX                      = 1.0f;
 	MaxFPS                     = 60.0f;
 	StereoSeparation           = 0.050f;
+	N64CPUClockMHz             = 93;
+	N64BusClockMHz              = 62;
 	StereoPopout               = false;
 	CheatsEnabled              = false;
 	ControllerIndex            = 0;
@@ -541,8 +607,8 @@ void SRomPreferences::Reset()
 	CTRStickDestinations[0] = 0;
 	CTRStickDestinations[1] = 2;
 	CTRStickDestinations[2] = 0;
-	CTRTouchStickX = 90;
-	CTRTouchStickY = 150;
+	CTRTouchStickX = 160;
+	CTRTouchStickY = 120;
 #endif
 }
 
@@ -557,6 +623,12 @@ void SRomPreferences::Apply() const
 	gCleanSceneEnabled          = g_ROM.settings.CleanSceneEnabled || CleanSceneEnabled;
 	gClearDepthFrameBuffer      = g_ROM.settings.ClearDepthFrameBuffer || ClearDepthFrameBuffer;
 	gAudioRateMatch             = g_ROM.settings.AudioRateMatch || AudioRateMatch;
+#ifdef DAEDALUS_CTR
+	gAudioCacheSize             = AudioCacheSize;
+	gAudioStretchSize           = AudioStretchSize;
+	gAudioMaxLatencyMs           = AudioMaxLatencyMs;
+	gAudioVolume                = AudioVolume;
+#endif
 	gVideoRateMatch             = g_ROM.settings.VideoRateMatch || VideoRateMatch;
 	gFogEnabled                 = g_ROM.settings.FogEnabled || FogEnabled;
 	gCheckTextureHashFrequency  = GetTexureHashFrequencyAsFrames( CheckTextureHashFrequency );
@@ -564,6 +636,11 @@ void SRomPreferences::Apply() const
 	gFrameskipValue             = Frameskip;
 	gZoomX                      = ZoomX;
 	gMaxFPS                     = MaxFPS;
+	gN64CPUClockMHz             = N64CPUClockMHz;
+	gN64BusClockMHz             = N64BusClockMHz;
+#ifdef DAEDALUS_ENABLE_OS_HOOKS
+	Patch_UpdateClockRateVariables();
+#endif
 #ifdef DAEDALUS_CTR
 	pglSetStereo(true, StereoSeparation);
 	pglSetStereoPopout(StereoPopout);

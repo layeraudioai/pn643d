@@ -181,6 +181,8 @@ extern u32 gNumOfOSFunctions;
 void Patch_Reset();
 void Patch_ApplyPatches();
 void Patch_PatchAll();
+// Publish the configured N64 bus-rate value into recognized libultra OS globals.
+void Patch_UpdateClockRateVariables();
 
 #ifndef DAEDALUS_SILENT
 const char * Patch_GetJumpAddressName(u32 jump);

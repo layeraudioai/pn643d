@@ -47,6 +47,11 @@ class AudioOutput
 		bool				mAudioPlaying;
 		bool				mExitAudioThread;
 		u32					mFrequency;
+		CAudioBuffer *		mAudioBuffer;
+		u32					mActiveCacheSize;
+		u32					mActiveStretchSize;
+		u32					mActiveMaxLatencyMs;
+		u32					mActiveVolume;
 };
 
 #endif // SYSCTR_HLEAUDIO_AUDIOOUTPUT_H_

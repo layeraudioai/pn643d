@@ -21,6 +21,7 @@
 #include "HLEGraphics/TextureCache.h"
 #include "Input/InputManager.h"
 #include "SysCTR/Input/CTRMultiplayer.h"
+#include "SysCTR/DownloadPlayHost.h"
 #include "Interface/RomDB.h"
 #include "System/Paths.h"
 #include "System/System.h"
@@ -231,10 +232,30 @@ int main(int argc, char* argv[])
 {
 	Initialize();
 	
+#ifdef DAEDALUS_DOWNLOADPLAY
+	// The temporary DLP child is a single-game build. On the receiving unit,
+	// launch straight into the ROM carried in this child title's RomFS rather
+	// than presenting the host's regular ROM selector.
+	if (aptMainLoop())
+	{
+		const std::string full_rom_path = std::string("romfs:/Roms/") +
+			DAEDALUS_DOWNLOADPLAY_ROM_FILENAME;
+		if (System_Open(full_rom_path.c_str()))
+		{
+			CPU_Run();
+			CTRMultiplayer::Stop();
+			System_Close();
+			// Do not return to the selector in a Download Play child. When the
+			// demo session ends, cleanly return to the system title launcher.
+			SaveShaderCache();
+		}
+	}
+	shouldQuit = true;
+#else
 	while(shouldQuit == false)
 	{
 		std::string rom = UI::DrawRomSelector();
-                std::string full_rom_path = "romfs:/Roms/" + rom;
+		std::string full_rom_path = "romfs:/Roms/" + rom;
 		System_Open(full_rom_path.c_str());
 		CPU_Run();
 		CTRMultiplayer::Stop();
@@ -243,7 +264,9 @@ int main(int argc, char* argv[])
 		// discard newly compiled shaders.
 		SaveShaderCache();
 	}
+#endif
 	
+	CTRDownloadPlayHost::Stop();
 	CTRMultiplayer::Stop();
 	SaveShaderCache();
 	System_Finalize();

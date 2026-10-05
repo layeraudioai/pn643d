@@ -136,6 +136,10 @@ struct SRomPreferences
 	bool						CleanSceneEnabled;
 	bool						ClearDepthFrameBuffer;
 	bool						AudioRateMatch;
+	u32							AudioCacheSize;
+	u32							AudioStretchSize;
+	u32							AudioMaxLatencyMs;
+	u32							AudioVolume;
 	bool						VideoRateMatch;
 	bool						FogEnabled;
 	bool                        MemoryAccessOptimisation;
@@ -145,6 +149,8 @@ struct SRomPreferences
 	EFrameskipValue				Frameskip;
 	float						MaxFPS;
 	float						StereoSeparation;
+		u32							N64CPUClockMHz;
+		u32							N64BusClockMHz;
 	bool						StereoPopout;
 	EAudioPluginMode			AudioEnabled;
 	f32							ZoomX;

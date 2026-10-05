@@ -20,7 +20,7 @@ The batch installs the SDK/build prerequisites and invokes `romconvert.exe setup
 romconvert.exe build-3ds --jobs 4
 ```
 
-Other integrated C++ commands include `setup`, `build-n64recomp`, `debug`, and `recompile`. See `ROMCONVERT_DEBUG.md` for use and limitations. No Python is used by `romconvert`; the only batch file is `deps/installdependencies.bat`.
+Other integrated C++ commands include `setup`, `build-n64recomp`, `debug`, `recompile`, and `downloadplay --rom PATH` for a ROM-bundled child/host CIA build. See `ROMCONVERT_DEBUG.md` for use and limitations. No Python is used by `romconvert`; the only batch file is `deps/installdependencies.bat`.
 
 ## Source layout and provenance
 
@@ -32,6 +32,6 @@ Install devkitPro/devkitARM and set `DEVKITPRO`/`DEVKITARM`. `build-3ds` uses `T
 
 ## Limitations
 
-`romconvert recompile` requires a matching N64Recomp profile/ELF and a game-specific runtime/Daedalus adapter. It does not generically produce a playable native 3DS port. The ordinary emulator still runs standard N64 MIPS ROMs.
+`romconvert recompile` requires a matching N64Recomp profile/ELF and a game-specific runtime/Daedalus adapter. It does not generically produce a playable native 3DS port. The ordinary emulator still runs standard N64 MIPS ROMs. `romconvert downloadplay --rom PATH` builds and bundles a compressed-ROM DLP-child CIA; the child build boots directly into that ROM. An experimental host `dlp:SRVR` service lifecycle and in-game entry are included, but the child-CIA-to-service association and IPC setup are unverified on hardware; this is not yet a confirmed end-to-end Download Play implementation. See `ROMCONVERT_DEBUG.md` for limitations.
 
 A successful compile is not equivalent to verification on hardware. This source package has not been validated using the devkitPro SDK in the sandbox. See `copying.txt` and dependency license files for licensing and attribution.

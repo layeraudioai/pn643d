@@ -30,6 +30,7 @@ romconvert.exe build-3ds             Configure and build DaedalusX64 for 3DS
 romconvert.exe build-n64recomp       Fetch/build the optional host N64Recomp CLI
 romconvert.exe debug                 Build diagnostic Daedalus output grouped by CartID
 romconvert.exe recompile             Run N64Recomp plus the configured game-specific 3DS adapter
+romconvert.exe downloadplay --rom PATH Build compressed-ROM child CIA plus bundled host CIA
 ```
 
 Use `--jobs N` to control CMake parallelism, `--root PATH` to select a checkout, and `--dry-run` to print build commands. `build-3ds` uses `Tools/3dstoolchain.cmake`; set `DEVKITPRO` and `DEVKITARM` for the devkitPro installation.
@@ -41,6 +42,22 @@ romconvert.exe build-3ds --jobs 4
 ```
 
 The generated build tree and outputs are under `build/3ds`. Packaging relies on the repository's existing 3DS tools in `Tools/`.
+
+## ROM-specific Download Play package
+
+```text
+romconvert.exe downloadplay --rom roms/example.z64 --jobs 4
+```
+
+This mode creates a Daedalus LZ4 ROM image, builds a `DlpChild` CIA with that ROM under `romfs:/Roms/`, checks the child CIA against the 32 MiB transfer ceiling, and builds a regular host CIA with `downloadplay-child.cia` bundled in its RomFS. The child build now starts directly into its bundled ROM and exits back to the system title launcher when emulation ends. Outputs are staged in `dist/downloadplay/<rom-name>/`. The ROM must be one you are authorized to use; no ROM is included in the repository.
+
+The host now has an experimental `dlp:SRVR` lifecycle path: it checks that `romfs:/downloadplay-child.cia` is present and within 32 MiB, initializes the server IPC session, opens accepting on a local wireless channel, accepts incoming nodes, sends a wireless-reboot passphrase, and invokes `StartDistribution`. The in-game Multiplayer page exposes this flow only when the host was built with a bundled child CIA. The service is finalized on stop/exit.
+
+**This is not yet a verified end-to-end transmission.** The public service descriptions do not specify the required shared-memory sizing/permissions and event semantics in enough detail, and `StartDistribution` has no documented CIA path parameter. The code therefore uses an inferred pair of 0x40000 shared transfer blocks and assumes the DLP system service resolves the indexed child title; whether that service can consume the CIA bundled in the host RomFS is unverified. The reported client progress layout/state is also inferred. If the service only locates an installed or otherwise registered child title, the RomFS bundle alone will not be distributed. Test service access, IPC handle ownership, child-title indexing, payload resolution, distribution, system-app launch, and return behavior on a console before treating this as working. No access restrictions are bypassed.
+
+The child still uses the full Daedalus application, rather than a stripped runtime. Its direct-boot path and clean return behavior remain untested on a 3DS. A successful CIA build is not proof of DLP compatibility or stock-console acceptance.
+
+`--dry-run` prints the planned child build without compressing the ROM, building a CIA, or performing the size check.
 
 ## N64Recomp recompile flow
 

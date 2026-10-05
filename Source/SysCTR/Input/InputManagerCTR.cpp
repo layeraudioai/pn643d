@@ -26,8 +26,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static unsigned int gLocalControllerPort = 0;
 static unsigned int gStickDestinations[3] = { CTR_STICK_ANALOG, CTR_STICK_CBUTTONS, CTR_STICK_ANALOG };
-static unsigned int gTouchStickX = 90;
-static unsigned int gTouchStickY = 150;
+static unsigned int gTouchStickX = 160;
+static unsigned int gTouchStickY = 120;
 
 unsigned int CTRInput_GetStickDestination(unsigned int source)
 {
@@ -73,6 +73,14 @@ void CTRInput_ApplyTouchStick(unsigned int heldKeys, int touchX, int touchY, int
     *x = 0;
     *y = 0;
     if (!(heldKeys & KEY_TOUCH)) return;
+
+    // This corner belongs to the fast-forward HUD toggle, not the virtual
+    // stick, even if the user has moved the stick close to it.
+    if (touchX >= CTR_FAST_FORWARD_BUTTON_X &&
+        touchX < CTR_FAST_FORWARD_BUTTON_X + CTR_FAST_FORWARD_BUTTON_WIDTH &&
+        touchY >= CTR_FAST_FORWARD_BUTTON_Y &&
+        touchY < CTR_FAST_FORWARD_BUTTON_Y + CTR_FAST_FORWARD_BUTTON_HEIGHT)
+        return;
 
     const int dx = touchX - (int)gTouchStickX;
     const int dy = (int)gTouchStickY - touchY;

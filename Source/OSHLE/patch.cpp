@@ -160,10 +160,41 @@ void Patch_ApplyPatches()
 		Patch_FlushCache();
 	}
 
+	// Publish guest-visible clock data only after the signature scan/cache has
+	// identified the corresponding libultra variables.
+	Patch_UpdateClockRateVariables();
+
 	// Do this every time or just when originally patched
 	/*result = */OS_Reset();
 }
 
+static bool IsWritableGuestRamAddress(u32 address)
+{
+	const u32 segment = address & 0xE0000000u;
+	if (segment != 0x80000000u && segment != 0xA0000000u)
+		return false;
+	return (address & 0x1FFFFFFFu) < gRamSize;
+}
+
+void Patch_UpdateClockRateVariables()
+{
+	if (!gOSHooksEnabled || !g_osClockRateHi_v.Found || !g_osClockRateLo_v.Found)
+		return;
+
+	// libultra keeps its clock-rate scalar as high/low words. Expose the
+	// configured RCP/bus rate in Hz; this changes guest-visible timer
+	// calibration, not the emulator's instruction execution speed.
+	const u64 clockRateHz = (u64)gN64BusClockMHz * 1000000u;
+	const u32 high = (u32)(clockRateHz >> 32);
+	const u32 low = (u32)clockRateHz;
+	const u32 highAddress = g_osClockRateHi_v.Location;
+	const u32 lowAddress = g_osClockRateLo_v.Location;
+
+	if (IsWritableGuestRamAddress(highAddress))
+		Write32Bits(highAddress, high);
+	if (IsWritableGuestRamAddress(lowAddress))
+		Write32Bits(lowAddress, low);
+}
 
 void Patch_PatchAll()
 {

@@ -37,20 +37,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static const u32	DESIRED_OUTPUT_FREQUENCY = 44100;
 u32	gSoundSync = 44100;
-// Extra capacity absorbs short emulation/DSP scheduling stalls. This is not
-// fixed latency: the ring only accumulates audio when production gets ahead.
-static const u32	BUFFER_SIZE  = 1024 * 8;
+// The producer ring and NDSP submission blocks are user-configurable within
+// bounded values. The DSP queue is capped at eight blocks to keep RAM and
+// latency predictable.
+static const u32	CTR_MAX_WAVE_BUFS = 72;
+static const u32	CTR_MIN_WAVE_BUFS = 2;
+static const u32	CTR_DEFAULT_STRETCH_SIZE = 512;
 
-static const u32	CTR_NUM_SAMPLES = 512;
-static const u32	CTR_NUM_WAVE_BUFS = 4;
-
-static ndspWaveBuf waveBuf[CTR_NUM_WAVE_BUFS];
+static ndspWaveBuf waveBuf[CTR_MAX_WAVE_BUFS];
+static u32 waveBufCount = 0;
+static u32 waveBufSamples = CTR_DEFAULT_STRETCH_SIZE;
 
 bool audioOpen = false;
 
 static AudioOutput * ac;
-
-CAudioBuffer *mAudioBuffer;
 
 static void audioCallback(void *arg)
 {
@@ -59,49 +59,87 @@ static void audioCallback(void *arg)
 	// A callback can be delayed long enough for more than one block to finish.
 	// Refill every completed block rather than assuming strict callback/index
 	// alternation, otherwise the DSP queue can run dry and produce crackling.
-	for (u32 i = 0; i < CTR_NUM_WAVE_BUFS; ++i)
+	if (!ac)
+		return;
+	for (u32 i = 0; i < waveBufCount; ++i)
 	{
 		if (waveBuf[i].status != NDSP_WBUF_DONE)
 			continue;
 
-		mAudioBuffer->Drain( reinterpret_cast< Sample * >( waveBuf[i].data_pcm16 ), CTR_NUM_SAMPLES );
-		DSP_FlushDataCache(waveBuf[i].data_pcm16, CTR_NUM_SAMPLES << 2);
-		ndspChnWaveBufAdd( 0, &waveBuf[i] );
+		ac->FillBuffer(reinterpret_cast<Sample *>(waveBuf[i].data_pcm16), waveBufSamples);
+		DSP_FlushDataCache(waveBuf[i].data_pcm16, waveBufSamples * sizeof(Sample));
+		ndspChnWaveBufAdd(0, &waveBuf[i]);
 	}
 }
 
-static void AudioInit()
+static u32 ClampCacheSize(u32 value)
+{
+	if (value < 4096) return 4096;
+	if (value > 32768) return 32768;
+	return value;
+}
+
+static u32 ClampStretchSize(u32 value)
+{
+	if (value <= 128) return 128;
+	if (value <= 256) return 256;
+	if (value <= 512) return 512;
+	return 1024;
+}
+
+static u32 ClampLatency(u32 value)
+{
+	if (value < 50) return 50;
+	if (value > 200) return 200;
+	return value;
+}
+
+static u32 ClampVolume(u32 value)
+{
+	return value > 100 ? 100 : value;
+}
+
+static bool AudioInit(u32 stretchSize, u32 maxLatencyMs, u32 volume)
 {
 	if (ndspInit() != 0)
-		return;
+		return false;
+
+	waveBufSamples = ClampStretchSize(stretchSize);
+	const u32 targetSamples = (DESIRED_OUTPUT_FREQUENCY * ClampLatency(maxLatencyMs)) / 1000;
+	waveBufCount = targetSamples / waveBufSamples;
+	if (waveBufCount < CTR_MIN_WAVE_BUFS) waveBufCount = CTR_MIN_WAVE_BUFS;
+	if (waveBufCount > CTR_MAX_WAVE_BUFS) waveBufCount = CTR_MAX_WAVE_BUFS;
 
 	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
 	ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
-	
-	ndspChnSetRate(0, 44100.0f);
+	ndspChnSetRate(0, (float)DESIRED_OUTPUT_FREQUENCY);
+	ndspSetMasterVol((float)ClampVolume(volume) / 100.0f);
 
-	for (u32 i = 0; i < CTR_NUM_WAVE_BUFS; ++i)
+	for (u32 i = 0; i < waveBufCount; ++i)
 	{
-		waveBuf[i].data_vaddr = linearAlloc(CTR_NUM_SAMPLES * sizeof(Sample));
+		waveBuf[i].data_vaddr = linearAlloc(waveBufSamples * sizeof(Sample));
 		if (waveBuf[i].data_vaddr == nullptr)
 		{
 			for (u32 j = 0; j < i; ++j)
+			{
 				linearFree((void *)waveBuf[j].data_vaddr);
+				waveBuf[j].data_vaddr = nullptr;
+			}
+			waveBufCount = 0;
 			ndspExit();
-			return;
+			return false;
 		}
-		waveBuf[i].nsamples = CTR_NUM_SAMPLES;
+		waveBuf[i].nsamples = waveBufSamples;
 		waveBuf[i].status = 0;
-		memset(waveBuf[i].data_pcm16, 0, CTR_NUM_SAMPLES * sizeof(Sample));
+		memset(waveBuf[i].data_pcm16, 0, waveBufSamples * sizeof(Sample));
 	}
 
 	ndspSetCallback(&audioCallback, nullptr);
-
-	for (u32 i = 0; i < CTR_NUM_WAVE_BUFS; ++i)
+	for (u32 i = 0; i < waveBufCount; ++i)
 		ndspChnWaveBufAdd(0, &waveBuf[i]);
 
-	// Everything OK
 	audioOpen = true;
+	return true;
 }
 
 static void AudioExit()
@@ -113,30 +151,33 @@ static void AudioExit()
 	ndspChnWaveBufClear(0);
 	ndspExit();
 
-	for (u32 i = 0; i < CTR_NUM_WAVE_BUFS; ++i)
+	for (u32 i = 0; i < waveBufCount; ++i)
 	{
 		linearFree((void *)waveBuf[i].data_vaddr);
 		waveBuf[i].data_vaddr = nullptr;
 	}
+	waveBufCount = 0;
 
 	audioOpen = false;
 }
 
 AudioOutput::AudioOutput()
-:	mAudioPlaying( false )
-,	mFrequency( 44100 )
+:	mAudioPlaying(false)
+,	mExitAudioThread(false)
+,	mFrequency(44100)
+,	mAudioBuffer(nullptr)
+,	mActiveCacheSize(0)
+,	mActiveStretchSize(0)
+,	mActiveMaxLatencyMs(0)
+,	mActiveVolume(0)
 {
-	// Allocate audio buffer with malloc_64 to avoid cached/uncached aliasing
-	void * mem = malloc( sizeof( CAudioBuffer ) );
-	mAudioBuffer = new( mem ) CAudioBuffer( BUFFER_SIZE );
 }
 
-AudioOutput::~AudioOutput( )
+AudioOutput::~AudioOutput()
 {
 	StopAudio();
-
-	mAudioBuffer->~CAudioBuffer();
-	free( mAudioBuffer );
+	delete mAudioBuffer;
+	mAudioBuffer = nullptr;
 }
 
 void AudioOutput::SetFrequency( u32 frequency )
@@ -149,8 +190,24 @@ void AudioOutput::AddBuffer( u8 *start, u32 length )
 	if (length == 0)
 		return;
 
+	const u32 cacheSize = ClampCacheSize(gAudioCacheSize);
+	const u32 stretchSize = ClampStretchSize(gAudioStretchSize);
+	const u32 maxLatencyMs = ClampLatency(gAudioMaxLatencyMs);
+	const u32 volume = ClampVolume(gAudioVolume);
+	if (mAudioPlaying && (cacheSize != mActiveCacheSize ||
+		stretchSize != mActiveStretchSize || maxLatencyMs != mActiveMaxLatencyMs ||
+		volume != mActiveVolume))
+	{
+		// Preferences may be changed while emulating. Stop NDSP before replacing
+		// its ring/block resources; the next samples immediately restart it.
+		StopAudio();
+		delete mAudioBuffer;
+		mAudioBuffer = nullptr;
+	}
 	if (!mAudioPlaying)
 		StartAudio();
+	if (!mAudioPlaying || !mAudioBuffer)
+		return;
 
 	u32 num_samples = length / sizeof( Sample );
 	if (mFrequency == 0 || num_samples < 2)
@@ -191,11 +248,17 @@ void AudioOutput::StartAudio()
 	if (mAudioPlaying)
 		return;
 
-	mAudioPlaying = true;
+	mActiveCacheSize = ClampCacheSize(gAudioCacheSize);
+	mActiveStretchSize = ClampStretchSize(gAudioStretchSize);
+	mActiveMaxLatencyMs = ClampLatency(gAudioMaxLatencyMs);
+	mActiveVolume = ClampVolume(gAudioVolume);
+	if (!mAudioBuffer)
+		mAudioBuffer = new CAudioBuffer(mActiveCacheSize);
 
 	ac = this;
-
-	AudioInit();
+	mAudioPlaying = AudioInit(mActiveStretchSize, mActiveMaxLatencyMs, mActiveVolume);
+	if (!mAudioPlaying && ac == this)
+		ac = nullptr;
 }
 
 void AudioOutput::StopAudio()
@@ -204,6 +267,17 @@ void AudioOutput::StopAudio()
 		return;
 
 	mAudioPlaying = false;
-
 	AudioExit();
+	if (ac == this)
+		ac = nullptr;
+	delete mAudioBuffer;
+	mAudioBuffer = nullptr;
+}
+
+void AudioOutput::FillBuffer(Sample *buffer, u32 numSamples)
+{
+	if (mAudioBuffer)
+		mAudioBuffer->Drain(buffer, numSamples);
+	else
+		memset(buffer, 0, numSamples * sizeof(Sample));
 }

@@ -1,6 +1,7 @@
 #include <3ds.h>
 #include <GL/picaGL.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // Defines platform calling-convention and attribute macros used by Core headers.
@@ -14,8 +15,10 @@
 #include "Core/ROM.h"
 #include "SysCTR/Input/CTRInput.h"
 #include "SysCTR/Input/CTRMultiplayer.h"
+#include "SysCTR/DownloadPlayHost.h"
 #include "Utility/IO.h"
 #include "Utility/Preferences.h"
+#include "Utility/FramerateLimiter.h"
 
 extern uint8_t aspectRatio;
 extern float gCurrentFramerate;
@@ -24,6 +27,8 @@ extern RomInfo g_ROM;
 static uint64_t timer;
 static uint8_t currentPage = 0;
 static uint8_t optionsSubpage = 0;
+static bool PromptNumericText(const char *hint, const char *initialValue,
+	char *buffer, size_t bufferSize, bool allowDecimal);
 
 // The speedrun clock is deliberately kept outside save states so loading a
 // state cannot rewind the run. Persist accumulated time per ROM, keyed by its
@@ -229,7 +234,7 @@ static void DrawOptionsPage()
 	CPreferences::Get()->GetRomPreferences( g_ROM.mRomID, &preferences );
 
 	char header[32];
-	snprintf(header, sizeof(header), "Options %u/4", (unsigned int)optionsSubpage + 1);
+	snprintf(header, sizeof(header), "Options %u/5", (unsigned int)optionsSubpage + 1);
 	UI::DrawHeader(header);
 
 	// Audio modes are intentionally cycled independently of speed sync: audio
@@ -259,7 +264,17 @@ static void DrawOptionsPage()
 
 		snprintf(label, sizeof(label), "Max FPS: %.0f", preferences.MaxFPS);
 		if (UI::DrawButton(165, 96, 145, 32, label))
-			preferences.MaxFPS = preferences.MaxFPS > 420.0f ? 40.0f : preferences.MaxFPS + 5.0f;
+		{
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%.0f", preferences.MaxFPS);
+			if (PromptNumericText("Maximum FPS (1-500)", valueText, valueText, sizeof(valueText), false))
+			{
+				char *end = NULL;
+				unsigned long value = strtoul(valueText, &end, 10);
+				if (end != valueText && *end == '\0' && value >= 1 && value <= 500)
+					preferences.MaxFPS = (float)value;
+			}
+		}
 
 		if (UI::DrawToggle(10, 133, 145, 32, "Aspect ratio", aspectRatio != 0))
 			aspectRatio = !aspectRatio;
@@ -269,14 +284,82 @@ static void DrawOptionsPage()
 		snprintf(label, sizeof(label), "Stereo: %.3f", preferences.StereoSeparation);
 		if (UI::DrawButton(10, 170, 145, 32, label))
 		{
-			preferences.StereoSeparation += 0.025f;
-			if (preferences.StereoSeparation > 0.2001f) preferences.StereoSeparation = 0.0f;
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%.3f", preferences.StereoSeparation);
+			if (PromptNumericText("Stereo separation (0-0.2)", valueText, valueText, sizeof(valueText), true))
+			{
+				char *end = NULL;
+				float value = strtof(valueText, &end);
+				if (end != valueText && *end == '\0' && value >= 0.0f && value <= 0.2f)
+					preferences.StereoSeparation = value;
+			}
 		}
 		if (UI::DrawToggle(165, 170, 145, 32,
 			preferences.StereoPopout ? "3D: Pop-out" : "3D: Depth", preferences.StereoPopout))
 			preferences.StereoPopout = !preferences.StereoPopout;
 	}
 	else if (optionsSubpage == 1)
+	{
+		char label[48];
+		snprintf(label, sizeof(label), "Audio cache: %uKB", (unsigned int)(preferences.AudioCacheSize / 256));
+		if (UI::DrawButton(10, 22, 145, 32, label))
+		{
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%u", (unsigned int)(preferences.AudioCacheSize / 256));
+			if (PromptNumericText("Audio cache KB (16, 32, 64, 128)", valueText, valueText, sizeof(valueText), false))
+			{
+				unsigned long value = strtoul(valueText, NULL, 10);
+				if (value == 16 || value == 32 || value == 64 || value == 128)
+					preferences.AudioCacheSize = (u32)(value * 256);
+			}
+		}
+
+		snprintf(label, sizeof(label), "Stretch size: %u", (unsigned int)preferences.AudioStretchSize);
+		if (UI::DrawButton(165, 22, 145, 32, label))
+		{
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%u", (unsigned int)preferences.AudioStretchSize);
+			if (PromptNumericText("DSP stretch samples (128-1024)", valueText, valueText, sizeof(valueText), false))
+			{
+				unsigned long value = strtoul(valueText, NULL, 10);
+				if (value == 128 || value == 256 || value == 512 || value == 1024)
+					preferences.AudioStretchSize = (u32)value;
+			}
+		}
+
+		snprintf(label, sizeof(label), "Max latency: %ums", (unsigned int)preferences.AudioMaxLatencyMs);
+		if (UI::DrawButton(10, 59, 145, 32, label))
+		{
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%u", (unsigned int)preferences.AudioMaxLatencyMs);
+			if (PromptNumericText("Audio latency ms (50-200)", valueText, valueText, sizeof(valueText), false))
+			{
+				char *end = NULL;
+				unsigned long value = strtoul(valueText, &end, 10);
+				if (end != valueText && *end == '\0' && value >= 50 && value <= 200)
+					preferences.AudioMaxLatencyMs = (u32)value;
+			}
+		}
+
+		snprintf(label, sizeof(label), "Volume: %u%%", (unsigned int)preferences.AudioVolume);
+		if (UI::DrawButton(165, 59, 145, 32, label))
+		{
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%u", (unsigned int)preferences.AudioVolume);
+			if (PromptNumericText("Audio volume percent (0-100)", valueText, valueText, sizeof(valueText), false))
+			{
+				char *end = NULL;
+				unsigned long value = strtoul(valueText, &end, 10);
+				if (end != valueText && *end == '\0' && value <= 100)
+					preferences.AudioVolume = (u32)value;
+			}
+		}
+
+		UI::DrawText(12, 106, "Cache is ring memory; stretch size is DSP block.");
+		UI::DrawText(12, 124, "Latency caps queued DSP audio, not the ring.");
+		UI::DrawText(12, 142, "Changes apply as audio buffers are submitted.");
+	}
+	else if (optionsSubpage == 2)
 	{
 		// All remaining per-ROM boolean settings are available here. Keeping
 		// these on a separate page avoids crowding the touchscreen controls.
@@ -305,7 +388,7 @@ static void DrawOptionsPage()
 		if (UI::DrawToggle(165, 170, 145, 32, "Cheats", preferences.CheatsEnabled))
 			preferences.CheatsEnabled = !preferences.CheatsEnabled;
 	}
-	else if (optionsSubpage == 2)
+	else if (optionsSubpage == 3)
 	{
 		char label[48];
 		snprintf(label, sizeof(label), "Tex hash: %s",
@@ -317,8 +400,15 @@ static void DrawOptionsPage()
 		snprintf(label, sizeof(label), "Zoom: %.2f", preferences.ZoomX);
 		if (UI::DrawButton(165, 22, 145, 32, label))
 		{
-			preferences.ZoomX += 0.05f;
-			if (preferences.ZoomX > 1.5001f) preferences.ZoomX = 0.50f;
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%.2f", preferences.ZoomX);
+			if (PromptNumericText("Zoom factor (0.5-1.5)", valueText, valueText, sizeof(valueText), true))
+			{
+				char *end = NULL;
+				float value = strtof(valueText, &end);
+				if (end != valueText && *end == '\0' && value >= 0.5f && value <= 1.5f)
+					preferences.ZoomX = value;
+			}
 		}
 
 		if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
@@ -333,8 +423,36 @@ static void DrawOptionsPage()
 		}
 		else
 			UI::DrawText(10, 80, "Host player locked during multiplayer");
+
+		snprintf(label, sizeof(label), "N64 CPU: %u MHz", (unsigned int)preferences.N64CPUClockMHz);
+		if (UI::DrawButton(10, 96, 145, 32, label))
+		{
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%u", (unsigned int)preferences.N64CPUClockMHz);
+			if (PromptNumericText("Reported N64 CPU MHz (1-1000)", valueText, valueText, sizeof(valueText), false))
+			{
+				char *end = NULL;
+				unsigned long value = strtoul(valueText, &end, 10);
+				if (end != valueText && *end == '\0' && value >= 1 && value <= 1000)
+					preferences.N64CPUClockMHz = (u32)value;
+			}
+		}
+		snprintf(label, sizeof(label), "N64 bus: %u MHz", (unsigned int)preferences.N64BusClockMHz);
+		if (UI::DrawButton(165, 96, 145, 32, label))
+		{
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%u", (unsigned int)preferences.N64BusClockMHz);
+			if (PromptNumericText("Reported N64 bus MHz (1-1000)", valueText, valueText, sizeof(valueText), false))
+			{
+				char *end = NULL;
+				unsigned long value = strtoul(valueText, &end, 10);
+				if (end != valueText && *end == '\0' && value >= 1 && value <= 1000)
+					preferences.N64BusClockMHz = (u32)value;
+			}
+		}
+		UI::DrawText(12, 140, "Affects OS clock/timer reporting, not CPU throughput.");
 	}
-	else
+	else if (optionsSubpage == 4)
 	{
 		if (UI::DrawToggle(10, 22, 145, 32, "FPS display", gGlobalPreferences.DisplayFramerate != 0))
 			gGlobalPreferences.DisplayFramerate = gGlobalPreferences.DisplayFramerate ? 0 : 1;
@@ -371,9 +489,9 @@ static void DrawOptionsPage()
 		else
 			--optionsSubpage;
 	}
-	if (UI::DrawButton(165, 210, 145, 26, optionsSubpage == 3 ? "Back to menu" : "Next page"))
+	if (UI::DrawButton(165, 210, 145, 26, optionsSubpage == 4 ? "Back to menu" : "Next page"))
 	{
-		if (optionsSubpage == 3)
+		if (optionsSubpage == 4)
 		{
 			CPreferences::Get()->Commit();
 			currentPage = 0;
@@ -411,14 +529,33 @@ static void DrawControllerPage()
 	}
 
 	UI::DrawText(12, 137, "Touch stick position:");
-	if (UI::DrawButton(10, 144, 42, 30, "<"))
-		preferences.CTRTouchStickX = preferences.CTRTouchStickX > CTR_TOUCH_STICK_RADIUS + 12 ? preferences.CTRTouchStickX - 12 : CTR_TOUCH_STICK_RADIUS;
-	if (UI::DrawButton(56, 144, 42, 30, "^"))
-		preferences.CTRTouchStickY = preferences.CTRTouchStickY > CTR_TOUCH_STICK_RADIUS + 12 ? preferences.CTRTouchStickY - 12 : CTR_TOUCH_STICK_RADIUS;
-	if (UI::DrawButton(102, 144, 42, 30, "v"))
-		preferences.CTRTouchStickY = preferences.CTRTouchStickY < 240 - CTR_TOUCH_STICK_RADIUS - 12 ? preferences.CTRTouchStickY + 12 : 240 - CTR_TOUCH_STICK_RADIUS;
-	if (UI::DrawButton(148, 144, 42, 30, ">"))
-		preferences.CTRTouchStickX = preferences.CTRTouchStickX < 320 - CTR_TOUCH_STICK_RADIUS - 12 ? preferences.CTRTouchStickX + 12 : 320 - CTR_TOUCH_STICK_RADIUS;
+	char positionButton[32];
+	snprintf(positionButton, sizeof(positionButton), "Stick X: %u", (unsigned int)preferences.CTRTouchStickX);
+	if (UI::DrawButton(10, 144, 145, 30, positionButton))
+	{
+		char valueText[16];
+		snprintf(valueText, sizeof(valueText), "%u", (unsigned int)preferences.CTRTouchStickX);
+		if (PromptNumericText("Touch stick X (16-304)", valueText, valueText, sizeof(valueText), false))
+		{
+			char *end = NULL;
+			unsigned long value = strtoul(valueText, &end, 10);
+			if (end != valueText && *end == '\0' && value >= CTR_TOUCH_STICK_RADIUS && value <= 320 - CTR_TOUCH_STICK_RADIUS)
+				preferences.CTRTouchStickX = (u32)value;
+		}
+	}
+	snprintf(positionButton, sizeof(positionButton), "Stick Y: %u", (unsigned int)preferences.CTRTouchStickY);
+	if (UI::DrawButton(165, 144, 145, 30, positionButton))
+	{
+		char valueText[16];
+		snprintf(valueText, sizeof(valueText), "%u", (unsigned int)preferences.CTRTouchStickY);
+		if (PromptNumericText("Touch stick Y (16-224)", valueText, valueText, sizeof(valueText), false))
+		{
+			char *end = NULL;
+			unsigned long value = strtoul(valueText, &end, 10);
+			if (end != valueText && *end == '\0' && value >= CTR_TOUCH_STICK_RADIUS && value <= 240 - CTR_TOUCH_STICK_RADIUS)
+				preferences.CTRTouchStickY = (u32)value;
+		}
+	}
 
 	CTRInput_SetTouchStickPosition(preferences.CTRTouchStickX, preferences.CTRTouchStickY);
 	unsigned int stickX, stickY;
@@ -451,6 +588,10 @@ static void DrawMultiplayerPage()
 		currentPage = 8;
 	if(UI::DrawButton(165, 76, 145, 48, "Join Online"))
 		currentPage = 9;
+#if defined(DAEDALUS_DOWNLOADPLAY_HOST)
+	if(UI::DrawButton(10, 130, 300, 42, "Download Play demo"))
+		currentPage = 11;
+#endif
 	if(UI::DrawButton(10, 184, 300, 44, "Back"))
 		currentPage = 0;
 }
@@ -463,7 +604,9 @@ static void DrawHostPage()
 	if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
 	{
 		UI::DrawText(14, 82, "Players join over local wireless.");
-		if (UI::DrawButton(10, 112, 300, 48, "Start hosting"))
+		UI::DrawText(14, 100, "Run the same ROM in Daedalus on every 3DS.");
+		UI::DrawText(14, 116, "Start games together; only input is synced.");
+		if (UI::DrawButton(10, 136, 300, 32, "Start hosting"))
 			CTRMultiplayer::Host();
 	}
 	else
@@ -490,6 +633,7 @@ static void DrawJoinPage()
 	}
 	else
 	{
+		UI::DrawText(14, 38, "Load the same ROM on each 3DS first.");
 		if (UI::DrawButton(10, 52, 300, 40, "Scan nearby rooms"))
 			CTRMultiplayer::Scan();
 
@@ -507,22 +651,293 @@ static void DrawJoinPage()
 		currentPage = 5;
 }
 
+#if defined(DAEDALUS_DOWNLOADPLAY_HOST)
+static void DrawDownloadPlayHostPage()
+{
+	CTRDownloadPlayHost::Tick();
+	UI::DrawHeader("Download Play demo");
+	UI::DrawText(14, 38, CTRDownloadPlayHost::GetStatus());
+
+	const CTRDownloadPlayHost::State state = CTRDownloadPlayHost::GetState();
+	if (state == CTRDownloadPlayHost::STATE_OFF || state == CTRDownloadPlayHost::STATE_ERROR)
+	{
+		UI::DrawText(14, 72, "Open Download Play on nearby consoles.");
+		UI::DrawText(14, 90, "Uses the configured child title (unverified).");
+		if (UI::DrawButton(10, 112, 300, 40, "Open Download Play session"))
+		{
+			// DLP creates its own local UDS network; stop the emulator's existing
+			// nearby/online session before asking the system service to host DLP.
+			CTRMultiplayer::Stop();
+			CTRDownloadPlayHost::Start();
+		}
+		if (state == CTRDownloadPlayHost::STATE_ERROR &&
+			UI::DrawButton(10, 156, 145, 30, "Reset status"))
+			CTRDownloadPlayHost::Stop();
+	}
+	else if (state == CTRDownloadPlayHost::STATE_ACCEPTING)
+	{
+		char joined[64];
+		snprintf(joined, sizeof(joined), "Joined clients: %u / 4", CTRDownloadPlayHost::GetClientCount());
+		UI::DrawText(14, 74, joined);
+		if (UI::DrawButton(10, 108, 300, 38, "Start Download Play distribution"))
+			CTRDownloadPlayHost::BeginDistribution();
+		if (UI::DrawButton(10, 150, 300, 32, "Stop Download Play"))
+			CTRDownloadPlayHost::Stop();
+	}
+	else if (state == CTRDownloadPlayHost::STATE_DISTRIBUTING)
+	{
+		char progress[64];
+		snprintf(progress, sizeof(progress), "Reported transfer progress: %u%%",
+			CTRDownloadPlayHost::GetProgressPercent());
+		UI::DrawText(14, 74, progress);
+		UI::DrawText(14, 94, "Please keep the host awake.");
+		if (UI::DrawButton(10, 144, 300, 38, "Cancel / close session"))
+			CTRDownloadPlayHost::Stop();
+	}
+	else if (state == CTRDownloadPlayHost::STATE_FINISHED)
+	{
+		UI::DrawText(14, 74, "Service reports transfer complete; verify clients.");
+		UI::DrawText(14, 94, "Stop this service before leaving the menu.");
+		if (UI::DrawButton(10, 136, 300, 38, "Close Download Play session"))
+			CTRDownloadPlayHost::Stop();
+	}
+
+	if (UI::DrawButton(10, 190, 300, 34, "Back"))
+	{
+		CTRDownloadPlayHost::Stop();
+		currentPage = 5;
+	}
+}
+#endif
+
+// Draw a touch key for the online text-entry panel. Keeping text input in the
+// application avoids launching the system software-keyboard applet, which
+// takes ownership of the 3DS graphics context and can leave PicaGL in a stale
+// target/state when it returns.
+static bool DrawOnlineKey(float x, float y, float width, const char *label,
+	const touchPosition &touch, bool touchDown)
+{
+	const float height = 27.0f;
+	const bool pressed = touchDown && touch.px >= x && touch.px < x + width &&
+		touch.py >= y && touch.py < y + height;
+
+	glDisable(GL_TEXTURE_2D);
+	glColor3f(pressed ? 0.1f : 0.15f, pressed ? 0.6f : 0.5f,
+		pressed ? 0.5f : 0.75f);
+	glBegin(GL_TRIANGLE_STRIP);
+		glVertex2f(x, y);
+		glVertex2f(x + width, y);
+		glVertex2f(x, y + height);
+		glVertex2f(x + width, y + height);
+	glEnd();
+
+	const float labelWidth = (float)strlen(label) * 8.0f;
+	glColor3f(0.95f, 0.95f, 0.95f);
+	UI::DrawText(x + (width - labelWidth) * 0.5f, y + 19.0f, label);
+	return pressed;
+}
+
+static bool PromptNumericText(const char *hint, const char *initialValue,
+	char *buffer, size_t bufferSize, bool allowDecimal)
+{
+	if (buffer == NULL || bufferSize == 0)
+		return false;
+	char initialCopy[64] = {};
+	if (initialValue != NULL)
+		snprintf(initialCopy, sizeof(initialCopy), "%s", initialValue);
+	snprintf(buffer, bufferSize, "%s", initialCopy);
+	size_t length = strlen(buffer);
+	bool accepted = false;
+	bool cancelled = false;
+
+	while (aptMainLoop() && !accepted && !cancelled)
+	{
+		hidScanInput();
+		UI::RestoreRenderState();
+		glClear(GL_COLOR_BUFFER_BIT);
+		UI::DrawHeader("Number entry");
+		UI::DrawText(8, 37, hint);
+		UI::DrawText(18, 58, buffer);
+
+		touchPosition touch;
+		hidTouchRead(&touch);
+		const bool touchDown = (hidKeysDown() & KEY_TOUCH) != 0;
+		bool handled = false;
+		static const char *const digitRows[] = { "123", "456", "789" };
+		for (unsigned int row = 0; row < 3; ++row)
+		{
+			for (unsigned int col = 0; col < 3; ++col)
+			{
+				char digit[2] = { digitRows[row][col], '\0' };
+				if (DrawOnlineKey(74.0f + col * 58.0f, 74.0f + row * 31.0f,
+					52.0f, digit, touch, touchDown) && !handled)
+				{
+					if (length + 1 < bufferSize)
+					{
+						buffer[length++] = digit[0];
+						buffer[length] = '\0';
+					}
+					handled = true;
+				}
+			}
+		}
+		if (DrawOnlineKey(132.0f, 167.0f, 52.0f, "0", touch, touchDown) && !handled)
+		{
+			if (length + 1 < bufferSize)
+			{
+				buffer[length++] = '0';
+				buffer[length] = '\0';
+			}
+			handled = true;
+		}
+		if (allowDecimal && DrawOnlineKey(74.0f, 167.0f, 52.0f, ".", touch, touchDown) && !handled)
+		{
+			if (length + 1 < bufferSize && strchr(buffer, '.') == NULL)
+			{
+				buffer[length++] = '.';
+				buffer[length] = '\0';
+			}
+			handled = true;
+		}
+		if (DrawOnlineKey(190.0f, 167.0f, 52.0f, "<", touch, touchDown) && !handled)
+		{
+			if (length > 0) buffer[--length] = '\0';
+			handled = true;
+		}
+		if (DrawOnlineKey(8.0f, 202.0f, 88.0f, "Cancel", touch, touchDown) && !handled)
+		{
+			cancelled = true;
+			handled = true;
+		}
+		if (DrawOnlineKey(100.0f, 202.0f, 120.0f, "Clear", touch, touchDown) && !handled)
+		{
+			length = 0;
+			buffer[0] = '\0';
+			handled = true;
+		}
+		if (DrawOnlineKey(224.0f, 202.0f, 88.0f, "Enter", touch, touchDown) && !handled)
+		{
+			accepted = length != 0;
+			handled = true;
+		}
+		pglSwapBuffers();
+	}
+	UI::RestoreRenderState();
+	return accepted;
+}
+
 static bool PromptOnlineText(const char *hint, char *buffer, size_t bufferSize)
 {
-	SwkbdState keyboard;
-	swkbdInit(&keyboard, SWKBD_TYPE_WESTERN, 2, -1);
-	swkbdSetHintText(&keyboard, hint);
-	swkbdSetFeatures(&keyboard, SWKBD_DEFAULT_QWERTY);
+	static const char *const rows[] = { "1234567890", "qwertyuiop", "asdfghjkl" };
+	if (buffer == NULL || bufferSize == 0)
+		return false;
+
 	buffer[0] = '\0';
-	const SwkbdButton result = swkbdInputText(&keyboard, buffer, bufferSize);
+	size_t length = 0;
+	bool upperCase = strstr(hint, "6-character") != NULL;
+	bool accepted = false;
+	bool cancelled = false;
 
-	// The system keyboard runs as an applet and may leave PicaGL's target,
-	// viewport, matrices, and fixed-function state changed. Reassert the UI
-	// state before the menu continues drawing; subsequent game rendering has
-	// its own renderer-state reset.
+	while (aptMainLoop() && !accepted && !cancelled)
+	{
+		hidScanInput();
+		UI::RestoreRenderState();
+		glClear(GL_COLOR_BUFFER_BIT);
+		UI::DrawHeader("Online text entry");
+		UI::DrawText(8, 35, hint);
+
+		// Keep long addresses readable by showing the tail as it is entered.
+		const size_t first = length > 37 ? length - 37 : 0;
+		char visibleText[40];
+		snprintf(visibleText, sizeof(visibleText), "%s", buffer + first);
+		UI::DrawText(8, 53, visibleText);
+
+		touchPosition touch;
+		hidTouchRead(&touch);
+		const bool touchDown = (hidKeysDown() & KEY_TOUCH) != 0;
+		bool handled = false;
+
+		for (size_t row = 0; row < 3; ++row)
+		{
+			const char *keys = rows[row];
+			const float keyWidth = row == 2 ? 32.0f : 30.0f;
+			const float xStart = row == 2 ? 16.0f : 10.0f;
+			const float y = 62.0f + (float)row * 31.0f;
+			for (size_t key = 0; keys[key] != '\0'; ++key)
+			{
+				char label[2] = { keys[key], '\0' };
+				if (DrawOnlineKey(xStart + key * keyWidth, y, keyWidth - 2.0f,
+					label, touch, touchDown) && !handled)
+				{
+					if (length + 1 < bufferSize)
+					{
+					char value = keys[key];
+					if (upperCase && value >= 'a' && value <= 'z') value -= 'a' - 'A';
+					buffer[length++] = value;
+					buffer[length] = '\0';
+				}
+				handled = true;
+				}
+			}
+		}
+
+		// Punctuation row supports host:port, IPv4/IPv6, and DNS names.
+		const char *punctuation = "zxcvbnm-.:@";
+		for (size_t key = 0; punctuation[key] != '\0'; ++key)
+		{
+			char label[2] = { punctuation[key], '\0' };
+			if (DrawOnlineKey(4.0f + key * 25.0f, 155.0f, 24.0f,
+				label, touch, touchDown) && !handled)
+			{
+				if (length + 1 < bufferSize)
+				{
+					char value = punctuation[key];
+					if (upperCase && value >= 'a' && value <= 'z') value -= 'a' - 'A';
+					buffer[length++] = value;
+					buffer[length] = '\0';
+				}
+				handled = true;
+			}
+		}
+		if (DrawOnlineKey(279.0f, 155.0f, 37.0f, upperCase ? "ABC" : "abc",
+			touch, touchDown) && !handled)
+		{
+			upperCase = !upperCase;
+			handled = true;
+		}
+
+		if (DrawOnlineKey(8.0f, 190.0f, 62.0f, "Cancel", touch, touchDown) && !handled)
+		{
+			cancelled = true;
+			handled = true;
+		}
+		if (DrawOnlineKey(74.0f, 190.0f, 72.0f, "Space", touch, touchDown) && !handled)
+		{
+			if (length + 1 < bufferSize)
+			{
+				buffer[length++] = ' ';
+				buffer[length] = '\0';
+			}
+			handled = true;
+		}
+		if (DrawOnlineKey(150.0f, 190.0f, 62.0f, "Delete", touch, touchDown) && !handled)
+		{
+			if (length > 0) buffer[--length] = '\0';
+			handled = true;
+		}
+		if (DrawOnlineKey(216.0f, 190.0f, 96.0f, "Enter", touch, touchDown) && !handled)
+		{
+			accepted = true;
+			handled = true;
+		}
+
+		pglSwapBuffers();
+	}
+
+	// The modal panel and its text are rendered in-process, but restore the
+	// regular menu target/state before returning to the caller regardless.
 	UI::RestoreRenderState();
-
-	return result == SWKBD_BUTTON_RIGHT && buffer[0] != '\0';
+	return accepted && buffer[0] != '\0';
 }
 
 static void DrawOnlineInfoPage(bool host)
@@ -585,6 +1000,12 @@ static void DrawMainPage()
 
 	if((osGetTime() - timer) > 5000)
 	{
+		const bool fastForwardEnabled = FramerateLimiter_IsFastForwardEnabled();
+		if (UI::DrawToggle(CTR_FAST_FORWARD_BUTTON_X, CTR_FAST_FORWARD_BUTTON_Y,
+			CTR_FAST_FORWARD_BUTTON_WIDTH, CTR_FAST_FORWARD_BUTTON_HEIGHT,
+			fastForwardEnabled ? "FF: ON" : "FF: OFF", fastForwardEnabled))
+			FramerateLimiter_SetFastForward(!fastForwardEnabled);
+
 		if (CTRInput_GetStickDestination(2) != CTR_STICK_DISABLED)
 		{
 			unsigned int x, y;
@@ -601,7 +1022,12 @@ static void DrawMainPage()
 		const int sy = dy - (int)stickY;
 		const bool usingVirtualStick = (keysHeld() & KEY_TOUCH) &&
 			CTRInput_GetStickDestination(2) != CTR_STICK_DISABLED && sx * sx + sy * sy <= CTR_TOUCH_STICK_RADIUS * CTR_TOUCH_STICK_RADIUS;
-		if ((keysHeld() & KEY_TOUCH) && !usingVirtualStick)
+		const bool usingFastForwardButton = (keysHeld() & KEY_TOUCH) &&
+			touch.px >= CTR_FAST_FORWARD_BUTTON_X &&
+			touch.px < CTR_FAST_FORWARD_BUTTON_X + CTR_FAST_FORWARD_BUTTON_WIDTH &&
+			touch.py >= CTR_FAST_FORWARD_BUTTON_Y &&
+			touch.py < CTR_FAST_FORWARD_BUTTON_Y + CTR_FAST_FORWARD_BUTTON_HEIGHT;
+		if ((keysHeld() & KEY_TOUCH) && !usingVirtualStick && !usingFastForwardButton)
 			timer = osGetTime();
 		return;
 	}
@@ -632,6 +1058,9 @@ void UI::DrawInGameMenu()
 		case 8: DrawOnlineInfoPage(true); break;
 		case 9: DrawOnlineInfoPage(false); break;
 		case 10: DrawControllerPage(); break;
+#if defined(DAEDALUS_DOWNLOADPLAY_HOST)
+		case 11: DrawDownloadPlayHostPage(); break;
+#endif
 	}
 
 	pglSwapBuffers();

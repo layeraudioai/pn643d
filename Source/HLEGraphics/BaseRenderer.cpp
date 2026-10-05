@@ -788,15 +788,19 @@ void BaseRenderer::PrepareTrisClipped( TempVerts * temp_verts ) const
 			if( out < 3 )
 				continue;
 
-			// Retesselate
-			#ifdef DAEDALUS_DEBUG_CONSOLE
-			u32 new_num_vertices( num_vertices + (out - 3) * 3 );
-			if( new_num_vertices > MAX_CLIPPED_VERTS )
+			// Retesselate. A polygon with `out` vertices produces (out - 2)
+			// triangles, or (out - 2) * 3 output vertices. Keep this guard in
+			// release builds too: overflowing clip_vtx corrupts adjacent stack
+			// data and can crash later while a game scene is being rendered.
+			if (num_vertices > MAX_CLIPPED_VERTS ||
+				(out - 2) > (MAX_CLIPPED_VERTS - num_vertices) / 3)
 			{
-				DAEDALUS_ERROR( "Too many clipped verts: %d", new_num_vertices );
+#ifdef DAEDALUS_DEBUG_CONSOLE
+				DAEDALUS_ERROR("Too many clipped verts: %u + %u from %u polygon vertices",
+					num_vertices, (out - 2) * 3, out);
+#endif
 				break;
 			}
-					#endif
 			//Make new triangles from the vertices we got back from clipping the original triangle
 			for( u32 j {}; j <= out - 3; ++j)
 			{
@@ -827,14 +831,14 @@ void BaseRenderer::PrepareTrisClipped( TempVerts * temp_verts ) const
 		}
 		else	//Triangle is inside the clipbox so we just add it as it is.
 		{
-					#ifdef DAEDALUS_DEBUG_CONSOLE
-			if( num_vertices > (MAX_CLIPPED_VERTS - 3) )
+			// This capacity check must also protect release builds.
+			if (num_vertices > (MAX_CLIPPED_VERTS - 3))
 			{
-
-				DAEDALUS_ERROR( "Too many clipped verts: %d", num_vertices + 3 );
+#ifdef DAEDALUS_DEBUG_CONSOLE
+				DAEDALUS_ERROR("Too many clipped verts: %u", num_vertices + 3);
+#endif
 				break;
 			}
-					#endif
 
 #ifdef DAEDALUS_PSP_USE_VFPU
 			_ConvertVertice( &clip_vtx[ num_vertices++ ], &mVtxProjected[ idx0 ]);

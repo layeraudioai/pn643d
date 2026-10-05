@@ -5,6 +5,12 @@
 // stick overlay; keep its hit radius, rendering and position limits in sync.
 #define CTR_TOUCH_STICK_RADIUS 80
 
+// Keep the in-game fast-forward HUD hitbox reserved from the virtual stick.
+#define CTR_FAST_FORWARD_BUTTON_X 236
+#define CTR_FAST_FORWARD_BUTTON_Y 15
+#define CTR_FAST_FORWARD_BUTTON_WIDTH 78
+#define CTR_FAST_FORWARD_BUTTON_HEIGHT 28
+
 // Select which N64 controller port receives this console's physical input.
 // Port indices are 0..3 (N64 controllers 1..4).
 unsigned int CTRInput_GetLocalControllerPort();

@@ -89,17 +89,19 @@ void UI::RestoreRenderState()
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
 	glMatrixMode(GL_PROJECTION);
-	// swkbd temporarily takes over the 3DS graphics system. Always rebuild
-	// the UI projection from identity instead of multiplying another ortho
-	// matrix onto whatever state the applet left behind.
+	// Always rebuild the UI projection from identity rather than multiplying
+	// onto stale state left by a screen/graphics context transition.
 	glLoadIdentity();
 	glOrtho(0, 320, 240, 0, -1, 1);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	_keysDown = hidKeysHeld() ^ _keysHeld;
-	_keysHeld = hidKeysHeld();
+	const uint32_t keysHeld = hidKeysHeld();
+	// Report only newly pressed keys. XOR also reports key releases, which can
+	// replay a touch on whatever menu control is drawn after a modal dialog.
+	_keysDown = keysHeld & ~_keysHeld;
+	_keysHeld = keysHeld;
 }
 
 void UI::ClearSecondScreen(unsigned screen)

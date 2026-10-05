@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <dirent.h>
 
 #include <3ds.h>
@@ -45,16 +46,30 @@ EAudioPluginMode enable_audio = APM_ENABLED_ASYNC;
 
 #ifdef DAEDALUS_LOG
 void log2file(const char *format, ...) {
-	__gnuc_va_list arg;
-	int done;
-	va_start(arg, format);
+	va_list arg;
 	char msg[512];
-	done = vsprintf(msg, format, arg);
+	va_start(arg, format);
+	const int written = vsnprintf(msg, sizeof(msg), format, arg);
 	va_end(arg);
-	sprintf(msg, "%s\n", msg);
+
+	// vsnprintf returns the length that would have been written, so clamp it
+	// before appending a newline if the formatted message was truncated.
+	if (written < 0)
+		return;
+
+	size_t length = static_cast<size_t>(written);
+	if (length >= sizeof(msg))
+		length = sizeof(msg) - 1;
+	if (length == 0 || msg[length - 1] != '\n') {
+		if (length >= sizeof(msg) - 1)
+			length = sizeof(msg) - 2;
+		msg[length++] = '\n';
+	}
+	msg[length] = '\0';
+
 	FILE *log = fopen("sdmc:/DaedalusX64.log", "a+");
 	if (log != NULL) {
-		fwrite(msg, 1, strlen(msg), log);
+		fwrite(msg, 1, length, log);
 		fclose(log);
 	}
 }

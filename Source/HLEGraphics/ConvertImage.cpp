@@ -652,7 +652,10 @@ static void ConvertCI8(const TextureDestInfo & dsti, const TextureInfo & ti)
 	default:
 		DAEDALUS_ERROR( "Unhandled format for CI8 textures" );
 		break;
-		#endif
+#else
+	default:
+		break;
+#endif
 	}
 }
 
@@ -691,7 +694,10 @@ static void ConvertCI4(const TextureDestInfo & dsti, const TextureInfo & ti)
 	default:
 		DAEDALUS_ERROR( "Unhandled format for CI4 textures" );
 		break;
-		#endif
+#else
+	default:
+		break;
+#endif
 	}
 }
 

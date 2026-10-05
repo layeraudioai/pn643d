@@ -789,8 +789,8 @@ void BaseRenderer::PrepareTrisClipped( TempVerts * temp_verts ) const
 				continue;
 
 			// Retesselate
+			#ifdef DAEDALUS_DEBUG_CONSOLE
 			u32 new_num_vertices( num_vertices + (out - 3) * 3 );
-						#ifdef DAEDALUS_DEBUG_CONSOLE
 			if( new_num_vertices > MAX_CLIPPED_VERTS )
 			{
 				DAEDALUS_ERROR( "Too many clipped verts: %d", new_num_vertices );

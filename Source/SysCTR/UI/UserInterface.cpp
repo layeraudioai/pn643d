@@ -97,11 +97,9 @@ void UI::RestoreRenderState()
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	const uint32_t keysHeld = hidKeysHeld();
-	// Report only newly pressed keys. XOR also reports key releases, which can
-	// replay a touch on whatever menu control is drawn after a modal dialog.
-	_keysDown = keysHeld & ~_keysHeld;
-	_keysHeld = keysHeld;
+	const uint32_t heldKeyMask = hidKeysHeld();
+	_keysDown = heldKeyMask ^ _keysHeld;
+	_keysHeld = heldKeyMask;
 }
 
 void UI::ClearSecondScreen(unsigned screen)

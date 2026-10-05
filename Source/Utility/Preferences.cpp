@@ -61,7 +61,7 @@ static u32						GetTexureHashFrequencyAsFrames( ETextureHashFrequency thf );
 static ETextureHashFrequency	GetTextureHashFrequencyFromFrames( u32 frames );
 
 static u32						GetFrameskipValueAsInt( EFrameskipValue value );
-static EFrameskipValue			GetFrameskipValueFromInt( u32 value );
+static EFrameskipValue			GetFrameskipValueFromInt( int value );
 
 
 extern EFrameskipValue			gFrameskipValue;
@@ -641,16 +641,20 @@ u32	GetFrameskipValueAsInt( EFrameskipValue value )
 	return value;
 }
 
-EFrameskipValue	GetFrameskipValueFromInt( u32 value )
+EFrameskipValue	GetFrameskipValueFromInt( int value )
 {
-//  This is always False
-//	if( value < FV_DISABLED )
-//		return FV_DISABLED;
+	// Older preference files may contain the former 4-9 options. Clamp them
+	// to the new supported maximum instead of allowing an invalid menu value.
+	if( value < FV_DISABLED )
+		return FV_DISABLED;
+#ifdef DAEDALUS_DEBUG_DISPLAYLIST
+	if( value == FV_99 )
+		return FV_99;
+#endif
+	if( value > FV_3 )
+		return FV_3;
 
-//	if( value > FV_10 )
-//		return FV_10;
-
-	return EFrameskipValue( value );
+	return static_cast<EFrameskipValue>( value );
 }
 
 const char * Preferences_GetFrameskipDescription( EFrameskipValue value )
@@ -663,12 +667,6 @@ const char * Preferences_GetFrameskipDescription( EFrameskipValue value )
 	case FV_1:				return "1";
 	case FV_2:				return "2";
 	case FV_3:				return "3";
-	case FV_4:				return "4";
-	case FV_5:				return "5";
-	case FV_6:				return "6";
-	case FV_7:				return "7";
-	case FV_8:				return "8";
-	case FV_9:				return "9";
 #ifdef DAEDALUS_DEBUG_DISPLAYLIST
 	case FV_99:				return "99";
 #endif

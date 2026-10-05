@@ -1,5 +1,8 @@
 cmakedirs/
 dist/
+build/
+romconvert
+romconvert-aio.exe
 rom_locks/
 used/
 roms/

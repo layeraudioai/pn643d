@@ -8,10 +8,15 @@
 #ifdef DAEDALUS_ENABLE_PROFILING
 
 #include "Debug/DBGConsole.h"
+#ifdef DAEDALUS_LOG
+#include "Debug/DebugLog.h"
+#endif
 #include "Utility/Timing.h"
 #include "Utility/Hash.h"
 
 #include <vector>
+#include <string>
+#include <cstdio>
 #include <cstring>
 #include <stack>
 #include <set>
@@ -108,6 +113,33 @@ private:
 	u32								mHitCount;				// The total number of times StartTiming() has been called since the last Reset()
 };
 
+#ifdef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
+static void FormatProfilePath(const CProfileCallstack * callstack, char * output, size_t output_size)
+{
+	const CProfileCallstack * nodes[64];
+	u32 count = 0;
+	for (const CProfileCallstack * node = callstack; node != NULL && count < 64; node = node->GetParent())
+		nodes[count++] = node;
+
+	size_t used = 0;
+	output[0] = '\0';
+	while (count > 0 && used + 1 < output_size)
+	{
+		const char * name = nodes[--count]->GetBack()->GetName();
+		const int written = snprintf(output + used, output_size - used, "%s%s",
+			used == 0 ? "" : " > ", name);
+		if (written < 0)
+			break;
+		if ((size_t)written >= output_size - used)
+		{
+			output[output_size - 1] = '\0';
+			break;
+		}
+		used += (size_t)written;
+	}
+}
+#endif
+
 class CProfilerImpl
 {
 	public:
@@ -174,6 +206,7 @@ void CProfilerImpl::Display()
 {
 }
 
+#ifndef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
 static void Pad( char * str, u32 length )
 {
 	u32 actLen = strlen( str );
@@ -196,6 +229,7 @@ static void Pad( char * str, u32 length )
 		*end = '\0';
 	}
 }
+#endif
 
 struct SortByCallstack
 {
@@ -209,6 +243,10 @@ struct SortByCallstack
 void CProfilerImpl::Update()
 {
 	DAEDALUS_ASSERT( mActiveCallstacks.size() == mActiveItems.size(), "Why are there different numbers of callstacks/items?" );
+#ifdef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
+	static u32 vblank_count = 0;
+	const bool write_profile_snapshot = (++vblank_count % 300u) == 0;
+#endif
 
 	u64 now = GetNow();
 	for( u32 i = 0; i < mActiveCallstacks.size(); ++i )
@@ -222,15 +260,19 @@ void CProfilerImpl::Update()
 		total_root_time = mActiveCallstacks[ 0 ]->GetTotalTime();
 	}
 
+#ifndef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
 	const char * const TERMINAL_SAVE_CURSOR			= "\033[s";
 //	const char * const TERMINAL_RESTORE_CURSOR		= "\033[u";
 //	const char * const TERMINAL_TOP_LEFT			= "\033[2A\033[2K";
 	const char * const TERMINAL_TOP_LEFT			= "\033[H";
 	const char * const TERMINAL_ERASE_TO_EOL		= "\033[K";
+#endif
 //	const char * const TERMINAL_ERASE_TO_EOS		= "\033[J";
 
+#ifndef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
 	printf( TERMINAL_SAVE_CURSOR );
 	printf( TERMINAL_TOP_LEFT );
+#endif
 
 	std::vector< const CProfileCallstack * >	active_callstacks;
 	for( CallstackStatsMap::const_iterator it = mCallstackStatsMap.begin(); it != mCallstackStatsMap.end(); ++it )
@@ -243,10 +285,16 @@ void CProfilerImpl::Update()
 	}
 
 	std::sort( active_callstacks.begin(), active_callstacks.end(), SortByCallstack() );
+#ifdef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
+	if (write_profile_snapshot)
+		Debug_Print("PROFILE_SNAPSHOT_BEGIN interval_vblanks=300 entries=%u", (u32)active_callstacks.size());
+#endif
 
 	//       0         1         2         3         4         5         6         7         8
 	//       012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
+#ifndef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
 	printf( " Function                                         Time us  Parent Overall  Hits\n" );
+#endif
 
 	for( u32 i = 0; i < active_callstacks.size(); ++i )
 	{
@@ -275,18 +323,36 @@ void CProfilerImpl::Update()
 		{
 			percent_total_time = 100.0f * f32( callstack->GetTotalTime() ) / f32( total_root_time );
 		}
+#ifdef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
+		if (write_profile_snapshot)
+		{
+			char path[512];
+			FormatProfilePath(callstack, path, sizeof(path));
+			Debug_Print("PROFILE depth=%u path=%s elapsed_ms=%.3f parent_pct=%.2f total_pct=%.2f hits=%u",
+				depth, path, (f32)total_us / 1000.0f,
+				percent_parent_time, percent_total_time, hit_count);
+		}
+#endif
 
+#ifndef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
 		char line[ 1024 ];
 		sprintf( line, "\033[2K%x%*s%s" , depth, depth, "", callstack->GetBack()->GetName() );
 		Pad( line, 54 );
 		printf( "%s %6.2f %6.1f%% %6.1f%% %5d%s\n", line, (f32)total_us / 1000.0f, percent_parent_time, percent_total_time, hit_count, TERMINAL_ERASE_TO_EOL );
+#endif
 		//DBGConsole_Msg( 0, "%*s %s %d,%03dms (%d calls)", depth, "", p_item->GetName(), total_us / 1000, total_us % 1000, hit_count );
 	}
+#ifdef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
+	if (write_profile_snapshot)
+		Debug_Print("PROFILE_SNAPSHOT_END");
+#endif
 
+#ifndef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
 	printf( "<*>");
 	//printf( "\033[2K----------------\n%s\n", TERMINAL_ERASE_TO_EOS );
 	//printf( TERMINAL_RESTORE_CURSOR );
 	fflush( stdout );
+#endif
 
 	for( CallstackStatsMap::iterator it = mCallstackStatsMap.begin(); it != mCallstackStatsMap.end(); ++it )
 	{

@@ -25,6 +25,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "Utility/IO.h"
 
+#include <stdio.h>
+#include <stdarg.h>
+
 #ifdef DAEDALUS_LOG
 
 //*****************************************************************************
@@ -40,19 +43,43 @@ bool Debug_InitLogging()
 {
 	IO::Filename log_filename;
 
+#ifdef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
+	const char * const log_directory = "sdmc:/3ds/DaedalusX64";
+	if (!IO::Directory::EnsureExists(log_directory))
+	{
+		printf("Unable to create SD diagnostics directory: %s\n", log_directory);
+		return true; // Diagnostics are optional; do not prevent the emulator starting.
+	}
+	snprintf(log_filename, sizeof(log_filename), "%s/diagnostics.log", log_directory);
+	g_hOutputLog = fopen(log_filename, "w");
+#else
 	Dump_GetDumpDirectory(log_filename, "");
-
 	IO::Path::Append(log_filename, "daedalus.txt");
+	g_hOutputLog = fopen(log_filename, "w");
+#endif
 
 #ifdef DAEDALUS_DEBUG_CONSOLE
-	if ( CDebugConsole::IsAvailable() )
-	{
-		CDebugConsole::Get()->Msg( 0, "Creating Dump file '%s'", log_filename );
-	}
+	if (CDebugConsole::IsAvailable())
+		CDebugConsole::Get()->Msg(0, "Writing diagnostics to '%s'", log_filename);
 #endif
-	g_hOutputLog = fopen( log_filename, "w" );
 
-	return g_hOutputLog != NULL;
+	g_bLog = (g_hOutputLog != NULL);
+	if (g_bLog)
+	{
+		fprintf(g_hOutputLog, "DaedalusX64 diagnostic log\n");
+#ifdef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
+		fprintf(g_hOutputLog, "Logging: high-level emulator events; function profile snapshots every 300 VBlanks.\n");
+		fprintf(g_hOutputLog, "Detailed per-memory-access tracing is intentionally disabled to avoid unusable log volume.\n");
+#endif
+		fflush(g_hOutputLog);
+	}
+#ifdef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
+	if (!g_bLog)
+		printf("Unable to open SD diagnostics log: %s\n", log_filename);
+	return true; // A missing/unwritable SD card must not disable the emulator.
+#else
+	return g_bLog;
+#endif
 }
 
 //*****************************************************************************
@@ -75,16 +102,17 @@ void Debug_Print( const char * format, ... )
 	if(g_bLog && format != NULL )
 	{
 		char buffer[1024+1];
-		char * p = buffer;
 		va_list va;
-		// Parse the buffer:
-		// Format the output
 		va_start(va, format);
-		// Don't use wvsprintf as it doesn't handle floats!
-		vsprintf(p, format, va);
+		vsnprintf(buffer, sizeof(buffer), format, va);
 		va_end(va);
 
-		fprintf( g_hOutputLog, "%s\n", p );
+		if (g_hOutputLog != NULL)
+		{
+			fprintf(g_hOutputLog, "%s\n", buffer);
+			// Diagnostic mode favors recoverable logs over throughput.
+			fflush(g_hOutputLog);
+		}
 	}
 }
 

@@ -149,9 +149,9 @@ static bool GenerateTexels(void ** p_texels,
 
 static void UpdateTexture( const TextureInfo & ti, CNativeTexture * texture )
 {
-	#ifdef DAEDALUS_PROFILE
+#ifdef DAEDALUS_ENABLE_PROFILING
 	DAEDALUS_PROFILE( "Texture Conversion" );
-	#endif
+#endif
 	#ifdef DAEDALUS_ENABLE_ASSERTS
 	DAEDALUS_ASSERT( texture != nullptr, "No texture" );
 	#endif
@@ -273,6 +273,9 @@ bool CachedTexture::UpdateTextureHash()
 
 void CachedTexture::UpdateIfNecessary()
 {
+#ifdef DAEDALUS_ENABLE_PROFILING
+	DAEDALUS_PROFILE( "CachedTexture::UpdateIfNecessary" );
+#endif
 	if( !IsFresh() )
 	{
 		if (UpdateTextureHash())

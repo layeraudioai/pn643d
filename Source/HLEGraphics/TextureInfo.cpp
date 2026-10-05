@@ -101,7 +101,17 @@ u32 TextureInfo::GenerateHashValue() const
 	}
 	else	//if texture is big, hash only some parts inside it
 	{
-		step = (step - 4) / CHK_ROW;
+		// CHK_ROW is one of three fixed values. A variable unsigned divide is
+		// especially costly on ARM11/ARMv6K (which has no integer divide
+		// instruction), so keep each divisor visible as a compile-time constant.
+		const u32 hash_span = step - 4;
+		switch (CHK_ROW)
+		{
+		case 5:    step = hash_span / 5;    break;
+		case 49:   step = hash_span / 49;   break;
+		case 1000: step = hash_span / 1000; break;
+		default:   step = hash_span / CHK_ROW; break;
+		}
 		for (u32 y {}; y < CHK_ROW; y++)
 		{
 			hash_value = ((hash_value << 1) | (hash_value >> 0x1F)) ^ ptr_u32[0];

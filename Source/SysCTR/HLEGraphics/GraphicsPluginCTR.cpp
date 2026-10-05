@@ -258,7 +258,7 @@ void CGraphicsPluginImpl::UpdateScreen()
 			else gFrameskipActive = false;
 			break;
 		case FV_AUTO2:
-			if((!Old_FrameskipActive | !Older_FrameskipActive) && (Fsync < 0.965f)) gFrameskipActive = true;
+			if((!Old_FrameskipActive || !Older_FrameskipActive) && (Fsync < 0.965f)) gFrameskipActive = true;
 			else gFrameskipActive = false;
 			break;
 		default:

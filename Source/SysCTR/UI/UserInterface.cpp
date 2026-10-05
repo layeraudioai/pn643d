@@ -89,6 +89,10 @@ void UI::RestoreRenderState()
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
 	glMatrixMode(GL_PROJECTION);
+	// swkbd temporarily takes over the 3DS graphics system. Always rebuild
+	// the UI projection from identity instead of multiplying another ortho
+	// matrix onto whatever state the applet left behind.
+	glLoadIdentity();
 	glOrtho(0, 320, 240, 0, -1, 1);
 
 	glMatrixMode(GL_MODELVIEW);

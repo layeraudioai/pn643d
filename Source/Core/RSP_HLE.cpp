@@ -290,6 +290,9 @@ EProcessResult RSP_HLE_RE2(OSTask * task)
 
 void RSP_HLE_ProcessTask()
 {
+#ifdef DAEDALUS_ENABLE_PROFILING
+	DAEDALUS_PROFILE( "RSP_HLE_ProcessTask" );
+#endif
 	OSTask * pTask = (OSTask *)(g_pu8SpMemBase + 0x0FC0);
 
 	EProcessResult	result( PR_NOT_STARTED );

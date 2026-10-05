@@ -16,6 +16,13 @@ homepage: http://wordpress.fx-world.org
 
 #include <stdio.h>
 
+#ifdef DAEDALUS_CTR
+// ARM11/ARMv6K bulk-copy primitive. It is only called for aligned pointers
+// and a byte count rounded down to a 32-byte multiple; the portable path below
+// handles alignment and any remaining bytes.
+extern "C" void memcpy_words_arm( void* dst, const void* src, size_t size );
+#endif
+
 //*****************************************************************************
 //Copy native N64 memory with CPU only //Corn
 //Little Endian
@@ -27,6 +34,21 @@ void memcpy_byteswap( void* dst, const void* src, size_t size )
 	u8* dst8 = (u8*)dst;
 	u32* src32;
 	u32* dst32;
+
+#ifdef DAEDALUS_CTR
+	// ARM11 can transfer aligned words efficiently with LDM/STM. Keep the
+	// assembly fast path to complete 32-byte blocks; the existing C++ code
+	// remains the fallback for unaligned buffers and the final partial block.
+	if( size >= 32 && (((uintptr_t)dst8 | (uintptr_t)src8) & 3) == 0 )
+	{
+		const size_t bulk_size = size & ~(size_t)31;
+		memcpy_words_arm( dst8, src8, bulk_size );
+		dst8 += bulk_size;
+		src8 += bulk_size;
+		size -= bulk_size;
+	}
+#endif
+
 	// < 4 isn't worth trying any optimisations...
 	if(size>=4)
 	{

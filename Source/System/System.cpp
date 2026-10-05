@@ -230,12 +230,14 @@ bool System_Init()
 
 		if (entry.init())
 		{
+			Debug_Print("SYSTEM_INIT_OK component=%s", entry.name);
 			#ifdef DAEDALUS_DEBUG_CONSOLE
 			DBGConsole_Msg(0, "==>Initialized %s", entry.name);
 			#endif
 		}
 		else
 		{
+			Debug_Print("SYSTEM_INIT_FAILED component=%s", entry.name);
 				#ifdef DAEDALUS_DEBUG_CONSOLE
 			DBGConsole_Msg(0, "==>Initialize %s Failed", entry.name);
 			#endif
@@ -248,6 +250,7 @@ bool System_Init()
 
 bool System_Open(const char * filename)
 {
+	Debug_Print("ROM_OPEN_BEGIN filename=%s", filename ? filename : "(null)");
 	strcpy(g_ROM.mFileName, filename);
 	for(u32 i = 0; i < ARRAYSIZE(gRomInitTable); i++)
 	{
@@ -260,6 +263,7 @@ bool System_Open(const char * filename)
 		#endif
 		if (!entry.open())
 		{
+			Debug_Print("ROM_OPEN_FAILED component=%s filename=%s", entry.name, filename);
 				#ifdef DAEDALUS_DEBUG_CONSOLE
 			DBGConsole_Msg(0, "==>Open %s [RFAILED]", entry.name);
 			#endif
@@ -267,11 +271,13 @@ bool System_Open(const char * filename)
 		}
 	}
 
+	Debug_Print("ROM_OPEN_OK filename=%s", filename);
 	return true;
 }
 
 void System_Close()
 {
+	Debug_Print("ROM_CLOSE_BEGIN filename=%s", g_ROM.mFileName);
 	for(s32 i = ARRAYSIZE(gRomInitTable) - 1 ; i >= 0; i--)
 	{
 		const RomEntityEntry & entry = gRomInitTable[i];

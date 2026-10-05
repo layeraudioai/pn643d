@@ -57,12 +57,6 @@ enum EFrameskipValue
 	FV_1,
 	FV_2,
 	FV_3,
-	FV_4,
-	FV_5,
-	FV_6,
-	FV_7,
-	FV_8,
-	FV_9,
 #ifdef DAEDALUS_DEBUG_DISPLAYLIST
 	FV_99,
 #endif

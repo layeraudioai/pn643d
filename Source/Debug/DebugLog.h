@@ -65,7 +65,15 @@ enum EDebugFlags
 //	The compiler is clever enough to optimise away calls to DPF
 //	if a particular flag isn't set.
 //
+#ifdef DAEDALUS_ENABLE_SDMC_DIAGNOSTICS
+// Include high-level subsystem and frame/dynarec diagnostics. Per-memory-access
+// and register tracing remain off because they can flood SD storage and alter
+// emulator timing substantially.
+static const u32 DAED_DEBUG_MASK = DEBUG_PI | DEBUG_MI | DEBUG_VI | DEBUG_TLB |
+	DEBUG_INTR | DEBUG_DYNREC | DEBUG_DYNAREC_CACHE | DEBUG_DYNAREC_PROF | DEBUG_FRAME;
+#else
 static const u32	DAED_DEBUG_MASK( 0 );
+#endif
 
 bool		Debug_InitLogging();
 void		Debug_FinishLogging();
@@ -80,6 +88,7 @@ void		Debug_Print( const char * format, ... );
 
 #define DAED_CHECK_LOG( flags )			false
 #define DAED_LOG( flags, msg, ... )
+#define Debug_Print(...) do { } while (0)
 
 #endif
 

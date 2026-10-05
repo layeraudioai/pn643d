@@ -514,7 +514,15 @@ static bool PromptOnlineText(const char *hint, char *buffer, size_t bufferSize)
 	swkbdSetHintText(&keyboard, hint);
 	swkbdSetFeatures(&keyboard, SWKBD_DEFAULT_QWERTY);
 	buffer[0] = '\0';
-	return swkbdInputText(&keyboard, buffer, bufferSize) == SWKBD_BUTTON_RIGHT && buffer[0] != '\0';
+	const SwkbdButton result = swkbdInputText(&keyboard, buffer, bufferSize);
+
+	// The system keyboard runs as an applet and may leave PicaGL's target,
+	// viewport, matrices, and fixed-function state changed. Reassert the UI
+	// state before the menu continues drawing; subsequent game rendering has
+	// its own renderer-state reset.
+	UI::RestoreRenderState();
+
+	return result == SWKBD_BUTTON_RIGHT && buffer[0] != '\0';
 }
 
 static void DrawOnlineInfoPage(bool host)

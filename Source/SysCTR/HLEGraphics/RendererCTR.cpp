@@ -198,6 +198,9 @@ RendererCTR::~RendererCTR()
 void RendererCTR::RestoreRenderStates()
 {
 	pglSelectScreen(GFX_TOP, GFX_LEFT);
+	// A system applet (notably the software keyboard) can change the viewport.
+	// Explicitly restore the game's full top-screen target on the next frame.
+	glViewport(0, 0, 400, 240);
 	
 	// Initialise the device to our default state
 	glEnable(GL_TEXTURE_2D);

@@ -80,7 +80,11 @@ if (CTR_RELEASE)
 
 	# Prefer this checkout's picaGL API header so Daedalus and the linked
 	# picaGL library agree on the stereo extensions used by Preferences.cpp.
-	include_directories(BEFORE ${PROJECT_SOURCE_DIR}/../../picaGL/include)
+	if(EXISTS "${PROJECT_SOURCE_DIR}/../deps/picaGL/include/GL/picaGL.h")
+		include_directories(BEFORE ${PROJECT_SOURCE_DIR}/../deps/picaGL/include)
+	elseif(EXISTS "${PROJECT_SOURCE_DIR}/../../picaGL/include/GL/picaGL.h")
+		include_directories(BEFORE ${PROJECT_SOURCE_DIR}/../../picaGL/include)
+	endif()
 	include_directories(${DEVKITPRO}/libctru/include ${DEVKITPRO}/picaGL/include ${DEVKITPRO}/portlibs/3ds/include)
 
 	add_definitions("-DDAEDALUS_CTR" "-D__3DS__")

@@ -12,8 +12,8 @@ set(ARCH "-march=armv6k -mtune=mpcore -mfloat-abi=hard -mfpu=vfp -mtp=soft -D_3D
 set(CMAKE_C_FLAGS "${ARCH} -Wall -mword-relocations -O3 -fomit-frame-pointer -ffunction-sections -fdata-sections" CACHE STRING "C flags")
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -fno-rtti -fno-exceptions -std=gnu++14" CACHE STRING "C++ flags")
 set(CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}")
-set(CMAKE_FIND_ROOT_PATH ${DEVKITPRO}/devkitARM ${DEVKITPRO}/libctru ${DEVKITARM}/portlibs/3ds)
+set(CMAKE_FIND_ROOT_PATH ${DEVKITPRO}/devkitARM ${DEVKITPRO}/libctru ${DEVKITPRO}/portlibs/3ds)
 
 set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "Shared libs not available")
 
-link_directories(${DEVKITPRO}/libcrtu/lib ${DEVKITPRO}/portlibs/3ds/lib)
+link_directories(${DEVKITPRO}/libctru/lib ${DEVKITPRO}/portlibs/3ds/lib)

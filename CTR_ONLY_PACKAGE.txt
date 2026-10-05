@@ -1,0 +1,20 @@
+DaedalusX64 CTR (Nintendo 3DS) source package
+
+This package contains the current working-tree source and build assets for the
+CTR/3DS target, including Source/SysCTR, the shared emulator sources, bundled
+picaGL and imgui-picagl sources, CTR build tools, and the native romconvert C++
+driver. Non-CTR platform setup (including the PSP toolchain file), Git metadata,
+the unrelated assembly exporter/online relay, and prebuilt root executables are
+not included. The retained .exe utilities in Tools are Windows-side 3DS ROM
+packaging tools used by the repository build scripts.
+
+Build romconvert yourself with a C++17 compiler, for example:
+  g++ -std=c++17 -O2 -Wall -Wextra -o romconvert.exe Tools/romconvert_aio.cpp
+
+On Windows, run deps\\installdependencies.bat after installing devkitPro, then:
+  romconvert.exe build-3ds
+
+Requires devkitPro/devkitARM and 3DS SDK libraries; these are not bundled.
+No game ROMs or proprietary game assets are included. See Tools/3DS_PACKAGE_README.md,
+Tools/ROMCONVERT_DEBUG.md, and copying.txt for build details, limitations, and
+license information. A successful build is not hardware validation.

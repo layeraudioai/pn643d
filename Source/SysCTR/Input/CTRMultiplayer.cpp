@@ -295,11 +295,12 @@ namespace
             return s_nodeSlots[nodeId];
 
         bool used[4] = { false, false, false, false };
-        // The host's controller port is reserved before allocating remote
-        // players; otherwise the first joiner could control the same N64 port.
-        const unsigned hostSlot = CTRInput_GetLocalControllerPort();
-        if (hostSlot < 4)
-            used[hostSlot] = true;
+        // Reserve every port assigned to the host before allocating remote
+        // players. In GoldenEye dual-controller mode this reserves both P1/P2.
+        const unsigned hostMask = CTRInput_GetLocalControllerPortMask();
+        for (unsigned slot = 0; slot < 4; ++slot)
+            if (hostMask & (1u << slot))
+                used[slot] = true;
         for (unsigned node = 1; node < UDS_MAXNODES; ++node)
             if (node != UDS_HOST_NETWORKNODEID && s_nodeSlots[node] < 4)
                 used[s_nodeSlots[node]] = true;
@@ -487,8 +488,15 @@ namespace
     {
         AcceptOnlinePeers();
         const u64 now = osGetTime();
-        s_serverPads[CTRInput_GetLocalControllerPort()] = localPad[CTRInput_GetLocalControllerPort()];
-        s_serverActiveMask |= (u8)(1u << CTRInput_GetLocalControllerPort());
+        const unsigned hostMask = CTRInput_GetLocalControllerPortMask();
+        for (unsigned slot = 0; slot < 4; ++slot)
+        {
+            if (hostMask & (1u << slot))
+            {
+                s_serverPads[slot] = localPad[slot];
+                s_serverActiveMask |= (u8)(1u << slot);
+            }
+        }
 
         for (unsigned i = 0; i < 3; ++i)
         {
@@ -536,7 +544,10 @@ namespace
                     continue;
                 }
                 bool slotUsed[4] = { false, false, false, false };
-                slotUsed[CTRInput_GetLocalControllerPort()] = true;
+                const unsigned hostMask = CTRInput_GetLocalControllerPortMask();
+                for (unsigned slot = 0; slot < 4; ++slot)
+                    if (hostMask & (1u << slot))
+                        slotUsed[slot] = true;
                 for (unsigned p = 0; p < 3; ++p)
                     if (s_onlinePeers[p].socket >= 0 && !s_onlinePeers[p].handshaking && s_onlinePeers[p].slot < 4)
                         slotUsed[s_onlinePeers[p].slot] = true;

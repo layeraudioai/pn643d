@@ -3,6 +3,7 @@ dist/
 build/
 romconvert.exe
 Tools/romconvert-native.exe
+Tools/romconvert-aio.exe
 rom_locks/
 used/
 roms/

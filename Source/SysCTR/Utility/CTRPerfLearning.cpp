@@ -31,6 +31,11 @@ bool sActive = false;
 bool sDirty = false;
 u32 sAppIdLow = 0;
 u32 sLastTargetFPS = 0;
+bool sFitnessProbeActive = false;
+u32 sFitnessProbeWarmup = 0;
+u32 sFitnessProbeSamples = 0;
+u64 sFitnessProbeWork = 0;
+u64 sFitnessProbeTarget = 0;
 
 void Persist() {
     if (sActive)
@@ -79,6 +84,15 @@ void EndGame() {
 void RecordFrame(u32 work_ticks, u32 target_ticks) {
     if (!sActive || target_ticks == 0)
         return;
+    if (sFitnessProbeActive) {
+        if (sFitnessProbeWarmup != 0) {
+            --sFitnessProbeWarmup;
+        } else {
+            sFitnessProbeWork += work_ticks;
+            sFitnessProbeTarget += target_ticks;
+            ++sFitnessProbeSamples;
+        }
+    }
     ++sProfile.frame_samples;
     // Scaled integer EWMAs avoid floating point in the hot path and on ARM.
     const u64 work = (u64)work_ticks * 100u;
@@ -108,6 +122,37 @@ void RecordZone(EProfileZone zone, u32 elapsed_ticks) {
     // emulation and was causing a visible hitch about once per second. Save
     // the accumulated profile once, when the ROM is closed.
     sDirty = true;
+}
+
+bool GetWorkloadFitness(u32 *workload_percent) {
+    if (!sActive || !workload_percent ||
+        sProfile.frame_samples < kMinimumSamplesForTuning ||
+        sProfile.average_target_ticks_x100 == 0)
+        return false;
+
+    // The EWMA is scaled by 100 on both operands, so the ratio is unchanged.
+    // Saturate rather than allowing a pathological profile to wrap.
+    const u64 percent = (sProfile.average_work_ticks_x100 * 100u) /
+        sProfile.average_target_ticks_x100;
+    *workload_percent = percent > 1000u ? 1000u : (u32)percent;
+    return true;
+}
+
+void BeginFitnessProbe() {
+    sFitnessProbeActive = true;
+    sFitnessProbeWarmup = 30;
+    sFitnessProbeSamples = 0;
+    sFitnessProbeWork = 0;
+    sFitnessProbeTarget = 0;
+}
+
+bool EndFitnessProbe(u32 *workload_percent) {
+    sFitnessProbeActive = false;
+    if (!workload_percent || sFitnessProbeSamples < 30 || sFitnessProbeTarget == 0)
+        return false;
+    const u64 percent = (sFitnessProbeWork * 100u) / sFitnessProbeTarget;
+    *workload_percent = percent > 1000u ? 1000u : (u32)percent;
+    return true;
 }
 
 u32 GetRecommendedBackendCeilingFPS(u32 user_target_fps) {

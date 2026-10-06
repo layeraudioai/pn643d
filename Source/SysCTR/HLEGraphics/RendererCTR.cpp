@@ -19,6 +19,7 @@
 #include "Math/MathUtil.h"
 #include "OSHLE/ultra_gbi.h"
 #include "Utility/IO.h"
+#include "Utility/Preferences.h"
 #include "Utility/Profiler.h"
 
 BaseRenderer *gRenderer    = nullptr;
@@ -28,6 +29,7 @@ extern float 	*gVertexBuffer;
 extern uint32_t	*gColorBuffer;
 extern float 	*gTexCoordBuffer;
 extern uint32_t  gVertexCount;
+extern volatile bool gCTRGraphicsRestorePending;
 
 struct ScePspFMatrix4
 {
@@ -197,6 +199,14 @@ RendererCTR::~RendererCTR()
 
 void RendererCTR::RestoreRenderStates()
 {
+	if (gCTRGraphicsRestorePending)
+	{
+		// The HOME menu/system keyboard may reuse PICA texture memory. Native
+		// textures retain their source pixels, so drop the GPU cache and let the
+		// normal texture path rebuild it from RDRAM on demand.
+		CTextureCache::Get()->DropTextures();
+		gCTRGraphicsRestorePending = false;
+	}
 	pglSelectScreen(GFX_TOP, GFX_LEFT);
 	// A system applet (notably the software keyboard) can change the viewport.
 	// Explicitly restore the game's full top-screen target on the next frame.
@@ -282,28 +292,74 @@ RendererCTR::SBlendStateEntry RendererCTR::LookupBlendState( u64 mux, bool two_c
 	return entry;
 }
 
+static u32 ApplyGraphicsEffectToVertexColour(u32 colour, EGraphicsEffect effect)
+{
+	c32 input(colour);
+	u32 r = input.GetR();
+	u32 g = input.GetG();
+	u32 b = input.GetB();
+	if (effect == GFXE_CEL_SHADING)
+	{
+		// Low-cost posterization of the N64 shade channel. This is a lightweight
+		// vertex-color approximation, not a screen-space edge/lighting shader.
+		r = (r >> 6) * 85;
+		g = (g >> 6) * 85;
+		b = (b >> 6) * 85;
+	}
+	else
+	{
+		// Coarse color quantization with a subtle warm bias gives vertex-shaded
+		// geometry a painted look without adding another render pass.
+		r = ((r + 25) / 51) * 51;
+		g = ((g + 25) / 51) * 51;
+		b = ((b + 25) / 51) * 51;
+		if (r < 240) r += 15;
+		if (b > 12) b -= 12;
+	}
+	return c32((u8)r, (u8)g, (u8)b, input.GetA()).GetColour();
+}
+
 void RendererCTR::DrawPrimitives(DaedalusVtx * p_vertices, u32 num_vertices, u32 triangle_mode, bool has_texture)
 {
-	for (uint32_t i = 0; i < num_vertices; i++)
+	// Keep the streaming cursors in local registers while expanding vertices;
+	// these globals are persistent cursors shared with the CTR array setup.
+	float *vertex_buffer = gVertexBuffer;
+	float *texcoord_buffer = gTexCoordBuffer;
+	uint32_t *color_buffer = gColorBuffer;
+	const EGraphicsEffect effect = gGraphicsEffect;
+
+	if (effect == GFXE_CEL_SHADING || effect == GFXE_PAINTING)
 	{
-		gVertexBuffer[0] = p_vertices[i].Position.x;
-		gVertexBuffer[1] = p_vertices[i].Position.y;
-		gVertexBuffer[2] = p_vertices[i].Position.z;
-		
-		gTexCoordBuffer[0] = p_vertices[i].Texture.x;
-		gTexCoordBuffer[1] = p_vertices[i].Texture.y;
-		//gTexCoordBuffer[2] = p_vertices[i].Texture.z;
-
-		gColorBuffer[0] = p_vertices[i].Colour.GetColour();
-
-		gVertexBuffer += 3;
-		gTexCoordBuffer += 2;
-		gColorBuffer += 1;
+		for (uint32_t i = 0; i < num_vertices; ++i)
+		{
+			const DaedalusVtx &vertex = p_vertices[i];
+			*vertex_buffer++ = vertex.Position.x;
+			*vertex_buffer++ = vertex.Position.y;
+			*vertex_buffer++ = vertex.Position.z;
+			*texcoord_buffer++ = vertex.Texture.x;
+			*texcoord_buffer++ = vertex.Texture.y;
+			*color_buffer++ = ApplyGraphicsEffectToVertexColour(vertex.Colour.GetColour(), effect);
+		}
+	}
+	else
+	{
+		// The common no-effect path performs no per-vertex effect checks/calls.
+		for (uint32_t i = 0; i < num_vertices; ++i)
+		{
+			const DaedalusVtx &vertex = p_vertices[i];
+			*vertex_buffer++ = vertex.Position.x;
+			*vertex_buffer++ = vertex.Position.y;
+			*vertex_buffer++ = vertex.Position.z;
+			*texcoord_buffer++ = vertex.Texture.x;
+			*texcoord_buffer++ = vertex.Texture.y;
+			*color_buffer++ = vertex.Colour.GetColour();
+		}
 	}
 
-
+	gVertexBuffer = vertex_buffer;
+	gTexCoordBuffer = texcoord_buffer;
+	gColorBuffer = color_buffer;
 	glDrawArrays(triangle_mode, gVertexCount, num_vertices);
-
 	gVertexCount += num_vertices;
 }
 
@@ -490,7 +546,9 @@ void RendererCTR::RenderUsingCurrentBlendMode(const float (&mat_project)[16], Da
 	// G_TF_AVERAGE : 1, G_TF_BILERP : 2 (linear)
 	// G_TF_POINT   : 0 (nearest)
 	//
-	if( ((gRDPOtherMode.text_filt != G_TF_POINT) && cycle_mode != CYCLE_COPY) || (gGlobalPreferences.ForceLinearFilter) )
+	if( gGraphicsEffect != GFXE_PIXELIZE &&
+		(((gRDPOtherMode.text_filt != G_TF_POINT) && cycle_mode != CYCLE_COPY) ||
+			(gGlobalPreferences.ForceLinearFilter)) )
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );

@@ -18,6 +18,18 @@ option(DAEDALUS_ENABLE_SDMC_DIAGNOSTICS "Enable SD-card logging and profiler sna
 option(DAEDALUS_ENABLE_DEBUG_CONSOLE "Enable the CTR debug console" OFF)
 option(DAEDALUS_ENABLE_BATCH_TESTS "Compile emulator batch-test support" OFF)
 option(DAEDALUS_DOWNLOADPLAY "Build a ROM-specific Download Play child CIA" OFF)
+option(DAEDALUS_MINIMAL_EMULATOR "Trim touchscreen UI support; keep only the analog-mapped virtual stick" OFF)
+# CMAKE_C_FLAGS in the devkitARM toolchain requests -O3, but the target-level
+# -O2 used to override it. Expose the release choice so ARM11 builds can be
+# compared reproducibly; O3 is the default while O2/Os remain easy fallbacks.
+set(DAEDALUS_CTR_OPT_LEVEL "O3" CACHE STRING "CTR release optimization level (O2, O3, or Os)")
+set_property(CACHE DAEDALUS_CTR_OPT_LEVEL PROPERTY STRINGS O2 O3 Os)
+if(NOT DAEDALUS_CTR_OPT_LEVEL STREQUAL "O2" AND
+   NOT DAEDALUS_CTR_OPT_LEVEL STREQUAL "O3" AND
+   NOT DAEDALUS_CTR_OPT_LEVEL STREQUAL "Os")
+	message(FATAL_ERROR "DAEDALUS_CTR_OPT_LEVEL must be O2, O3, or Os")
+endif()
+set(DAEDALUS_CTR_OPT_FLAG "-${DAEDALUS_CTR_OPT_LEVEL}")
 set(DAEDALUS_DOWNLOADPLAY_ROM "" CACHE FILEPATH "Compressed .lz4 N64 ROM to bundle in the Download Play child")
 set(DAEDALUS_DOWNLOADPLAY_CHILD_CIA "" CACHE FILEPATH "Child CIA payload to bundle in the host application's RomFS")
 set(DAEDALUS_DOWNLOADPLAY_CHILD_INDEX "0xD3" CACHE STRING "DLP child index (must match UniqueId low byte in template2.rsf)")
@@ -84,7 +96,7 @@ set (CTR_HLEGRAPHICS_FILES SysCTR/HLEGraphics/GraphicsPluginCTR.cpp SysCTR/HLEGr
 set (CTR_HLEAUDIO_FILES SysCTR/HLEAudio/AudioPluginCTR.cpp SysCTR/HLEAudio/AudioOutput.cpp)
 set (CTR_INPUTMANAGER_FILES SysCTR/Input/InputManagerCTR.cpp SysCTR/Input/CTRMultiplayer.cpp SysCTR/DownloadPlayHost.cpp)
 set (CTR_UI_FILES SysCTR/UI/UserInterface.cpp SysCTR/UI/RomSelector.cpp SysCTR/UI/InGameMenu.cpp)
-set (CTR_UTILITY_FILES SysCTR/Utility/CTRPerfLearning.cpp SysCTR/Utility/CTRStorage.cpp SysCTR/Utility/ThreadCTR.cpp SysCTR/Utility/IOCTR.cpp SysCTR/Utility/TimingCTR.cpp SysCTR/Utility/MemoryCTR.cpp SysCTR/Utility/CacheCTR.S SysCTR/Utility/FastMemcpyCTR.S)
+set (CTR_UTILITY_FILES SysCTR/Utility/CTRPerfLearning.cpp SysCTR/Utility/CTRHeadTracking.cpp SysCTR/Utility/CTRStorage.cpp SysCTR/Utility/ThreadCTR.cpp SysCTR/Utility/IOCTR.cpp SysCTR/Utility/TimingCTR.cpp SysCTR/Utility/MemoryCTR.cpp SysCTR/Utility/CacheCTR.S SysCTR/Utility/FastMemcpyCTR.S)
 set (CTR_BUILD ${CTR_DEBUG_FILES} ${CTR_DYNAREC_FILES} ${CTR_GRAPHICS_FILES} ${CTR_HLEAUDIO_FILES} ${CTR_HLEGRAPHICS_FILES} ${CTR_INPUTMANAGER_FILES} ${CTR_UI_FILES} ${CTR_UTILITY_FILES})
 
 
@@ -110,8 +122,13 @@ if (CTR_RELEASE)
 		${DEBUG_ONLY}
 		${CTR_BUILD}
 	)
+	# QTM head tracking is exposed by current libctru releases and exists only
+	# on supported New 3DS hardware. Keep builds against older SDKs portable.
+	if(EXISTS "${DEVKITPRO}/libctru/include/3ds/services/qtm.h")
+		target_compile_definitions(daedalus PRIVATE DAEDALUS_CTR_HAS_QTM)
+	endif()
 	# Keep optional instrumentation completely out of normal release builds.
-	target_compile_options(daedalus PRIVATE -O2 -ffunction-sections -fdata-sections)
+	target_compile_options(daedalus PRIVATE ${DAEDALUS_CTR_OPT_FLAG} -ffunction-sections -fdata-sections)
 	if(DAEDALUS_ENABLE_FUNCTION_PROFILING)
 		target_compile_definitions(daedalus PRIVATE DAEDALUS_ENABLE_PROFILING)
 	endif()
@@ -123,6 +140,9 @@ if (CTR_RELEASE)
 	endif()
 	if(DAEDALUS_ENABLE_BATCH_TESTS)
 		target_compile_definitions(daedalus PRIVATE DAEDALUS_BATCH_TEST_ENABLED)
+	endif()
+	if(DAEDALUS_MINIMAL_EMULATOR)
+		target_compile_definitions(daedalus PRIVATE DAEDALUS_MINIMAL_EMULATOR)
 	endif()
 
 	# A CartID is optional: zero keeps the standard multi-ROM build. For a
@@ -167,7 +187,7 @@ if (CTR_RELEASE)
 		${CTR_MAIN_FILES}
 		${CTR_INPUTMANAGER_FILES}
 	)
-	target_compile_options(${PROJECT_NAME}.elf PRIVATE -O2 -ffunction-sections -fdata-sections)
+	target_compile_options(${PROJECT_NAME}.elf PRIVATE ${DAEDALUS_CTR_OPT_FLAG} -ffunction-sections -fdata-sections)
 	if(DAEDALUS_ENABLE_FUNCTION_PROFILING)
 		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_ENABLE_PROFILING)
 	endif()
@@ -179,6 +199,9 @@ if (CTR_RELEASE)
 	endif()
 	if(DAEDALUS_ENABLE_BATCH_TESTS)
 		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_BATCH_TEST_ENABLED)
+	endif()
+	if(DAEDALUS_MINIMAL_EMULATOR)
+		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_MINIMAL_EMULATOR)
 	endif()
 	target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_TARGET_GAME_ID=${DAEDALUS_GAME_ID_VALUE})
 	if(DAEDALUS_DOWNLOADPLAY)

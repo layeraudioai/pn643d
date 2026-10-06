@@ -374,7 +374,14 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 			 * image and is why the previous output looked flat. */
 			matrix4x4 camera_translation;
 			matrix4x4_identity(&camera_translation);
-			camera_translation.row[0].w = -eye_offset;
+			const float headViewX = perspective ?
+				pglState->stereoHeadOffsetX * slider * reference_depth / focal_scale : 0.0f;
+			const float headViewY = perspective ?
+				pglState->stereoHeadOffsetY * slider * reference_depth / focal_scale : 0.0f;
+			camera_translation.row[0].w = -(eye_offset + headViewX);
+			// QTM's vertical world coordinate grows downward in camera space;
+			// invert it to match the renderer's upward-positive world Y axis.
+			camera_translation.row[1].w = headViewY;
 			matrix4x4_multiply(&eye_modelview, &camera_translation,
 				&pglState->matrix_modelview);
 		}

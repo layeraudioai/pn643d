@@ -16,6 +16,13 @@ void EndGame();
 void RecordFrame(u32 work_ticks, u32 target_ticks);
 void RecordZone(EProfileZone zone, u32 elapsed_ticks);
 u32 GetRecommendedBackendCeilingFPS(u32 user_target_fps);
+// Returns the recent EWMA emulation-work / frame-budget ratio as a percentage.
+// Returns false until enough samples exist to make a stable recommendation.
+bool GetWorkloadFitness(u32 *workload_percent);
+// Temporary, volatile measurement window used by the in-game auto-optimizer.
+// The first 30 frames are discarded to let each candidate settle.
+void BeginFitnessProbe();
+bool EndFitnessProbe(u32 *workload_percent);
 
 struct SZoneStats {
     u64 total_ticks;

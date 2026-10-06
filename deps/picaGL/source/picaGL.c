@@ -8,17 +8,28 @@ static void _AptEventHook(APT_HookType type, void* param)
 	switch (type)
 	{
 		case APTHOOK_ONSUSPEND:
-			_queueWaitAndClear();
+			/* Submit queued draws before the system applet takes over the GPU. */
+			glFinish();
 			break;
 		case APTHOOK_ONRESTORE:
 			GX_BindQueue(&pglState->gxQueue);
 			gxCmdQueueRun(&pglState->gxQueue);
+			/* Applets may leave PICA registers and the active command buffer in
+			 * an unknown state. Start a fresh list, rebind both render targets,
+			 * and re-emit picaGL's baseline before the emulator draws again. */
+			_pglResetCommandBuffer();
+			pglState->stereoRightEye = GL_FALSE;
+			gfxSet3D(pglState->stereoEnabled != GL_FALSE);
 			_picaRenderBuffer(pglState->colorBuffer, pglState->depthBuffer);
 			_picaAttribBuffersLocation((void*)__ctru_linear_heap);
-			for (int i = 1; i < 6; i++)
-				_picaTextureEnvSet(i, &pglState->texenv[PGL_TEXENV_DUMMY]);
 			shaderProgramUse(&pglState->basicShader);
-			pglState->changes |= 0xFFFFFFFF;
+			_stateDefault();
+			glMatrixMode(GL_PROJECTION);
+			glLoadIdentity();
+			glMatrixMode(GL_MODELVIEW);
+			glLoadIdentity();
+			pglState->textureChanged = GL_TRUE;
+			pglState->changes = STATE_ALL_CHANGE;
 			break;
 		default:
 			break;
@@ -158,4 +169,17 @@ void pglSetStereoPopout(int enabled)
 {
 	if (pglState)
 		pglState->stereoPopout = enabled ? GL_TRUE : GL_FALSE;
+}
+
+void pglSetStereoHeadOffset(float x, float y)
+{
+	if (!pglState)
+		return;
+	/* Keep external tracking values bounded even if a platform API glitches. */
+	if (x < -0.20f) x = -0.20f;
+	if (x >  0.20f) x =  0.20f;
+	if (y < -0.20f) y = -0.20f;
+	if (y >  0.20f) y =  0.20f;
+	pglState->stereoHeadOffsetX = x;
+	pglState->stereoHeadOffsetY = y;
 }

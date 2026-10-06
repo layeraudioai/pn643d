@@ -49,6 +49,18 @@ enum ECheatFrequency
 	NUM_CF,
 };
 
+// Lightweight visual treatments supported by the CTR fixed-function renderer.
+enum EGraphicsEffect
+{
+	GFXE_NONE = 0,
+	GFXE_PIXELIZE,
+	GFXE_CEL_SHADING,
+	GFXE_PAINTING,
+	NUM_GRAPHICS_EFFECTS
+};
+
+extern EGraphicsEffect gGraphicsEffect;
+
 enum EFrameskipValue
 {
 	FV_DISABLED = 0,
@@ -148,10 +160,12 @@ struct SRomPreferences
 	ETextureHashFrequency		CheckTextureHashFrequency;
 	EFrameskipValue				Frameskip;
 	float						MaxFPS;
+	EGraphicsEffect			GraphicsEffect;
 	float						StereoSeparation;
 		u32							N64CPUClockMHz;
 		u32							N64BusClockMHz;
 	bool						StereoPopout;
+	bool						StereoHeadTracking;
 	EAudioPluginMode			AudioEnabled;
 	f32							ZoomX;
 	u32							SpeedSyncEnabled;

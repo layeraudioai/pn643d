@@ -1,84 +1,33 @@
-# Native `romconvert` toolchain
+# Unified `romconvert` C driver
 
-The command dispatcher and build orchestration are implemented in `Tools/romconvert_aio.cpp`. The only remaining batch file is `deps/installdependencies.bat`; there are no shell-script or per-task batch wrappers in `Tools/`.
-
-## Build the one `romconvert.exe`
-
-From the repository root, using a C++17 compiler:
+`Tools/romconvert.c` is the single source file for the `romconvert` executable. There is no separate C++ dispatcher or batch launcher required. Compile it from the repository root:
 
 ```sh
-g++ -std=c++17 -O2 -Wall -Wextra -o romconvert.exe Tools/romconvert_aio.cpp
+gcc -O2 -std=c11 -Wall -Wextra -o romconvert.exe Tools/romconvert.c
 ```
 
-On Windows, use MinGW-w64 g++ or another C++17 compiler. The setup batch does not compile or replace `romconvert.exe`; compile it yourself as requested, then run the setup file.
-
-## Initial 3DS dependency setup
-
-Install devkitPro/devkitARM first. Then run this one batch file from Windows:
-
-```bat
-deps\installdependencies.bat
-```
-
-It updates/installs the devkitPro 3DS SDK and build tools, then calls `romconvert.exe setup`. That command builds and installs the repository's bundled picaGL and imgui-picagl libraries. It does not download game ROMs or N64Recomp profiles.
+For Windows, use MinGW-w64 GCC. The bundled LZ4 sources are included directly by the C source, so compile with the checkout's directory structure intact. This produces one host-side executable; it does not statically contain devkitPro, CMake, GNU make, or the external packaging utilities.
 
 ## Commands
 
 ```text
-romconvert.exe setup                 Build/install picaGL and imgui-picagl
-romconvert.exe build-3ds             Configure and build DaedalusX64 for 3DS
-romconvert.exe build-n64recomp       Fetch/build the optional host N64Recomp CLI
-romconvert.exe debug                 Build diagnostic Daedalus output grouped by CartID
-romconvert.exe recompile             Run N64Recomp plus the configured game-specific 3DS adapter
-romconvert.exe downloadplay --rom PATH Build compressed-ROM child CIA plus bundled host CIA
+romconvert.exe                         Convert ROMs in roms/ to per-ROM packages
+romconvert.exe debug                   Same conversion with diagnostics/profiling enabled
+romconvert.exe setup                   Install bundled picaGL and imgui-picagl libraries
+romconvert.exe build-3ds --jobs 4      Build DaedalusX64 for 3DS
+romconvert.exe minimal                 Build the main CIA with minimal touchscreen controls
+romconvert.exe downloadplay --rom PATH Build a ROM-specific child CIA and bundled host CIA
+romconvert.exe build-n64recomp         Fetch/build the optional N64Recomp CLI
+romconvert.exe recompile --rom PATH --profile FILE
+romconvert.exe --help                  Show options
 ```
 
-Use `--jobs N` to control CMake parallelism, `--root PATH` to select a checkout, and `--dry-run` to print build commands. `build-3ds` uses `Tools/3dstoolchain.cmake`; set `DEVKITPRO` and `DEVKITARM` for the devkitPro installation.
+ROM conversion accepts `--roms DIR` (default `roms/`), `--seed N`, and `--minimal` to compile out non-stick touchscreen controls for each per-ROM CIA. `romconvert minimal` builds the main CIA with `DAEDALUS_MINIMAL_EMULATOR=ON`; direct CMake builds can enable the same option. In minimal builds the larger virtual stick remains enabled and always routes to the N64 analog stick. `--scan DIR` inspects ROM headers without building. Successful input ROMs are moved to `used/`; outputs are placed in `dist/`. Use `--root PATH` when running the executable outside the checkout and `--jobs N` to set parallel build count. `--dry-run` prints planned commands for build/setup modes; the full ROM conversion is not a dry-run operation.
 
-For example:
+## Dependencies and limitations
 
-```bat
-romconvert.exe build-3ds --jobs 4
-```
+A 3DS build still needs devkitPro/devkitARM, CMake, GNU make, and the repository's packaging tools in `Tools/` (for example 3dstool, bannertool, makerom, and 3dsxtool). `ffmpeg` is optional for preview/banner preparation. `setup` additionally needs `DEVKITPRO` set and the bundled dependency Makefiles.
 
-The generated build tree and outputs are under `build/3ds`. Packaging relies on the repository's existing 3DS tools in `Tools/`.
+`downloadplay` creates a compressed ROM, builds a child CIA, enforces the 32 MiB child-CIA size ceiling, and bundles it into a host CIA. The Download Play service/transmission path is experimental and is not verified end-to-end on hardware.
 
-## ROM-specific Download Play package
-
-```text
-romconvert.exe downloadplay --rom roms/example.z64 --jobs 4
-```
-
-This mode creates a Daedalus LZ4 ROM image, builds a `DlpChild` CIA with that ROM under `romfs:/Roms/`, checks the child CIA against the 32 MiB transfer ceiling, and builds a regular host CIA with `downloadplay-child.cia` bundled in its RomFS. The child build now starts directly into its bundled ROM and exits back to the system title launcher when emulation ends. Outputs are staged in `dist/downloadplay/<rom-name>/`. The ROM must be one you are authorized to use; no ROM is included in the repository.
-
-The host now has an experimental `dlp:SRVR` lifecycle path: it checks that `romfs:/downloadplay-child.cia` is present and within 32 MiB, initializes the server IPC session, opens accepting on a local wireless channel, accepts incoming nodes, sends a wireless-reboot passphrase, and invokes `StartDistribution`. The in-game Multiplayer page exposes this flow only when the host was built with a bundled child CIA. The service is finalized on stop/exit.
-
-**This is not yet a verified end-to-end transmission.** The public service descriptions do not specify the required shared-memory sizing/permissions and event semantics in enough detail, and `StartDistribution` has no documented CIA path parameter. The code therefore uses an inferred pair of 0x40000 shared transfer blocks and assumes the DLP system service resolves the indexed child title; whether that service can consume the CIA bundled in the host RomFS is unverified. The reported client progress layout/state is also inferred. If the service only locates an installed or otherwise registered child title, the RomFS bundle alone will not be distributed. Test service access, IPC handle ownership, child-title indexing, payload resolution, distribution, system-app launch, and return behavior on a console before treating this as working. No access restrictions are bypassed.
-
-The child still uses the full Daedalus application, rather than a stripped runtime. Its direct-boot path and clean return behavior remain untested on a 3DS. A successful CIA build is not proof of DLP compatibility or stock-console acceptance.
-
-`--dry-run` prints the planned child build without compressing the ROM, building a CIA, or performing the size check.
-
-## N64Recomp recompile flow
-
-`romconvert build-n64recomp` clones the public N64Recomp repository into `deps/N64Recomp` when needed, configures it with CMake, and builds `N64RecompCLI`. The host needs Git, CMake, and a C++ compiler. Set `N64RECOMP_SOURCE`, `N64RECOMP_BUILD`, `N64RECOMP_GENERATOR`, or `N64RECOMP` to override defaults.
-
-`romconvert recompile` still needs a matching game ROM, N64Recomp profile/ELF metadata, and a game-specific integration adapter. Example:
-
-```text
-romconvert.exe recompile --rom roms/example.z64 \
-  --profile recomp/example/recomp.toml \
-  --3ds-adapter ports/example/daedalus-3ds.cmake \
-  --3ds-toolchain Tools/3dstoolchain.cmake
-```
-
-This path compiles generated code for the 3DS ARM target; it cannot turn an ARM ELF into a standard N64 ROM. The adapter must supply the game/runtime integration and package a functioning 3DS app. A profile/source-only run is not a complete playable port. The current repository does not supply arbitrary title-specific profiles or adapters.
-
-## Dependencies and files
-
-- C++ command logic: `Tools/romconvert_aio.cpp`
-- One Windows setup file: `deps/installdependencies.bat`
-- CMake 3DS toolchain: `Tools/3dstoolchain.cmake`
-- Bundled picaGL and ImGui sources: `deps/picaGL`, `deps/imgui-picagl`
-
-No Python is used by the `romconvert` toolchain.
+`recompile` runs N64Recomp to generate native source output. Generated ARM code is not an N64 ROM; a game-specific runtime/Daedalus integration adapter is required to produce a playable 3DS app. Building N64Recomp does not provide game profiles or adapters.

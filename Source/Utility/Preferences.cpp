@@ -20,6 +20,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "stdafx.h"
 #include "Preferences.h"
+#ifdef DAEDALUS_CTR
+#include "SysCTR/Utility/CTRHeadTracking.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,6 +74,7 @@ static EFrameskipValue			GetFrameskipValueFromInt( int value );
 extern EFrameskipValue			gFrameskipValue;
 extern f32 						gZoomX;
 float							gMaxFPS = 60;
+EGraphicsEffect				gGraphicsEffect = GFXE_NONE;
 
 SGlobalPreferences				gGlobalPreferences;
 
@@ -311,6 +315,12 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 		{
 			preferences.MaxFPS = (f32)atoi( property->GetValue() );
 		}
+		if( section->FindProperty( "GraphicsEffect", &property ) )
+		{
+			const int value = atoi(property->GetValue());
+			if (value >= GFXE_NONE && value < NUM_GRAPHICS_EFFECTS)
+				preferences.GraphicsEffect = static_cast<EGraphicsEffect>(value);
+		}
 		if( section->FindProperty( "StereoSeparation", &property ) )
 		{
 			preferences.StereoSeparation = (f32)atof( property->GetValue() );
@@ -330,6 +340,10 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 		if( section->FindProperty( "StereoPopout", &property ) )
 		{
 			preferences.StereoPopout = property->GetBooleanValue( false );
+		}
+		if( section->FindProperty( "StereoHeadTracking", &property ) )
+		{
+			preferences.StereoHeadTracking = property->GetBooleanValue( false );
 		}
 #ifdef DAEDALUS_PSP
 		if( section->FindProperty( "Controller", &property ) )
@@ -410,10 +424,12 @@ void IPreferences::OutputSectionDetails( const RomID & id, const SRomPreferences
 	fprintf(fh, "AudioEnabled=%d\n",               preferences.AudioEnabled);
 	fprintf(fh, "ZoomX=%f\n",                      preferences.ZoomX );
 	fprintf(fh, "MaxFPS=%d\n",                     (int)preferences.MaxFPS );
+	fprintf(fh, "GraphicsEffect=%d\n",             (int)preferences.GraphicsEffect );
 	fprintf(fh, "StereoSeparation=%.3f\n",        preferences.StereoSeparation );
 	fprintf(fh, "N64CPUClockMHz=%" PRIu32 "\n", preferences.N64CPUClockMHz);
 	fprintf(fh, "N64BusClockMHz=%" PRIu32 "\n", preferences.N64BusClockMHz);
 	fprintf(fh, "StereoPopout=%d\n",              preferences.StereoPopout );
+	fprintf(fh, "StereoHeadTracking=%d\n",        preferences.StereoHeadTracking );
 	fprintf(fh, "MemoryAccessOptimisation=%d\n",   preferences.MemoryAccessOptimisation);
 	fprintf(fh, "CheatsEnabled=%d\n",              preferences.CheatsEnabled);
 #ifdef DAEDALUS_CTR
@@ -553,10 +569,12 @@ SRomPreferences::SRomPreferences()
 	,	CheckTextureHashFrequency( kDefaultTextureHashFrequency )
 	,	Frameskip( FV_DISABLED )
 	,	MaxFPS( 60.0f )
+	,	GraphicsEffect( GFXE_NONE )
 	,	StereoSeparation( 0.050f )
 	,	N64CPUClockMHz( 93 )
 	,	N64BusClockMHz( 62 )
 	,	StereoPopout( false )
+	,	StereoHeadTracking( false )
 	,	AudioEnabled( APM_ENABLED_ASYNC )
 	,	ZoomX( 1.0f )
 	,	SpeedSyncEnabled( 1 )
@@ -597,10 +615,12 @@ void SRomPreferences::Reset()
 	//AudioAdaptFrequency      = false;
 	ZoomX                      = 1.0f;
 	MaxFPS                     = 60.0f;
+	GraphicsEffect             = GFXE_NONE;
 	StereoSeparation           = 0.050f;
 	N64CPUClockMHz             = 93;
 	N64BusClockMHz              = 62;
 	StereoPopout               = false;
+	StereoHeadTracking         = false;
 	CheatsEnabled              = false;
 	ControllerIndex            = 0;
 #ifdef DAEDALUS_CTR
@@ -636,6 +656,7 @@ void SRomPreferences::Apply() const
 	gFrameskipValue             = Frameskip;
 	gZoomX                      = ZoomX;
 	gMaxFPS                     = MaxFPS;
+	gGraphicsEffect             = GraphicsEffect;
 	gN64CPUClockMHz             = N64CPUClockMHz;
 	gN64BusClockMHz             = N64BusClockMHz;
 #ifdef DAEDALUS_ENABLE_OS_HOOKS
@@ -644,6 +665,7 @@ void SRomPreferences::Apply() const
 #ifdef DAEDALUS_CTR
 	pglSetStereo(true, StereoSeparation);
 	pglSetStereoPopout(StereoPopout);
+	CTRHeadTracking::SetEnabled(StereoHeadTracking);
 	for (unsigned int i = 0; i < 3; ++i)
 		CTRInput_SetStickDestination(i, CTRStickDestinations[i]);
 	CTRInput_SetTouchStickPosition(CTRTouchStickX, CTRTouchStickY);

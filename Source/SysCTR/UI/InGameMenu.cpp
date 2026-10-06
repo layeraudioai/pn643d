@@ -14,7 +14,9 @@
 #include "Core/CPU.h"
 #include "Core/ROM.h"
 #include "SysCTR/Input/CTRInput.h"
+#include "SysCTR/Utility/CTRHeadTracking.h"
 #include "SysCTR/Input/CTRMultiplayer.h"
+#include "SysCTR/Utility/CTRPerfLearning.h"
 #include "SysCTR/DownloadPlayHost.h"
 #include "Utility/IO.h"
 #include "Utility/Preferences.h"
@@ -27,8 +29,146 @@ extern RomInfo g_ROM;
 static uint64_t timer;
 static uint8_t currentPage = 0;
 static uint8_t optionsSubpage = 0;
+#if !defined(DAEDALUS_MINIMAL_EMULATOR) && !defined(DAEDALUS_DOWNLOADPLAY)
+static const uint8_t kOptionsPageCount = 6;
+#else
+static const uint8_t kOptionsPageCount = 5;
+#endif
 static bool PromptNumericText(const char *hint, const char *initialValue,
 	char *buffer, size_t bufferSize, bool allowDecimal);
+
+#if !defined(DAEDALUS_MINIMAL_EMULATOR) && !defined(DAEDALUS_DOWNLOADPLAY)
+static const u32 kAutoOptimizeProfileCount = 9;
+static const u64 kAutoOptimizeProfileMs = 5000;
+static bool sAutoOptimizeActive = false;
+static SRomPreferences sAutoOptimizeBase;
+static SRomPreferences sAutoOptimizeTrial;
+static SRomPreferences sAutoOptimizeBest;
+static u64 sAutoOptimizeProfileStartedAt = 0;
+static u64 sAutoOptimizeDeadline = 0;
+static u64 sAutoOptimizeCooldownUntil = 0;
+static u32 sAutoOptimizeProfile = 0;
+static u32 sAutoOptimizeBestFitness = 0xFFFFFFFFu;
+static bool sAutoOptimizeHasBest = false;
+
+static void MakeAutoOptimizeProfile(u32 profile, SRomPreferences *preferences)
+{
+	*preferences = sAutoOptimizeBase;
+	switch (profile)
+	{
+		case 1: preferences->Frameskip = FV_AUTO1; break;
+		case 2: preferences->Frameskip = FV_AUTO2; break;
+		case 3:
+			preferences->DynarecEnabled = g_ROM.settings.DynarecSupported;
+			preferences->DynarecLoopOptimisation = true;
+			preferences->DynarecDoublesOptimisation = true;
+			preferences->MemoryAccessOptimisation = true;
+			break;
+		case 4:
+			preferences->DynarecLoopOptimisation = true;
+			preferences->DynarecDoublesOptimisation = true;
+			preferences->MemoryAccessOptimisation = true;
+			break;
+		case 5:
+			preferences->GraphicsEffect = GFXE_NONE;
+			preferences->DoubleDisplayEnabled = false;
+			preferences->ClearDepthFrameBuffer = false;
+			preferences->FogEnabled = false;
+			break;
+		case 6:
+			preferences->CheckTextureHashFrequency = THF_DISABLED;
+			break;
+		case 7:
+			preferences->Frameskip = FV_AUTO1;
+			preferences->DynarecEnabled = g_ROM.settings.DynarecSupported;
+			preferences->DynarecLoopOptimisation = true;
+			preferences->DynarecDoublesOptimisation = true;
+			preferences->MemoryAccessOptimisation = true;
+			preferences->GraphicsEffect = GFXE_NONE;
+			preferences->DoubleDisplayEnabled = false;
+			preferences->ClearDepthFrameBuffer = false;
+			preferences->FogEnabled = false;
+			preferences->CheckTextureHashFrequency = THF_DISABLED;
+			preferences->VideoRateMatch = false;
+			break;
+		case 8:
+			preferences->Frameskip = FV_AUTO2;
+			preferences->DynarecEnabled = g_ROM.settings.DynarecSupported;
+			preferences->DynarecLoopOptimisation = true;
+			preferences->DynarecDoublesOptimisation = true;
+			preferences->MemoryAccessOptimisation = true;
+			preferences->GraphicsEffect = GFXE_NONE;
+			preferences->DoubleDisplayEnabled = false;
+			preferences->ClearDepthFrameBuffer = false;
+			preferences->FogEnabled = false;
+			preferences->CheckTextureHashFrequency = THF_DISABLED;
+			preferences->VideoRateMatch = false;
+			break;
+		default: break; // Profile zero is the user's current configuration.
+	}
+}
+
+static void StartAutoOptimize(const SRomPreferences &preferences)
+{
+	const u64 now = osGetTime();
+	if (sAutoOptimizeActive || now < sAutoOptimizeCooldownUntil)
+		return;
+	sAutoOptimizeBase = preferences;
+	sAutoOptimizeBest = preferences;
+	sAutoOptimizeTrial = preferences;
+	sAutoOptimizeProfileStartedAt = now;
+	sAutoOptimizeDeadline = now + 45000;
+	sAutoOptimizeCooldownUntil = now + 5u * 60u * 1000u;
+	sAutoOptimizeProfile = 0;
+	sAutoOptimizeBestFitness = 0xFFFFFFFFu;
+	sAutoOptimizeHasBest = false;
+	sAutoOptimizeActive = true;
+	CTRPerfLearning::BeginFitnessProbe();
+}
+
+// Returns true while the user should remain on the optimizer's wait screen.
+static bool UpdateAutoOptimize(SRomPreferences *preferences)
+{
+	if (!sAutoOptimizeActive)
+		return false;
+
+	const u64 now = osGetTime();
+	if (now - sAutoOptimizeProfileStartedAt >= kAutoOptimizeProfileMs)
+	{
+		u32 fitness = 0;
+		if (CTRPerfLearning::EndFitnessProbe(&fitness) &&
+			(!sAutoOptimizeHasBest || fitness < sAutoOptimizeBestFitness))
+		{
+			const bool improved = sAutoOptimizeHasBest;
+			sAutoOptimizeBestFitness = fitness;
+			sAutoOptimizeHasBest = true;
+			sAutoOptimizeBest = sAutoOptimizeTrial;
+			// Every better measured candidate earns another five seconds of
+			// search. The deadline is deliberately not capped.
+			if (improved)
+				sAutoOptimizeDeadline += 5000;
+		}
+
+		if (now >= sAutoOptimizeDeadline)
+		{
+			*preferences = sAutoOptimizeHasBest ? sAutoOptimizeBest : sAutoOptimizeBase;
+			sAutoOptimizeActive = false;
+			CPreferences::Get()->SetRomPreferences(g_ROM.mRomID, *preferences);
+			CPreferences::Get()->Commit();
+			preferences->Apply();
+			return true;
+		}
+
+		sAutoOptimizeProfile = (sAutoOptimizeProfile + 1) % kAutoOptimizeProfileCount;
+		MakeAutoOptimizeProfile(sAutoOptimizeProfile, &sAutoOptimizeTrial);
+		sAutoOptimizeProfileStartedAt = now;
+		CTRPerfLearning::BeginFitnessProbe();
+	}
+
+	*preferences = sAutoOptimizeTrial;
+	return true;
+}
+#endif
 
 // The speedrun clock is deliberately kept outside save states so loading a
 // state cannot rewind the run. Persist accumulated time per ROM, keyed by its
@@ -232,9 +372,41 @@ static void DrawOptionsPage()
 {
 	SRomPreferences preferences;
 	CPreferences::Get()->GetRomPreferences( g_ROM.mRomID, &preferences );
+#if !defined(DAEDALUS_MINIMAL_EMULATOR) && !defined(DAEDALUS_DOWNLOADPLAY)
+	if (UpdateAutoOptimize(&preferences))
+	{
+		if (sAutoOptimizeActive)
+		{
+			const u64 now = osGetTime();
+			const u64 remaining = sAutoOptimizeDeadline > now ? sAutoOptimizeDeadline - now : 0;
+			char status[64];
+			UI::DrawHeader("Auto-optimizing");
+			snprintf(status, sizeof(status), "Searching: %llu seconds left",
+				(unsigned long long)((remaining + 999) / 1000));
+			UI::DrawText(12, 48, status);
+			if (sAutoOptimizeHasBest)
+				snprintf(status, sizeof(status), "Profile %u/%u  best load: %u%%",
+					(unsigned int)(sAutoOptimizeProfile + 1), (unsigned int)kAutoOptimizeProfileCount,
+					(unsigned int)sAutoOptimizeBestFitness);
+			else
+				snprintf(status, sizeof(status), "Profile %u/%u  measuring baseline",
+					(unsigned int)(sAutoOptimizeProfile + 1), (unsigned int)kAutoOptimizeProfileCount);
+			UI::DrawText(12, 72, status);
+			UI::DrawText(12, 104, "Keep playing; options are being tested.");
+			UI::DrawText(12, 128, "Some visual/performance settings may change.");
+			preferences.Apply();
+			return;
+		}
+		UI::DrawHeader("Optimization complete");
+		UI::DrawText(12, 58, "Best measured performance profile applied.");
+		UI::DrawText(12, 82, "You can adjust options again now.");
+		preferences.Apply();
+		return;
+	}
+#endif
 
 	char header[32];
-	snprintf(header, sizeof(header), "Options %u/5", (unsigned int)optionsSubpage + 1);
+	snprintf(header, sizeof(header), "Options %u/%u", (unsigned int)optionsSubpage + 1, (unsigned int)kOptionsPageCount);
 	UI::DrawHeader(header);
 
 	// Audio modes are intentionally cycled independently of speed sync: audio
@@ -397,12 +569,12 @@ static void DrawOptionsPage()
 			preferences.CheckTextureHashFrequency = static_cast<ETextureHashFrequency>(
 				(preferences.CheckTextureHashFrequency + 1) % NUM_THF);
 
-		snprintf(label, sizeof(label), "Zoom: %.2f", preferences.ZoomX);
+		snprintf(label, sizeof(label), "Screen zoom: %.2f", preferences.ZoomX);
 		if (UI::DrawButton(165, 22, 145, 32, label))
 		{
 			char valueText[16];
 			snprintf(valueText, sizeof(valueText), "%.2f", preferences.ZoomX);
-			if (PromptNumericText("Zoom factor (0.5-1.5)", valueText, valueText, sizeof(valueText), true))
+			if (PromptNumericText("Screen zoom factor (0.5-1.5)", valueText, valueText, sizeof(valueText), true))
 			{
 				char *end = NULL;
 				float value = strtof(valueText, &end);
@@ -413,13 +585,17 @@ static void DrawOptionsPage()
 
 		if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
 		{
-			char hostPlayerString[24];
-			snprintf(hostPlayerString, sizeof(hostPlayerString), "Host player: P%u", CTRInput_GetLocalControllerPort() + 1);
+			static const char *assignments[CTR_CONTROLLER_ASSIGNMENT_COUNT] = {
+				"P1", "P2", "P3", "P4", "P1+P2"
+			};
+			const unsigned int assignment = CTRInput_GetLocalControllerAssignment();
+			char hostPlayerString[32];
+			snprintf(hostPlayerString, sizeof(hostPlayerString), "Host ports: %s",
+				assignments[assignment < CTR_CONTROLLER_ASSIGNMENT_COUNT ? assignment : CTR_CONTROLLER_P1]);
 			if (UI::DrawButton(10, 59, 145, 32, hostPlayerString))
-			{
-				const unsigned int port = CTRInput_GetLocalControllerPort();
-				CTRInput_SetLocalControllerPort((port + 1) % 4);
-			}
+				CTRInput_SetLocalControllerAssignment((assignment + 1) % CTR_CONTROLLER_ASSIGNMENT_COUNT);
+			if (assignment == CTR_CONTROLLER_P1_P2)
+				UI::DrawText(10, 80, "Circle Pad: P1; C-Stick: P2");
 		}
 		else
 			UI::DrawText(10, 80, "Host player locked during multiplayer");
@@ -450,7 +626,33 @@ static void DrawOptionsPage()
 					preferences.N64BusClockMHz = (u32)value;
 			}
 		}
-		UI::DrawText(12, 140, "Affects OS clock/timer reporting, not CPU throughput.");
+		UI::DrawText(12, 138, "MHz values report guest clock only; not 3DS speed.");
+		u32 workloadPercent = 0;
+		const bool fitnessReady = CTRPerfLearning::GetWorkloadFitness(&workloadPercent);
+		char fitnessLabel[64];
+		if (fitnessReady)
+			snprintf(fitnessLabel, sizeof(fitnessLabel), "Fitness load: %u%% (work / frame budget)",
+				(unsigned int)workloadPercent);
+		else
+			snprintf(fitnessLabel, sizeof(fitnessLabel), "Fitness load: collecting 120 frames...");
+		UI::DrawText(12, 154, fitnessLabel);
+#if !defined(DAEDALUS_MINIMAL_EMULATOR) && !defined(DAEDALUS_DOWNLOADPLAY)
+		char optimizeLabel[48];
+		const u64 now = osGetTime();
+		if (sAutoOptimizeActive)
+			snprintf(optimizeLabel, sizeof(optimizeLabel), "Auto-optimizing...");
+		else if (now < sAutoOptimizeCooldownUntil)
+		{
+			const u64 seconds = (sAutoOptimizeCooldownUntil - now + 999) / 1000;
+			snprintf(optimizeLabel, sizeof(optimizeLabel), "Auto-optimize in %llu:%02llu",
+				(unsigned long long)(seconds / 60), (unsigned long long)(seconds % 60));
+		}
+		else
+			snprintf(optimizeLabel, sizeof(optimizeLabel), "Auto-optimize (45 sec minimum)");
+		if (UI::DrawButton(10, 174, 300, 28, optimizeLabel) &&
+			!sAutoOptimizeActive && now >= sAutoOptimizeCooldownUntil)
+			StartAutoOptimize(preferences);
+#endif
 	}
 	else if (optionsSubpage == 4)
 	{
@@ -478,6 +680,25 @@ static void DrawOptionsPage()
 			gGlobalPreferences.HighlightInexactBlendModes = !gGlobalPreferences.HighlightInexactBlendModes;
 #endif
 	}
+#if !defined(DAEDALUS_MINIMAL_EMULATOR) && !defined(DAEDALUS_DOWNLOADPLAY)
+	else if (optionsSubpage == 5)
+	{
+		if (CTRHeadTracking::IsAvailable())
+		{
+			if (UI::DrawToggle(10, 22, 300, 32, "Head tracking", preferences.StereoHeadTracking))
+				preferences.StereoHeadTracking = !preferences.StereoHeadTracking;
+			UI::DrawText(12, 64, "Move your head to shift the 3D viewpoint.");
+			UI::DrawText(12, 82, "Recenters automatically when tracking starts.");
+			UI::DrawText(12, 100, "Uses New 3DS eye/IR tracking (QTM).");
+		}
+		else
+		{
+			UI::DrawText(12, 30, "Head tracking is unavailable on this system.");
+			UI::DrawText(12, 50, "Requires a supported New Nintendo 3DS.");
+			UI::DrawText(12, 70, "QTM support must be present in libctru.");
+		}
+	}
+#endif
 
 	if (UI::DrawButton(10, 210, 145, 26, optionsSubpage == 0 ? "Back" : "Previous"))
 	{
@@ -489,9 +710,9 @@ static void DrawOptionsPage()
 		else
 			--optionsSubpage;
 	}
-	if (UI::DrawButton(165, 210, 145, 26, optionsSubpage == 4 ? "Back to menu" : "Next page"))
+	if (UI::DrawButton(165, 210, 145, 26, optionsSubpage == kOptionsPageCount - 1 ? "Back to menu" : "Next page"))
 	{
-		if (optionsSubpage == 4)
+		if (optionsSubpage == kOptionsPageCount - 1)
 		{
 			CPreferences::Get()->Commit();
 			currentPage = 0;
@@ -501,6 +722,37 @@ static void DrawOptionsPage()
 			++optionsSubpage;
 	}
 
+	CPreferences::Get()->SetRomPreferences(g_ROM.mRomID, preferences);
+	preferences.Apply();
+}
+
+static void DrawGraphicsPage()
+{
+	SRomPreferences preferences;
+	CPreferences::Get()->GetRomPreferences(g_ROM.mRomID, &preferences);
+	static const char *const effectNames[NUM_GRAPHICS_EFFECTS] = {
+		"Original", "Pixelize", "Cel shading", "Painting"
+	};
+	if (preferences.GraphicsEffect < GFXE_NONE || preferences.GraphicsEffect >= NUM_GRAPHICS_EFFECTS)
+		preferences.GraphicsEffect = GFXE_NONE;
+
+	UI::DrawHeader("Graphics effects");
+	char label[48];
+	snprintf(label, sizeof(label), "Effect: %s", effectNames[preferences.GraphicsEffect]);
+	if (UI::DrawButton(10, 22, 300, 38, label))
+		preferences.GraphicsEffect = static_cast<EGraphicsEffect>((preferences.GraphicsEffect + 1) % NUM_GRAPHICS_EFFECTS);
+
+	UI::DrawText(12, 72, "Pixelize forces nearest texture filtering.");
+	UI::DrawText(12, 92, "Cel/Painting posterize vertex colors.");
+	UI::DrawText(12, 112, "Lightweight approximations; no full-screen pass.");
+	UI::DrawText(12, 140, "2X HD / wireframe: unavailable in this renderer.");
+
+	if (UI::DrawButton(10, 190, 300, 38, "Back / Save"))
+	{
+		CPreferences::Get()->SetRomPreferences(g_ROM.mRomID, preferences);
+		CPreferences::Get()->Commit();
+		currentPage = 0;
+	}
 	CPreferences::Get()->SetRomPreferences(g_ROM.mRomID, preferences);
 	preferences.Apply();
 }
@@ -535,7 +787,7 @@ static void DrawControllerPage()
 	{
 		char valueText[16];
 		snprintf(valueText, sizeof(valueText), "%u", (unsigned int)preferences.CTRTouchStickX);
-		if (PromptNumericText("Touch stick X (16-304)", valueText, valueText, sizeof(valueText), false))
+		if (PromptNumericText("Touch stick X (96-224)", valueText, valueText, sizeof(valueText), false))
 		{
 			char *end = NULL;
 			unsigned long value = strtoul(valueText, &end, 10);
@@ -548,7 +800,7 @@ static void DrawControllerPage()
 	{
 		char valueText[16];
 		snprintf(valueText, sizeof(valueText), "%u", (unsigned int)preferences.CTRTouchStickY);
-		if (PromptNumericText("Touch stick Y (16-224)", valueText, valueText, sizeof(valueText), false))
+		if (PromptNumericText("Touch stick Y (96-144)", valueText, valueText, sizeof(valueText), false))
 		{
 			char *end = NULL;
 			unsigned long value = strtoul(valueText, &end, 10);
@@ -710,6 +962,20 @@ static void DrawDownloadPlayHostPage()
 }
 #endif
 
+#ifdef DAEDALUS_MINIMAL_EMULATOR
+static bool PromptNumericText(const char *hint, const char *initialValue,
+	char *buffer, size_t bufferSize, bool allowDecimal)
+{
+	(void)hint; (void)initialValue; (void)buffer; (void)bufferSize; (void)allowDecimal;
+	return false;
+}
+
+static bool PromptOnlineText(const char *hint, char *buffer, size_t bufferSize)
+{
+	(void)hint; (void)buffer; (void)bufferSize;
+	return false;
+}
+#else
 // Draw a touch key for the online text-entry panel. Keeping text input in the
 // application avoids launching the system software-keyboard applet, which
 // takes ownership of the 3DS graphics context and can leave PicaGL in a stale
@@ -939,6 +1205,7 @@ static bool PromptOnlineText(const char *hint, char *buffer, size_t bufferSize)
 	UI::RestoreRenderState();
 	return accepted && buffer[0] != '\0';
 }
+#endif // !DAEDALUS_MINIMAL_EMULATOR
 
 static void DrawOnlineInfoPage(bool host)
 {
@@ -1000,18 +1267,21 @@ static void DrawMainPage()
 
 	if((osGetTime() - timer) > 5000)
 	{
+#ifndef DAEDALUS_MINIMAL_EMULATOR
 		const bool fastForwardEnabled = FramerateLimiter_IsFastForwardEnabled();
 		if (UI::DrawToggle(CTR_FAST_FORWARD_BUTTON_X, CTR_FAST_FORWARD_BUTTON_Y,
 			CTR_FAST_FORWARD_BUTTON_WIDTH, CTR_FAST_FORWARD_BUTTON_HEIGHT,
 			fastForwardEnabled ? "FF: ON" : "FF: OFF", fastForwardEnabled))
 			FramerateLimiter_SetFastForward(!fastForwardEnabled);
+#endif
 
-		if (CTRInput_GetStickDestination(2) != CTR_STICK_DISABLED)
+		if (CTRInput_GetStickDestination(2) == CTR_STICK_ANALOG)
 		{
 			unsigned int x, y;
 			CTRInput_GetTouchStickPosition(&x, &y);
 			UI::DrawVirtualStick((float)x, (float)y, (keysHeld() & KEY_TOUCH) != 0);
 		}
+#ifndef DAEDALUS_MINIMAL_EMULATOR
 		touchPosition touch;
 		hidTouchRead(&touch);
 		const int dx = (int)touch.px;
@@ -1029,6 +1299,7 @@ static void DrawMainPage()
 			touch.py < CTR_FAST_FORWARD_BUTTON_Y + CTR_FAST_FORWARD_BUTTON_HEIGHT;
 		if ((keysHeld() & KEY_TOUCH) && !usingVirtualStick && !usingFastForwardButton)
 			timer = osGetTime();
+#endif
 		return;
 	}
 
@@ -1038,6 +1309,7 @@ static void DrawMainPage()
 	if(UI::DrawButton(165, 76, 145, 48, "Options")) currentPage = 4;
 	if(UI::DrawButton(10,  130, 145, 48, "Controller")) currentPage = 10;
 	if(UI::DrawButton(165, 130, 145, 48, "Close ROM")) currentPage = 3;
+	if(UI::DrawButton(10, 184, 300, 40, "Graphics effects")) currentPage = 12;
 }
 
 void UI::DrawInGameMenu()
@@ -1058,6 +1330,7 @@ void UI::DrawInGameMenu()
 		case 8: DrawOnlineInfoPage(true); break;
 		case 9: DrawOnlineInfoPage(false); break;
 		case 10: DrawControllerPage(); break;
+		case 12: DrawGraphicsPage(); break;
 #if defined(DAEDALUS_DOWNLOADPLAY_HOST)
 		case 11: DrawDownloadPlayHostPage(); break;
 #endif

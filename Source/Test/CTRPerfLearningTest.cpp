@@ -36,12 +36,15 @@ u64 ToMilliseconds(u64 ticks) { return ticks / 1000; }
 int main() {
     CTRPerfLearning::BeginGame(0x12345678, 0xABCDEF01, 'E', 4 * 1024 * 1024);
     CHECK(CTRPerfLearning::GetRecommendedBackendCeilingFPS(60) == 60);
+    u32 fitness = 0;
+    CHECK(!CTRPerfLearning::GetWorkloadFitness(&fitness));
     for (unsigned i = 0; i < 120; ++i) {
         CTRPerfLearning::RecordFrame(10000, 16667); // 40% measured headroom
         gNow += 100;
         { CTRPerfLearning::CScopedZone zone(CTRPerfLearning::PROFILE_CPU_VBL); gNow += 25; }
     }
     CHECK(CTRPerfLearning::GetFrameSamples() == 120);
+    CHECK(CTRPerfLearning::GetWorkloadFitness(&fitness) && fitness >= 59 && fitness <= 61);
     CHECK(CTRPerfLearning::GetRecommendedBackendCeilingFPS(60) == 120);
     CTRPerfLearning::SZoneStats stats = {};
     CHECK(CTRPerfLearning::GetZoneStats(CTRPerfLearning::PROFILE_CPU_VBL, &stats));
@@ -64,6 +67,7 @@ int main() {
     CHECK(CTRPerfLearning::GetFrameSamples() == 0);
     for (unsigned i = 0; i < 120; ++i)
         CTRPerfLearning::RecordFrame(20000, 16667); // overloaded: no aggressive cadence
+    CHECK(CTRPerfLearning::GetWorkloadFitness(&fitness) && fitness >= 119 && fitness <= 121);
     CHECK(CTRPerfLearning::GetRecommendedBackendCeilingFPS(60) == 60);
     CTRPerfLearning::EndGame();
     CHECK(gFiles.size() == 4);
@@ -73,6 +77,16 @@ int main() {
     CHECK(CTRPerfLearning::GetFrameSamples() == 120);
     CHECK(CTRPerfLearning::GetRecommendedBackendCeilingFPS(60) == 120);
     CHECK(CTRPerfLearning::GetRecommendedBackendCeilingFPS(200) == 240);
+    CTRPerfLearning::BeginFitnessProbe();
+    for (unsigned i = 0; i < 30; ++i)
+        CTRPerfLearning::RecordFrame(100, 1000); // settling frames are ignored
+    for (unsigned i = 0; i < 40; ++i)
+        CTRPerfLearning::RecordFrame(600, 1000);
+    CHECK(CTRPerfLearning::EndFitnessProbe(&fitness) && fitness == 60);
+    CTRPerfLearning::BeginFitnessProbe();
+    for (unsigned i = 0; i < 29; ++i)
+        CTRPerfLearning::RecordFrame(100, 1000);
+    CHECK(!CTRPerfLearning::EndFitnessProbe(&fitness));
     CTRPerfLearning::EndGame();
     std::puts("CTR profiler/tuner tests passed (per-game persistence, isolation, zones, tuning)");
     return 0;

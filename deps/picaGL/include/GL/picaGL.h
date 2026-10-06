@@ -21,6 +21,8 @@ void pglSetStereo(int enabled, float separation);
 void pglSetStereoParallax(int enabled);
 /* Reverse the eye disparity so the scene appears in front of the screen. */
 void pglSetStereoPopout(int enabled);
+/* Apply a small normalized viewer-position offset to both stereo eyes. */
+void pglSetStereoHeadOffset(float x, float y);
 
 /* Transferable picaGL shader cache support. Import before pglInit(); export
  * after pglInit(). The supplied buffers must remain valid until pglInit(). */

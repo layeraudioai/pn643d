@@ -1,9 +1,9 @@
 #ifndef SYSCTR_INPUT_CTRINPUT_H
 #define SYSCTR_INPUT_CTRINPUT_H
 
-// The on-screen touch stick is intentionally larger than the default hardware
-// stick overlay; keep its hit radius, rendering and position limits in sync.
-#define CTR_TOUCH_STICK_RADIUS 80
+// Keep the virtual stick comfortably easy to hit on the 3DS touchscreen. Its
+// hit radius, rendering and any configurable position limits share this value.
+#define CTR_TOUCH_STICK_RADIUS 96
 
 // Keep the in-game fast-forward HUD hitbox reserved from the virtual stick.
 #define CTR_FAST_FORWARD_BUTTON_X 236
@@ -12,9 +12,22 @@
 #define CTR_FAST_FORWARD_BUTTON_HEIGHT 28
 
 // Select which N64 controller port receives this console's physical input.
-// Port indices are 0..3 (N64 controllers 1..4).
+// Port indices are 0..3 (N64 controllers 1..4). Assignment 4 is the special
+// GoldenEye-style dual-controller mode: N64 ports 1+2 act as one local player.
+enum ECTRControllerAssignment
+{
+    CTR_CONTROLLER_P1 = 0,
+    CTR_CONTROLLER_P2 = 1,
+    CTR_CONTROLLER_P3 = 2,
+    CTR_CONTROLLER_P4 = 3,
+    CTR_CONTROLLER_P1_P2 = 4,
+    CTR_CONTROLLER_ASSIGNMENT_COUNT = 5,
+};
 unsigned int CTRInput_GetLocalControllerPort();
+unsigned int CTRInput_GetLocalControllerAssignment();
+unsigned int CTRInput_GetLocalControllerPortMask();
 void CTRInput_SetLocalControllerPort(unsigned int port);
+void CTRInput_SetLocalControllerAssignment(unsigned int assignment);
 
 // Per-source destination routing. Sources are Circle Pad, C-Stick and the
 // touch-screen virtual stick; destinations are N64 analog, D-pad or C-buttons.

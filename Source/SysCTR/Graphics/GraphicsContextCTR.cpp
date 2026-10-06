@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Graphics/GraphicsContext.h"
+#include "SysCTR/Utility/CTRHeadTracking.h"
 
 #include <3ds.h>
 #include <GL/picaGL.h>
@@ -162,6 +163,7 @@ void IGraphicsContext::ClearColBufferAndDepth(const c32 & colour)
 
 void IGraphicsContext::BeginFrame()
 {
+	CTRHeadTracking::Update();
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glEnableClientState(GL_COLOR_ARRAY);
 	glEnableClientState(GL_TEXTURE_COORD_ARRAY);

@@ -31,6 +31,7 @@
 #include "UI/RomSelector.h"
 
 #include "SysCTR/Utility/CTRStorage.h"
+#include "SysCTR/Utility/CTRHeadTracking.h"
 #include "Utility/IO.h"
 #include "Utility/Preferences.h"
 #include "Utility/Profiler.h"
@@ -42,6 +43,15 @@
 
 bool isN3DS = false;
 bool shouldQuit = false;
+volatile bool gCTRGraphicsRestorePending = false;
+static aptHookCookie sGraphicsRestoreHook;
+
+static void GraphicsAptHook(APT_HookType type, void *param)
+{
+	(void)param;
+	if (type == APTHOOK_ONRESTORE)
+		gCTRGraphicsRestorePending = true;
+}
 
 EAudioPluginMode enable_audio = APM_ENABLED_ASYNC;
 
@@ -205,8 +215,13 @@ static void Initialize()
 
 
 	pglInit();
+	// picaGL installs its low-level APT hook during pglInit. Keep an app-level
+	// notification too, so renderer-owned cached textures can be discarded
+	// after HOME/software-keyboard applets return.
+	aptHook(&sGraphicsRestoreHook, GraphicsAptHook, NULL);
 	/* Enable real dual-eye rendering; slider state scales stereo separation. */
 	pglSetStereo(true, 0.050f);
+	CTRHeadTracking::Initialize();
 
 	strcpy(gDaedalusExePath, DAEDALUS_CTR_PATH(""));
 	strcpy(g_DaedalusConfig.mSaveDir, DAEDALUS_CTR_PATH("SaveGames/"));
@@ -270,6 +285,7 @@ int main(int argc, char* argv[])
 	CTRMultiplayer::Stop();
 	SaveShaderCache();
 	System_Finalize();
+	CTRHeadTracking::Shutdown();
 	pglExit();
 
 	return 0;

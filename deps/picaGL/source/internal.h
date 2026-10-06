@@ -82,6 +82,7 @@ typedef struct {
 	uint32_t			*colorBuffer, *depthBuffer;
 	uint32_t			*stereoColorBuffer, *stereoDepthBuffer;
 	float				stereoSeparation;
+	float				stereoHeadOffsetX, stereoHeadOffsetY;
 	GLboolean			stereoEnabled;
 	GLboolean			stereoParallax;
 	GLboolean			stereoPopout;
@@ -183,6 +184,7 @@ void _stateInitialize();
 void _stateReset();
 void _stateFlush();
 void _stateDefault();
+void _pglResetCommandBuffer();
 
 /* pica.c */
 void _picaAttribBuffersLocation(const void *location);

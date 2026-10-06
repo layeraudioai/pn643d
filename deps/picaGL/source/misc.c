@@ -1,5 +1,16 @@
 #include "internal.h"
 
+static int nextCommandBuffer = 1;
+
+void _pglResetCommandBuffer()
+{
+	nextCommandBuffer = 1;
+	GPUCMD_SetBuffer(pglState->commandBuffer[0], COMMAND_BUFFER_LENGTH, 0);
+	pglState->geometryBufferOffset = 0;
+	pglState->geometryBufferCurrent = 0;
+	pglState->batchedDraws = 0;
+}
+
 static GLint _GetScreenWidth()
 {
 	if(pglState->display == GFX_TOP)
@@ -87,8 +98,6 @@ void glCullFace(GLenum mode)
 
 void glFlush(void)
 {
-	static int nextCommandBuffer = 1;
-
 	_queueWaitAndClear();
 
 	_picaFinalize(true);

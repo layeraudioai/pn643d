@@ -749,9 +749,11 @@ static void DrawGraphicsPage()
 {
 	SRomPreferences preferences;
 	CPreferences::Get()->GetRomPreferences(g_ROM.mRomID, &preferences);
+#ifndef DAEDALUS_NINTENSTATION643D
 	static const char *const effectNames[NUM_GRAPHICS_EFFECTS] = {
 		"Original", "Pixelize", "Cel shading", "Painting"
 	};
+#endif
 	if (preferences.GraphicsEffect < GFXE_NONE || preferences.GraphicsEffect >= NUM_GRAPHICS_EFFECTS)
 		preferences.GraphicsEffect = GFXE_NONE;
 

@@ -81,6 +81,8 @@ typedef struct {
 	uint32_t			*commandBuffer[2], commandBufferLength;
 	uint32_t			*colorBuffer, *depthBuffer;
 	uint32_t			*stereoColorBuffer, *stereoDepthBuffer;
+	uint16_t			renderWidth, renderHeight;
+	GLboolean			renderBuffersInLinear;
 	float				stereoSeparation;
 	float				stereoHeadOffsetX, stereoHeadOffsetY;
 	GLboolean			stereoEnabled;

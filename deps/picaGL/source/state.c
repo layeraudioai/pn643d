@@ -8,6 +8,107 @@ static const void *g_vertex_shader = NULL;
 static size_t g_vertex_size = 0;
 static const void *g_clear_shader = NULL;
 static size_t g_clear_size = 0;
+static unsigned g_render_width = 400;
+static unsigned g_render_height = 240;
+
+static void release_render_buffers(uint32_t *color, uint32_t *depth,
+	uint32_t *stereoColor, uint32_t *stereoDepth, bool linear)
+{
+	if (linear)
+	{
+		if (color) linearFree(color);
+		if (depth) linearFree(depth);
+		if (stereoColor) linearFree(stereoColor);
+		if (stereoDepth) linearFree(stereoDepth);
+	}
+	else
+	{
+		if (color) vramFree(color);
+		if (depth) vramFree(depth);
+		if (stereoColor) vramFree(stereoColor);
+		if (stereoDepth) vramFree(stereoDepth);
+	}
+}
+
+static bool allocate_render_buffers(unsigned width, unsigned height, bool linear,
+	uint32_t **color, uint32_t **depth, uint32_t **stereoColor, uint32_t **stereoDepth)
+{
+	const size_t size = (size_t)width * height * 4;
+	if (linear)
+	{
+		*color = linearAlloc(size);
+		*depth = linearAlloc(size);
+		*stereoColor = linearAlloc(size);
+		*stereoDepth = linearAlloc(size);
+	}
+	else
+	{
+		*color = vramAlloc(size);
+		*depth = vramAlloc(size);
+		*stereoColor = vramAlloc(size);
+		*stereoDepth = vramAlloc(size);
+	}
+	if (*color && *depth && *stereoColor && *stereoDepth)
+		return true;
+	release_render_buffers(*color, *depth, *stereoColor, *stereoDepth, linear);
+	*color = *depth = *stereoColor = *stereoDepth = NULL;
+	return false;
+}
+
+void pglSetRenderSize(unsigned width, unsigned height)
+{
+	/* libctru's transfer unit exposes native and 2x2 resolve modes. */
+	const bool supersample = width > 400 || height > 240;
+	const unsigned targetWidth = supersample ? 800 : 400;
+	const unsigned targetHeight = supersample ? 480 : 240;
+	g_render_width = targetWidth;
+	g_render_height = targetHeight;
+	if (!pglState || (pglState->renderWidth == targetWidth &&
+		pglState->renderHeight == targetHeight))
+		return;
+
+	/* Preferences load after pglInit during system startup. Reconfigure here
+	 * while no game frame is in flight, so persisted dimensions take effect. */
+	glFinish();
+	uint32_t *color = NULL, *depth = NULL, *stereoColor = NULL, *stereoDepth = NULL;
+	if (!allocate_render_buffers(targetWidth, targetHeight, supersample,
+		&color, &depth, &stereoColor, &stereoDepth))
+	{
+		/* Keep the old buffers valid if a high-resolution allocation fails. */
+		g_render_width = pglState->renderWidth;
+		g_render_height = pglState->renderHeight;
+		return;
+	}
+
+	uint32_t *oldColor = pglState->colorBuffer;
+	uint32_t *oldDepth = pglState->depthBuffer;
+	uint32_t *oldStereoColor = pglState->stereoColorBuffer;
+	uint32_t *oldStereoDepth = pglState->stereoDepthBuffer;
+	bool oldLinear = pglState->renderBuffersInLinear;
+	pglState->colorBuffer = color;
+	pglState->depthBuffer = depth;
+	pglState->stereoColorBuffer = stereoColor;
+	pglState->stereoDepthBuffer = stereoDepth;
+	pglState->renderWidth = (uint16_t)targetWidth;
+	pglState->renderHeight = (uint16_t)targetHeight;
+	pglState->renderBuffersInLinear = supersample ? GL_TRUE : GL_FALSE;
+	pglState->stereoRightEye = GL_FALSE;
+	_picaRenderBuffer(pglState->colorBuffer, pglState->depthBuffer);
+	glViewport(0, 0, targetWidth, targetHeight);
+	glScissor(0, 0, targetWidth, targetHeight);
+	pglState->changes = STATE_ALL_CHANGE;
+	release_render_buffers(oldColor, oldDepth, oldStereoColor, oldStereoDepth, oldLinear);
+}
+
+unsigned pglGetRenderWidth(void)
+{
+	return pglState ? pglState->renderWidth : g_render_width;
+}
+
+unsigned pglGetRenderHeight(void)
+{
+	return pglState ? pglState->renderHeight : g_render_height;
+}
 
 void pglSetShaderCache(const void *vertex_shader, size_t vertex_size,
                        const void *clear_shader, size_t clear_size)
@@ -36,11 +137,40 @@ void _stateInitialize()
 	pglState->geometryBuffer[1] = linearAlloc(GEOMETRY_BUFFER_SIZE);
 
 	pglState->geometryBufferCurrent = 0;
+	pglState->renderWidth = (uint16_t)g_render_width;
+	pglState->renderHeight = (uint16_t)g_render_height;
+	pglState->renderBuffersInLinear = (g_render_width > 400 || g_render_height > 240);
 
-	pglState->colorBuffer = vramAlloc(400 * 240 * 4); // Left-eye RGBA8 color buffer
-	pglState->depthBuffer = vramAlloc(400 * 240 * 4); // Left-eye 24-bit depth + 8-bit stencil
-	pglState->stereoColorBuffer = vramAlloc(400 * 240 * 4);
-	pglState->stereoDepthBuffer = vramAlloc(400 * 240 * 4);
+	if (pglState->renderBuffersInLinear)
+	{
+		const size_t renderBufferSize = (size_t)g_render_width * g_render_height * 4;
+		pglState->colorBuffer = linearAlloc(renderBufferSize);
+		pglState->depthBuffer = linearAlloc(renderBufferSize);
+		pglState->stereoColorBuffer = linearAlloc(renderBufferSize);
+		pglState->stereoDepthBuffer = linearAlloc(renderBufferSize);
+		if (!pglState->colorBuffer || !pglState->depthBuffer ||
+			!pglState->stereoColorBuffer || !pglState->stereoDepthBuffer)
+		{
+			if (pglState->colorBuffer) linearFree(pglState->colorBuffer);
+			if (pglState->depthBuffer) linearFree(pglState->depthBuffer);
+			if (pglState->stereoColorBuffer) linearFree(pglState->stereoColorBuffer);
+			if (pglState->stereoDepthBuffer) linearFree(pglState->stereoDepthBuffer);
+			pglState->colorBuffer = pglState->depthBuffer = NULL;
+			pglState->stereoColorBuffer = pglState->stereoDepthBuffer = NULL;
+			pglState->renderWidth = 400;
+			pglState->renderHeight = 240;
+			pglState->renderBuffersInLinear = GL_FALSE;
+		}
+	}
+	if (!pglState->renderBuffersInLinear)
+	{
+		pglState->colorBuffer = vramAlloc(400 * 240 * 4);
+		pglState->depthBuffer = vramAlloc(400 * 240 * 4);
+		pglState->stereoColorBuffer = vramAlloc(400 * 240 * 4);
+		pglState->stereoDepthBuffer = vramAlloc(400 * 240 * 4);
+	}
+	g_render_width = pglState->renderWidth;
+	g_render_height = pglState->renderHeight;
 	pglState->stereoSeparation = 0.025f;
 	pglState->stereoHeadOffsetX = 0.0f;
 	pglState->stereoHeadOffsetY = 0.0f;
@@ -97,8 +227,8 @@ void _stateDefault()
 	pglState->depthmapFar 	= 0.0f;
 	pglState->polygonOffset = 0.0f;
 
-	glViewport(0, 0, 400, 240);
-	glScissor(0, 0, 400, 240);
+	glViewport(0, 0, pglState->renderWidth, pglState->renderHeight);
+	glScissor(0, 0, pglState->renderWidth, pglState->renderHeight);
 
 	glDisable(GL_CULL_FACE);
 	glCullFace(GL_BACK);

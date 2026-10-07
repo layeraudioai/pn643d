@@ -16,7 +16,7 @@ void _picaRenderBuffer(uint32_t *colorBuffer, uint32_t *depthBuffer)
 
 	param[0] = osConvertVirtToPhys(depthBuffer) >> 3;
 	param[1] = osConvertVirtToPhys(colorBuffer) >> 3;
-	param[2] = 0x01000000 | (((u32)(400 - 1) & 0xFFF) << 12) | (240 & 0xFFF);
+	param[2] = 0x01000000 | (((u32)(pglState->renderWidth - 1) & 0xFFF) << 12) | (pglState->renderHeight & 0xFFF);
 	GPUCMD_AddIncrementalWrites(GPUREG_DEPTHBUFFER_LOC, param, 3);
 
 	GPUCMD_AddWrite(GPUREG_RENDERBUF_DIM, param[2]);

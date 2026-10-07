@@ -94,9 +94,15 @@ static void _pglTransferToFramebuffer(uint32_t *source_buffer,
 {
 	if (pglState->display == GFX_TOP)
 	{
-		GX_DisplayTransfer((u32*)source_buffer, GX_BUFFER_DIM(240, 400),
-			output_framebuffer, GX_BUFFER_DIM(240, 400),
-			GX_TRANSFER_OUT_FORMAT(output_format));
+		if (pglState->renderWidth > 400 || pglState->renderHeight > 240)
+			GX_DisplayTransfer((u32*)source_buffer,
+				GX_BUFFER_DIM(pglState->renderHeight, pglState->renderWidth),
+				output_framebuffer, GX_BUFFER_DIM(240, 400),
+				GX_TRANSFER_OUT_FORMAT(output_format) | GX_TRANSFER_SCALE_XY);
+		else
+			GX_DisplayTransfer((u32*)source_buffer, GX_BUFFER_DIM(240, 400),
+				output_framebuffer, GX_BUFFER_DIM(240, 400),
+				GX_TRANSFER_OUT_FORMAT(output_format));
 	}
 	else
 	{

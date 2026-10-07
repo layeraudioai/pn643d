@@ -8,6 +8,11 @@
 extern "C" {
 #endif
 
+/* Configure the render target before pglInit. Requests above 400x240 enable
+ * a 2x2 off-screen target, resolved to the display with GX anti-aliasing. */
+void pglSetRenderSize(unsigned width, unsigned height);
+unsigned pglGetRenderWidth(void);
+unsigned pglGetRenderHeight(void);
 void pglInit();
 void pglExit();
 void pglSwapBuffers();

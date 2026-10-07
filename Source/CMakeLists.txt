@@ -21,7 +21,10 @@ option(DAEDALUS_DOWNLOADPLAY "Build a ROM-specific Download Play child CIA" OFF)
 option(DAEDALUS_MINIMAL_EMULATOR "Trim touchscreen UI support; keep only the analog-mapped virtual stick" OFF)
 option(DAEDALUS_NINTENSTATION643D "Build the minimal Nintenstation643D profile" OFF)
 if(DAEDALUS_NINTENSTATION643D)
+	# This profile is deliberately cumulative: it must never silently degrade
+	# into a normal or merely-minimal build when configured by romconvert.
 	set(DAEDALUS_MINIMAL_EMULATOR ON)
+	message(STATUS "Nintenstation643D profile enabled: minimal build, locked Pixelize, affine texture warp, forced async audio")
 endif()
 # CMAKE_C_FLAGS in the devkitARM toolchain requests -O3, but the target-level
 # -O2 used to override it. Expose the release choice so ARM11 builds can be

@@ -63,7 +63,13 @@ static void asyncProcess(void *arg)
 //*****************************************************************************
 //
 //*****************************************************************************
+#ifdef DAEDALUS_NINTENSTATION643D
+// This profile has no audio-off mode: make the plugin active from process
+// startup, even before ROM-specific preferences have been loaded.
+EAudioPluginMode gAudioPluginEnabled( APM_ENABLED_ASYNC );
+#else
 EAudioPluginMode gAudioPluginEnabled( APM_DISABLED );
+#endif
 //bool gAdaptFrequency( false );
 
 //*****************************************************************************
@@ -148,6 +154,9 @@ void	CAudioPluginCTR::DacrateChanged( int SystemType )
 //*****************************************************************************
 void	CAudioPluginCTR::LenChanged()
 {
+#ifdef DAEDALUS_NINTENSTATION643D
+	gAudioPluginEnabled = APM_ENABLED_ASYNC;
+#endif
 	if( gAudioPluginEnabled > APM_DISABLED )
 	{
 		//mAudioOutput->SetAdaptFrequency( gAdaptFrequency );
@@ -176,6 +185,9 @@ u32		CAudioPluginCTR::ReadLength()
 //*****************************************************************************
 EProcessResult	CAudioPluginCTR::ProcessAList()
 {
+#ifdef DAEDALUS_NINTENSTATION643D
+	gAudioPluginEnabled = APM_ENABLED_ASYNC;
+#endif
 	Memory_SP_SetRegisterBits(SP_STATUS_REG, SP_STATUS_HALT);
 
 	EProcessResult	result( PR_NOT_STARTED );

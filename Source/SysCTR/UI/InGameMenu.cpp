@@ -1413,6 +1413,13 @@ static void DrawMainPage()
 		return;
 	}
 
+#if defined(DAEDALUS_MINIMAL_EMULATOR) || defined(DAEDALUS_NINTENSTATION643D)
+	// Minimal profiles keep the essential in-game actions reachable while
+	// hiding configuration pages and graphics effects.
+	if (UI::DrawButton(10, 28, 300, 48, "Save State")) currentPage = 1;
+	if (UI::DrawButton(10, 88, 300, 48, "Load State")) currentPage = 2;
+	if (UI::DrawButton(10, 148, 300, 48, "Multiplayer")) currentPage = 5;
+#else
 	if(UI::DrawButton(10,  22, 145, 48, "Save State")) currentPage = 1;
 	if(UI::DrawButton(165, 22, 145, 48, "Load State")) currentPage = 2;
 	if(UI::DrawButton(10,  76, 145, 48, "Multiplayer")) currentPage = 5;
@@ -1420,6 +1427,7 @@ static void DrawMainPage()
 	if(UI::DrawButton(10,  130, 145, 48, "Controller")) currentPage = 10;
 	if(UI::DrawButton(165, 130, 145, 48, "Close ROM")) currentPage = 3;
 	if(UI::DrawButton(10, 184, 300, 40, "Graphics effects")) currentPage = 12;
+#endif
 }
 
 void UI::DrawInGameMenu()

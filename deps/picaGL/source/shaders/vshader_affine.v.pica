@@ -1,11 +1,11 @@
 ; Nintenstation643D shader with a restrained affine texture effect.
-; Keep 35% of projected clip-w variation to soften texture warping while
+; Keep 15% of projected clip-w variation to soften texture warping while
 ; preserving the original projected vertex positions and depth.
 
 .fvec projection[4]
 
 .constf myconst(0.0, 1.0, -1.0, 0.00392156862)
-.constf affine_strength(0.35, 0.65, 0.0, 0.0)
+.constf affine_strength(0.15, 0.85, 0.0, 0.0)
 .alias  ones myconst.yyyy
 .alias  rgba8_to_float myconst.wwww
 .alias  affine_mul affine_strength.xxxx
@@ -31,13 +31,20 @@
 	dp4 r1.z, projection[2], r0
 	dp4 r1.w, projection[3], r0
 
-	; Soften the perspective denominator instead of forcing it to 1.0.
-	; outW = 0.35 * clipW + 0.65 blends affine and perspective-correct mapping.
-	; Normalize by original clipW, then restore softened W so screen position
-	; and depth remain unchanged while texture interpolation warps less.
+	; Reduce perspective correction by blending clipW with signed sqrt(abs(clipW)).
+	; Keeping the same sign and zero crossing avoids turning behind-camera vertices
+	; into visible ones during camera rotation (the old additive bias did that).
+	; The 15% blend is intentionally subtle; clip-space positions stay equivalent.
+	max r2.x, r1.w, -r1.w
+	rsq r2.y, r2.x
+	rcp r2.y, r2.y
+	rcp r2.z, r2.x
+	mul r2.z, r1.w, r2.z
+	mul r2.y, r2.y, r2.z
+	mul r2.z, affine_mul, r2.y
+	mul r2.y, affine_bias, r1.w
+	add r2.x, r2.z, r2.y
 	rcp r2.y, r1.w
-	mul r2.x, affine_mul, r1.w
-	add r2.x, affine_bias, r2.x
 	mul r1.xyz, r1, r2.yyyy
 	mul outpos.xyz, r1, r2.xxxx
 	mov outpos.w, r2.x

@@ -131,6 +131,11 @@ struct SGlobalPreferences
 	bool						TVEnable;
 	bool						TVLaced;
 	ETVType						TVType;
+#if defined(DAEDALUS_CTR) && !defined(DAEDALUS_MINIMAL_EMULATOR)
+	// User-selected logical render canvas; the CTR renderer maps it to the physical display.
+	u32							CTRRenderWidth;
+	u32							CTRRenderHeight;
+#endif
 
 	SGlobalPreferences();
 

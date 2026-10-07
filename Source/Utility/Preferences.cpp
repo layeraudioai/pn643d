@@ -203,6 +203,14 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 
 		BOOL_SETTING( gGlobalPreferences, TVEnable, defaults );
 		BOOL_SETTING( gGlobalPreferences, TVLaced, defaults );
+#if defined(DAEDALUS_CTR) && !defined(DAEDALUS_MINIMAL_EMULATOR)
+		INT_SETTING( gGlobalPreferences, CTRRenderWidth, defaults );
+		INT_SETTING( gGlobalPreferences, CTRRenderHeight, defaults );
+		if (gGlobalPreferences.CTRRenderWidth < 64 || gGlobalPreferences.CTRRenderWidth > 800)
+			gGlobalPreferences.CTRRenderWidth = defaults.CTRRenderWidth;
+		if (gGlobalPreferences.CTRRenderHeight < 64 || gGlobalPreferences.CTRRenderHeight > 480)
+			gGlobalPreferences.CTRRenderHeight = defaults.CTRRenderHeight;
+#endif
 		if( section->FindProperty( "TVType", &property ) )
 		{
 			u32	value( property->GetIntValue( defaults.TVType ) );
@@ -484,6 +492,10 @@ void IPreferences::Commit()
 		OUTPUT_BOOL( gGlobalPreferences, TVEnable, defaults );
 		OUTPUT_BOOL( gGlobalPreferences, TVLaced, defaults );
 		OUTPUT_INT( gGlobalPreferences, TVType, defaults );
+#if defined(DAEDALUS_CTR) && !defined(DAEDALUS_MINIMAL_EMULATOR)
+		OUTPUT_INT( gGlobalPreferences, CTRRenderWidth, defaults );
+		OUTPUT_INT( gGlobalPreferences, CTRRenderHeight, defaults );
+#endif
 		fprintf( fh, "\n\n" ); //Spacer to go before Rom Settings
 
 		for ( PreferencesMap::const_iterator it = mPreferences.begin(); it != mPreferences.end(); ++it )
@@ -547,6 +559,10 @@ SGlobalPreferences::SGlobalPreferences()
 ,	TVEnable( false )
 ,	TVLaced( false )
 ,	TVType( TT_4_3 )
+#if defined(DAEDALUS_CTR) && !defined(DAEDALUS_MINIMAL_EMULATOR)
+,	CTRRenderWidth( 400 )
+,	CTRRenderHeight( 240 )
+#endif
 {
 }
 
@@ -682,7 +698,13 @@ void SRomPreferences::Apply() const
 	CTRInput_SetTouchStickPosition(CTRTouchStickX, CTRTouchStickY);
 #endif
 	gCheatsEnabled              = g_ROM.settings.CheatsEnabled || CheatsEnabled;
+#ifdef DAEDALUS_NINTENSTATION643D
+	// Keep sound enabled in this profile even if a prior ROM preference file
+	// was saved with audio disabled.
+	gAudioPluginEnabled         = APM_ENABLED_ASYNC;
+#else
 	gAudioPluginEnabled         = AudioEnabled;
+#endif
 //	gAdaptFrequency             = AudioAdaptFrequency;
 	gControllerIndex            = ControllerIndex;							//Used during ROM initialization
 #ifdef DAEDALUS_PSP

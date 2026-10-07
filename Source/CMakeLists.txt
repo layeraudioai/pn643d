@@ -24,7 +24,7 @@ if(DAEDALUS_NINTENSTATION643D)
 	# This profile is deliberately cumulative: it must never silently degrade
 	# into a normal or merely-minimal build when configured by romconvert.
 	set(DAEDALUS_MINIMAL_EMULATOR ON)
-	message(STATUS "Nintenstation643D profile enabled: minimal build, locked Pixelize, affine texture warp, forced async audio")
+	message(STATUS "Nintenstation643D profile enabled: minimal build, locked Pixelize, softened affine texture mapping, forced async audio")
 endif()
 # CMAKE_C_FLAGS in the devkitARM toolchain requests -O3, but the target-level
 # -O2 used to override it. Expose the release choice so ARM11 builds can be
@@ -192,10 +192,9 @@ if (CTR_RELEASE)
 		png
 	)
 
-	# The secret Nintenstation643D profile uses a dedicated PICA vertex shader
-	# that emits clip-space w=1, making texture coordinates affine in screen
-	# space. Compile and embed it only in that build profile; normal releases
-	# continue to use picaGL's standard perspective-correct shader.
+	# The Nintenstation643D profile uses a dedicated PICA vertex shader with
+	# softened affine texture interpolation. Compile and embed it only in that
+	# profile; normal releases keep picaGL's standard perspective-correct shader.
 	set(DAEDALUS_PROFILE_SHADER_SOURCE "")
 	if(DAEDALUS_NINTENSTATION643D)
 		# Prefer a project-local assembler so the build can use Tools/picasso.exe

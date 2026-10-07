@@ -30,6 +30,24 @@ extern void HandleEndOfFrame();
 
 uint8_t aspectRatio = RATIO_5_3;
 
+u32 CTRGetRenderWidth()
+{
+#if defined(DAEDALUS_MINIMAL_EMULATOR)
+	return CTR_GAME_VIEW_WIDTH;
+#else
+	return gGlobalPreferences.CTRRenderWidth;
+#endif
+}
+
+u32 CTRGetRenderHeight()
+{
+#if defined(DAEDALUS_MINIMAL_EMULATOR)
+	return CTR_GAME_VIEW_HEIGHT;
+#else
+	return gGlobalPreferences.CTRRenderHeight;
+#endif
+}
+
 uint32_t  gVertexCount = 0;
 float    *gVertexBuffer;
 uint32_t *gColorBuffer;
@@ -214,17 +232,8 @@ void IGraphicsContext::SetDebugScreenTarget(ETargetSurface buffer)
 
 void IGraphicsContext::ViewportType(u32 *d_width, u32 *d_height) const
 {
-	switch(aspectRatio)
-	{
-		case RATIO_5_3:
-			*d_width = SCR_WIDTH;
-			*d_height = SCR_HEIGHT;
-			break;
-		default:
-			*d_width = 320;
-			*d_height = 240;
-			break;
-	}
+	*d_width = CTRGetRenderWidth();
+	*d_height = CTRGetRenderHeight();
 }
 
 void IGraphicsContext::SaveScreenshot(const char* filename, s32 x, s32 y, u32 width, u32 height)
@@ -241,6 +250,6 @@ void IGraphicsContext::StoreSaveScreenData()
 
 void IGraphicsContext::GetScreenSize(u32 * p_width, u32 * p_height) const
 {
-	*p_width = SCR_WIDTH;
-	*p_height = SCR_HEIGHT;
+	*p_width = CTRGetRenderWidth();
+	*p_height = CTRGetRenderHeight();
 }

@@ -27,11 +27,10 @@ static void UIAptHook(APT_HookType type, void *param)
 
 static uint32_t _keysDown = 0;
 static uint32_t _keysHeld = 0;
-#ifndef DAEDALUS_MINIMAL_EMULATOR
 // Sample the touchscreen once per UI frame; DrawButton/DrawToggle are called
-// many times while rendering one page.
+// many times while rendering one page. Minimal builds retain touch UI actions;
+// only the optional settings pages are removed from their menus.
 static touchPosition sTouchPosition = {};
-#endif
 
 static uint32_t GetStringWidth(const char* text)
 {
@@ -131,9 +130,7 @@ void UI::RestoreRenderState()
 	// replay a touch on whatever menu control is drawn after a modal dialog.
 	_keysDown = heldKeyMask & ~_keysHeld;
 	_keysHeld = heldKeyMask;
-#ifndef DAEDALUS_MINIMAL_EMULATOR
 	hidTouchRead(&sTouchPosition);
-#endif
 }
 
 void UI::ClearSecondScreen(unsigned screen)
@@ -179,14 +176,12 @@ bool UI::DrawButton(float x, float y, float width, float height, const char *tex
 
 	UI::DrawText(tX, tY, text);
 
-#ifndef DAEDALUS_MINIMAL_EMULATOR
-	if(_keysDown & KEY_TOUCH)
+	if (_keysDown & KEY_TOUCH)
 	{
-		if(sTouchPosition.px > x && sTouchPosition.px < (x + width) &&
+		if (sTouchPosition.px > x && sTouchPosition.px < (x + width) &&
 			sTouchPosition.py > y && sTouchPosition.py < (y + height))
 			return true;
 	}
-#endif
 
 	return false;
 }
@@ -214,14 +209,12 @@ bool UI::DrawToggle(float x, float y, float width, float height, const char *tex
 
 	UI::DrawText(tX, tY, text);
 
-#ifndef DAEDALUS_MINIMAL_EMULATOR
-	if(_keysDown & KEY_TOUCH)
+	if (_keysDown & KEY_TOUCH)
 	{
-		if(sTouchPosition.px > x && sTouchPosition.px < (x + width) &&
+		if (sTouchPosition.px > x && sTouchPosition.px < (x + width) &&
 			sTouchPosition.py > y && sTouchPosition.py < (y + height))
 			return true;
 	}
-#endif
 
 	return false;
 }

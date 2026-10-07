@@ -218,12 +218,20 @@ static void Initialize()
 	//pglSetStereo(true, 0.020f);
 	LoadShaderCache();
 #ifdef DAEDALUS_NINTENSTATION643D
-	// This profile's vertex shader divides projected positions by clip w and
-	// emits w=1. That keeps projected geometry intact but forces affine,
-	// screen-linear texture-coordinate interpolation. The shader is embedded
-	// by CMake only for this profile and stays resident through pglInit().
+	// This profile embeds a softened-affine shader. It retains only 35% of
+	// clip-w variation for texture interpolation while preserving projected
+	// vertex positions, avoiding the severe full-affine warp. CMake embeds it
+	// only for this profile; it stays resident through pglInit().
 	pglSetShaderCache(nintenstation_affine_shader,
 		nintenstation_affine_shader_size, NULL, 0);
+#endif
+#if !defined(DAEDALUS_MINIMAL_EMULATOR)
+	// picaGL accepts native dimensions or a 2x2 high-resolution render target;
+	// pglSwapBuffers resolves the latter to 400x240 before display scanout.
+	pglSetRenderSize(gGlobalPreferences.CTRRenderWidth,
+		gGlobalPreferences.CTRRenderHeight);
+#else
+	pglSetRenderSize(400, 240);
 #endif
 
 	pglInit();

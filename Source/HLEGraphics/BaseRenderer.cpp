@@ -26,6 +26,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "Graphics/NativeTexture.h"
 #include "Graphics/GraphicsContext.h"
+#ifdef DAEDALUS_CTR
+#include "SysCTR/Graphics/CTRRenderConfig.h"
+#endif
 
 #include "Math/MathUtil.h"
 
@@ -42,6 +45,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "Utility/Profiler.h"
 #include "Utility/AuxFunc.h"
+
+#ifdef DAEDALUS_CTR
+// BaseRenderer works in the profile's logical canvas dimensions. Scale its
+// raster coordinates into the actual 400x240 PICA framebuffer so sub-native
+// profiles fill the top screen instead of leaving a centered border.
+static inline s32 ScaleCTRToOutput(s32 value, s32 logical_extent, s32 output_extent)
+{
+	return static_cast<s32>(roundf(static_cast<f32>(value) * output_extent / logical_extent));
+}
+#endif
 
 #include <vector>
 
@@ -435,7 +448,13 @@ void BaseRenderer::UpdateViewport()
 
 	sceGuOffset(vx - (vp_w/2),vy - (vp_h/2));
 	sceGuViewport(vx + vp_x, vy + vp_y, vp_w, vp_h);
-#elif defined(DAEDALUS_GL) || defined(DAEDALUS_CTR)
+#elif defined(DAEDALUS_CTR)
+	glViewport(
+		ScaleCTRToOutput(static_cast<s32>(mN64ToScreenTranslate.x + vp_x), CTRGetRenderWidth(), pglGetRenderWidth()),
+		ScaleCTRToOutput(static_cast<s32>(mScreenHeight - (vp_h + vp_y)), CTRGetRenderHeight(), pglGetRenderHeight()),
+		ScaleCTRToOutput(vp_w, CTRGetRenderWidth(), pglGetRenderWidth()),
+		ScaleCTRToOutput(vp_h, CTRGetRenderHeight(), pglGetRenderHeight()));
+#elif defined(DAEDALUS_GL)
 	glViewport(mN64ToScreenTranslate.x + vp_x, (s32)mScreenHeight - (vp_h + vp_y), vp_w, vp_h);
 #else
 #ifdef DAEDALUS_DEBUG_CONSOLE
@@ -2086,7 +2105,16 @@ void BaseRenderer::SetScissor( u32 x0, u32 y0, u32 x1, u32 y1 )
 	// N.B. Think the arguments are x0,y0,x1,y1, and not x,y,w,h as the docs describe
 	//printf("%d %d %d %d\n", s32(screen_tl.x),s32(screen_tl.y),s32(screen_br.x),s32(screen_br.y));
 	sceGuScissor( l, t, r, b );
-#elif defined(DAEDALUS_GL) || defined(DAEDALUS_CTR)
+#elif defined(DAEDALUS_CTR)
+	// NB: OpenGL is x,y,w,h. Errors if width or height is negative, so clamp this.
+	s32 w {Max<s32>( r - l, 0 )};
+	s32 h {Max<s32>( b - t, 0 )};
+	glScissor(
+		ScaleCTRToOutput(static_cast<s32>(mN64ToScreenTranslate.x + l), CTRGetRenderWidth(), pglGetRenderWidth()),
+		ScaleCTRToOutput(static_cast<s32>(mScreenHeight - (t + h)), CTRGetRenderHeight(), pglGetRenderHeight()),
+		ScaleCTRToOutput(w, CTRGetRenderWidth(), pglGetRenderWidth()),
+		ScaleCTRToOutput(h, CTRGetRenderHeight(), pglGetRenderHeight()));
+#elif defined(DAEDALUS_GL)
 	// NB: OpenGL is x,y,w,h. Errors if width or height is negative, so clamp this.
 	s32 w {Max<s32>( r - l, 0 )};
 	s32 h {Max<s32>( b - t, 0 )};

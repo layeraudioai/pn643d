@@ -416,6 +416,11 @@ static void DrawOptionsPage()
 	if (optionsSubpage == 0)
 	{
 		char label[48];
+#ifdef DAEDALUS_NINTENSTATION643D
+		preferences.AudioEnabled = APM_ENABLED_ASYNC;
+		snprintf(label, sizeof(label), "Audio: Async (locked)");
+		UI::DrawButton(10, 22, 145, 32, label);
+#else
 		switch (preferences.AudioEnabled)
 		{
 			case APM_DISABLED:     snprintf(label, sizeof(label), "Audio: Off"); break;
@@ -424,6 +429,7 @@ static void DrawOptionsPage()
 		}
 		if (UI::DrawButton(10, 22, 145, 32, label))
 			preferences.AudioEnabled = static_cast<EAudioPluginMode>((preferences.AudioEnabled + 1) % 3);
+#endif
 
 		snprintf(label, sizeof(label), "Video sync: %s", preferences.VideoRateMatch ? "Sync" : "Async");
 		if (UI::DrawToggle(165, 22, 145, 32, label, preferences.VideoRateMatch))
@@ -697,7 +703,37 @@ static void DrawOptionsPage()
 		UI::DrawText(12, 64, "Larger cache may reduce ROM loading stutter.");
 		UI::DrawText(12, 82, "Uses more RAM; applies on the next ROM boot.");
 		UI::DrawText(12, 100, "If RAM is tight, smaller cache sizes are tried.");
-		UI::DrawText(12, 134, "Frame/audio sync and FPS controls are on page 1.");
+#if defined(DAEDALUS_CTR) && !defined(DAEDALUS_MINIMAL_EMULATOR)
+		char renderLabel[48];
+		snprintf(renderLabel, sizeof(renderLabel), "Render width: %u", (unsigned int)gGlobalPreferences.CTRRenderWidth);
+		if (UI::DrawButton(10, 133, 145, 32, renderLabel))
+		{
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%u", (unsigned int)gGlobalPreferences.CTRRenderWidth);
+			if (PromptNumericText("Render width (64-800 pixels)", valueText, valueText, sizeof(valueText), false))
+			{
+				char *end = NULL;
+				unsigned long value = strtoul(valueText, &end, 10);
+				if (end != valueText && *end == '\0' && value >= 64 && value <= 800)
+					gGlobalPreferences.CTRRenderWidth = (u32)value;
+			}
+		}
+		snprintf(renderLabel, sizeof(renderLabel), "Render height: %u", (unsigned int)gGlobalPreferences.CTRRenderHeight);
+		if (UI::DrawButton(165, 133, 145, 32, renderLabel))
+		{
+			char valueText[16];
+			snprintf(valueText, sizeof(valueText), "%u", (unsigned int)gGlobalPreferences.CTRRenderHeight);
+			if (PromptNumericText("Render height (64-480 pixels)", valueText, valueText, sizeof(valueText), false))
+			{
+				char *end = NULL;
+				unsigned long value = strtoul(valueText, &end, 10);
+				if (end != valueText && *end == '\0' && value >= 64 && value <= 480)
+					gGlobalPreferences.CTRRenderHeight = (u32)value;
+			}
+		}
+		UI::DrawText(12, 174, "Output stays 400x240; >400x240 enables 2x SSAA.");
+		UI::DrawText(12, 190, "Uses 800x480 off-screen buffers; restart ROM.");
+#endif
 	}
 #if !defined(DAEDALUS_MINIMAL_EMULATOR) && !defined(DAEDALUS_DOWNLOADPLAY)
 	else if (optionsSubpage == 6)

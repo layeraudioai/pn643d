@@ -215,7 +215,7 @@ void RendererCTR::RestoreRenderStates()
 	pglSelectScreen(GFX_TOP, GFX_LEFT);
 	// A system applet (notably the software keyboard) can change the viewport.
 	// Explicitly restore the game's full top-screen target on the next frame.
-	glViewport(CTR_GAME_VIEW_X, CTR_GAME_VIEW_Y, CTR_GAME_VIEW_WIDTH, CTR_GAME_VIEW_HEIGHT);
+	glViewport(0, 0, pglGetRenderWidth(), pglGetRenderHeight());
 	
 	// Initialise the device to our default state
 	glEnable(GL_TEXTURE_2D);
@@ -224,7 +224,7 @@ void RendererCTR::RestoreRenderStates()
 	glDisable(GL_FOG);
 	glFogi(GL_FOG_MODE, GL_LINEAR);
 
-	glScissor(CTR_GAME_VIEW_X, CTR_GAME_VIEW_Y, CTR_GAME_VIEW_WIDTH, CTR_GAME_VIEW_HEIGHT);
+	glScissor(0, 0, pglGetRenderWidth(), pglGetRenderHeight());
 	glEnable(GL_SCISSOR_TEST);
 	
 	glBlendEquation(GL_FUNC_ADD);

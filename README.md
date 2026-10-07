@@ -9,19 +9,36 @@ EXPERIMENTAL: there is a boot.firm in the repo/source if you are feeling ballzin
 Credits
 --
 -cmf028: Major contributer of the ARM DynaRec code 
+-
 -rinnegatamante, xerpi: Porting DaedalusX64 to the Playstation Vita 
+-
 -TheFloW: Contributions to the DynaRec code 
+-
 -kreationz, salvy6735, Corn, Chilly Willy: Original DaedalusX64 code 
+-
 -Wally: Optimizations, improvements and ports 
+-
 -z2442: Compilation improvements and updating, optimizations 
+-
 -mrneo240: Optimizations, compilation help 
+-
 -TheMrIron2: Optimizations, wiki maintenance
+-
 -MrHuu: Default DaedalusX64 Icon, banner 
+-
 -MasterFeizz: 3DS Port of DaedalusX64, PicaGL, and imgui-picagl 
+-
 -FFMpeg: for FFMpeg 
+-
 -Google: for Gemini 
+-
 -OpenAI: for GPT Luna 
+-
 -CodingFleet: for AI chat services 
+-
 -UnZip: for UnZip.exe 
+-
 -lz4: for lz4.exe and more lz4 usage stuff
+-
 -Devkitpro: for devkitpro and picasso
+-

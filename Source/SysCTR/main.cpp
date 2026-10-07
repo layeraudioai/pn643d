@@ -156,6 +156,11 @@ static void CheckDSPFirmware()
 	}
 }
 
+#ifdef DAEDALUS_NINTENSTATION643D
+extern "C" const unsigned char nintenstation_affine_shader[];
+extern "C" const unsigned int nintenstation_affine_shader_size;
+#endif
+
 static void LoadShaderCache()
 {
     // Diagnostic: disable all shader-cache loading (OS ExtData and SD-card
@@ -212,7 +217,14 @@ static void Initialize()
 	gfxSet3D(true);
 	//pglSetStereo(true, 0.020f);
 	LoadShaderCache();
-
+#ifdef DAEDALUS_NINTENSTATION643D
+	// This profile's vertex shader divides projected positions by clip w and
+	// emits w=1. That keeps projected geometry intact but forces affine,
+	// screen-linear texture-coordinate interpolation. The shader is embedded
+	// by CMake only for this profile and stays resident through pglInit().
+	pglSetShaderCache(nintenstation_affine_shader,
+		nintenstation_affine_shader_size, NULL, 0);
+#endif
 
 	pglInit();
 	// picaGL installs its low-level APT hook during pglInit. Keep an app-level

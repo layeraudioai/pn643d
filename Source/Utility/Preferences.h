@@ -114,6 +114,8 @@ struct SGlobalPreferences
 #endif
 	bool						BatteryWarning;
 	bool						LargeROMBuffer;
+	// Streamed ROM cache size in MiB (1, 2, or 4); applied at next ROM load.
+	u32							ROMStreamingCacheMB;
 	bool						ForceLinearFilter;
 	bool						RumblePak;
 

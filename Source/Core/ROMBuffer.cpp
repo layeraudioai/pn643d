@@ -39,6 +39,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Utility/Stream.h"
 #include "Utility/IO.h"
 
+#include <new>
+
 #ifdef DAEDALUS_CTR
 extern bool isN3DS;
 #endif
@@ -204,11 +206,15 @@ bool RomBuffer::Open()
 
 	sRomSize = p_rom_file->GetRomSize();
 
-	if( ShouldLoadAsFixed( sRomSize ) )
+	const bool should_load_fixed = ShouldLoadAsFixed( sRomSize );
+	const u32 size_aligned = AlignPow2( sRomSize, 4 );	// Keep ROM image word-aligned
+	u8 *p_bytes = should_load_fixed ?
+		(u8*)CROMFileMemory::Get()->Alloc( size_aligned ) : nullptr;
+
+	// If the contiguous allocation fails, transparently fall back to the
+	// existing bounded ROM-file cache instead of dereferencing a null buffer.
+	if (p_bytes != nullptr)
 	{
-		// Now, allocate memory for rom - round up to a 4 byte boundry
-		u32		size_aligned( AlignPow2( sRomSize, 4 ) );
-		u8 *	p_bytes( (u8*)CROMFileMemory::Get()->Alloc( size_aligned ) );
 
 #ifndef DAEDALUS_PSP
 		if( !p_rom_file->LoadData( sRomSize, p_bytes, messages ) )
@@ -257,7 +263,9 @@ bool RomBuffer::Open()
 	else
 	{
 #ifdef DAEDALUS_COMPRESSED_ROM_SUPPORT
-		if(DECOMPRESS_ROMS)
+		const char *extension = IO::Path::FindExtension( filename );
+		const bool is_lz4_stream = extension != nullptr && _strcmpi( extension, ".lz4" ) == 0;
+		if(DECOMPRESS_ROMS && !is_lz4_stream)
 		{
 			bool	compressed( p_rom_file->IsCompressed() );
 			bool	byteswapped( p_rom_file->RequiresSwapping() );
@@ -305,8 +313,15 @@ bool RomBuffer::Open()
 			}
 		}
 #endif
-		spRomFileCache = new ROMFileCache();
-		spRomFileCache->Open( p_rom_file );
+		spRomFileCache = new (std::nothrow) ROMFileCache();
+		if (spRomFileCache == nullptr || !spRomFileCache->Open( p_rom_file ))
+		{
+			delete spRomFileCache;
+			spRomFileCache = nullptr;
+			delete p_rom_file;
+			messages << "Unable to initialize streamed ROM cache (not enough memory)\n";
+			return false;
+		}
 		sRomFixed = false;
 	}
 	#ifdef DAEDALUS_DEBUG_CONSOLE
@@ -346,7 +361,9 @@ namespace
 {
 	void	CopyBytesRaw( ROMFileCache * p_cache, u8 * p_dst, u32 rom_offset, u32 length )
 	{
-		// Read the cached bytes into our scratch buffer, and return that
+		// Start with deterministic data so a media/read error cannot expose
+		// stale heap bytes to the emulated bus.
+		memset( p_dst, 0, length );
 		u32		dst_offset( 0 );
 		u32		src_offset( rom_offset );
 

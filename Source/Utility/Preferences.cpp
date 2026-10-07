@@ -169,6 +169,11 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 #endif
 		BOOL_SETTING( gGlobalPreferences, BatteryWarning, defaults );
 		BOOL_SETTING( gGlobalPreferences, LargeROMBuffer, defaults );
+		INT_SETTING( gGlobalPreferences, ROMStreamingCacheMB, defaults );
+		if (gGlobalPreferences.ROMStreamingCacheMB != 1 &&
+			gGlobalPreferences.ROMStreamingCacheMB != 2 &&
+			gGlobalPreferences.ROMStreamingCacheMB != 4)
+			gGlobalPreferences.ROMStreamingCacheMB = defaults.ROMStreamingCacheMB;
 		FLOAT_SETTING( gGlobalPreferences, StickMinDeadzone, defaults );
 		FLOAT_SETTING( gGlobalPreferences, StickMaxDeadzone, defaults );
 //		INT_SETTING( gGlobalPreferences, Language, defaults );
@@ -468,6 +473,7 @@ void IPreferences::Commit()
 #endif
 		OUTPUT_BOOL( gGlobalPreferences, BatteryWarning, defaults );
 		OUTPUT_BOOL( gGlobalPreferences, LargeROMBuffer, defaults );
+		OUTPUT_INT( gGlobalPreferences, ROMStreamingCacheMB, defaults );
 		OUTPUT_INT( gGlobalPreferences, GuiColor, defaults )
 		OUTPUT_FLOAT( gGlobalPreferences, StickMinDeadzone, defaults );
 		OUTPUT_FLOAT( gGlobalPreferences, StickMaxDeadzone, defaults );
@@ -530,6 +536,7 @@ SGlobalPreferences::SGlobalPreferences()
 #endif
 ,	BatteryWarning( false )
 ,	LargeROMBuffer( true )
+,	ROMStreamingCacheMB( 2 )
 ,	ForceLinearFilter( false )
 ,	RumblePak ( false )
 ,	GuiColor( BLACK )
@@ -656,7 +663,11 @@ void SRomPreferences::Apply() const
 	gFrameskipValue             = Frameskip;
 	gZoomX                      = ZoomX;
 	gMaxFPS                     = MaxFPS;
+#ifdef DAEDALUS_NINTENSTATION643D
+	gGraphicsEffect             = GFXE_PIXELIZE;
+#else
 	gGraphicsEffect             = GraphicsEffect;
+#endif
 	gN64CPUClockMHz             = N64CPUClockMHz;
 	gN64BusClockMHz             = N64BusClockMHz;
 #ifdef DAEDALUS_ENABLE_OS_HOOKS

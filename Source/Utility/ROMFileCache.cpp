@@ -22,10 +22,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "ROMFile.h"
 #include "ROMFileMemory.h"
+#include "Utility/Preferences.h"
 
 #include "Math/MathUtil.h"
 
 #include "Debug/DBGConsole.h"
+
+#include <new>
+#include <string.h>
 
 #ifdef DAEDALUS_PSP
 extern bool PSP_IS_SLIM;
@@ -43,11 +47,12 @@ namespace
 struct SChunkInfo
 {
 	u32				StartOffset;
+	u32				Size;
 	mutable u32		LastUseIdx;
 
 	bool		ContainsAddress( u32 address ) const
 	{
-		return address >= StartOffset && address < StartOffset + CHUNK_SIZE;
+		return address >= StartOffset && address - StartOffset < Size;
 	}
 
 	bool		InUse() const
@@ -63,7 +68,10 @@ struct SChunkInfo
 //*****************************************************************************
 ROMFileCache::ROMFileCache()
 :	mpROMFile( NULL )
+,	mpStorage( NULL )
+,	mpChunkInfo( NULL )
 ,	mChunkMapEntries( 0 )
+,	mRomSize( 0 )
 ,	mpChunkMap( NULL )
 ,	mMRUIdx( 0 )
 {
@@ -80,16 +88,40 @@ ROMFileCache::ROMFileCache()
 		CACHE_SIZE = 256;
 	}
 #else
-	CHUNK_SIZE = 2 * 1024;
-	CACHE_SIZE = 1024;
+	// CTR exposes a selectable 1/2/4 MiB streaming cache; larger windows
+	// reduce storage seeks and repeated reads during ROM startup/gameplay.
+	CHUNK_SIZE = 16 * 1024;
+	u32 requested_mb = 2;
+#ifdef DAEDALUS_CTR
+	requested_mb = gGlobalPreferences.ROMStreamingCacheMB;
+	if (requested_mb != 1 && requested_mb != 2 && requested_mb != 4)
+		requested_mb = 2;
+#endif
+	CACHE_SIZE = (requested_mb * 1024 * 1024) / CHUNK_SIZE;
 #endif
 
 	STORAGE_BYTES = CACHE_SIZE * CHUNK_SIZE;
 #ifdef DAEDALUS_ENABLE_ASSERTS
 	DAEDALUS_ASSERT( (1<<(sizeof(CacheIdx)*8)) > CACHE_SIZE, "Need to increase size of CacheIdx typedef to allow sufficient entries to be indexed" );
 #endif
-	mpStorage   = (u8*)CROMFileMemory::Get()->Alloc( STORAGE_BYTES );
-	mpChunkInfo = new SChunkInfo[ CACHE_SIZE ];
+	mpStorage = (u8*)CROMFileMemory::Get()->Alloc(STORAGE_BYTES);
+	mpChunkInfo = new (std::nothrow) SChunkInfo[CACHE_SIZE];
+#ifdef DAEDALUS_CTR
+	while ((mpStorage == NULL || mpChunkInfo == NULL) && CACHE_SIZE > 64)
+	{
+		if (mpStorage != NULL)
+			CROMFileMemory::Get()->Free(mpStorage);
+		delete [] mpChunkInfo;
+		mpStorage = NULL;
+		mpChunkInfo = NULL;
+		CACHE_SIZE /= 2;
+		STORAGE_BYTES = CACHE_SIZE * CHUNK_SIZE;
+		mpStorage = (u8*)CROMFileMemory::Get()->Alloc(STORAGE_BYTES);
+		mpChunkInfo = new (std::nothrow) SChunkInfo[CACHE_SIZE];
+	}
+#endif
+	if (mpChunkInfo != NULL)
+		memset(mpChunkInfo, 0, sizeof(SChunkInfo) * CACHE_SIZE);
 }
 
 //*****************************************************************************
@@ -97,8 +129,8 @@ ROMFileCache::ROMFileCache()
 //*****************************************************************************
 ROMFileCache::~ROMFileCache()
 {
-	CROMFileMemory::Get()->Free( mpStorage );
-
+	if (mpStorage != NULL)
+		CROMFileMemory::Get()->Free( mpStorage );
 	delete [] mpChunkInfo;
 }
 
@@ -107,23 +139,30 @@ ROMFileCache::~ROMFileCache()
 //*****************************************************************************
 bool	ROMFileCache::Open( ROMFile * p_rom_file )
 {
-	mpROMFile = p_rom_file;
+	if (p_rom_file == NULL || mpStorage == NULL || mpChunkInfo == NULL || CHUNK_SIZE == 0)
+		return false;
 
-	u32		rom_size( p_rom_file->GetRomSize() );
-	u32		rom_chunks( AlignPow2( rom_size, CHUNK_SIZE ) / CHUNK_SIZE );
+	const u32 rom_size = p_rom_file->GetRomSize();
+	const u32 rom_chunks = AlignPow2( rom_size, CHUNK_SIZE ) / CHUNK_SIZE;
+	if (rom_size == 0 || rom_chunks == 0)
+		return false;
+
+	CacheIdx *chunk_map = new (std::nothrow) CacheIdx[ rom_chunks ];
+	if (chunk_map == NULL)
+		return false;
 
 	mChunkMapEntries = rom_chunks;
-	mpChunkMap = new CacheIdx[ rom_chunks ];
+	mRomSize = rom_size;
+	mpChunkMap = chunk_map;
+	mpROMFile = p_rom_file;
 
-	// Invalidate all entries
 	for(u32 i = 0; i < rom_chunks; ++i)
-	{
 		mpChunkMap[ i ] = INVALID_IDX;
-	}
 
 	for(u32 i = 0; i < CACHE_SIZE; ++i)
 	{
 		mpChunkInfo[ i ].StartOffset = INVALID_ADDRESS;
+		mpChunkInfo[ i ].Size = 0;
 		mpChunkInfo[ i ].LastUseIdx = 0;
 	}
 
@@ -138,6 +177,7 @@ void	ROMFileCache::Close()
 	delete [] mpChunkMap;
 	mpChunkMap = NULL;
 	mChunkMapEntries = 0;
+	mRomSize = 0;
 	delete mpROMFile;
 	mpROMFile = NULL;
 }
@@ -188,6 +228,7 @@ void	ROMFileCache::PurgeChunk( CacheIdx cache_idx )
 
 	// Scrub these down
 	chunk_info.StartOffset = INVALID_ADDRESS;
+	chunk_info.Size = 0;
 	chunk_info.LastUseIdx = 0;
 }
 
@@ -196,53 +237,47 @@ void	ROMFileCache::PurgeChunk( CacheIdx cache_idx )
 //*****************************************************************************
 ROMFileCache::CacheIdx	ROMFileCache::GetCacheIndex( u32 address )
 {
-	u32		chunk_map_idx( AddressToChunkMapIndex( address ) );
-	#ifdef DAEDALUS_ENABLE_ASSERTS
-	DAEDALUS_ASSERT( chunk_map_idx < mChunkMapEntries, "Chunk address is out of range?" );
-	#endif
-	//
-	//	Check if this chunk is already cached, load if necessary
-	//
-	CacheIdx	idx( mpChunkMap[ chunk_map_idx ] );
-	if(idx == INVALID_IDX)
-	{
-		CacheIdx	selected_idx( 0 );
-		u32			oldest_timestamp( mpChunkInfo[ 0 ].LastUseIdx );
+	if (mpROMFile == NULL || mpChunkMap == NULL || mpStorage == NULL ||
+		address >= mRomSize || CHUNK_SIZE == 0)
+		return INVALID_IDX;
 
-		for(CacheIdx i = 1; i < CACHE_SIZE; ++i)
+	const u32 chunk_map_idx = AddressToChunkMapIndex( address );
+	if (chunk_map_idx >= mChunkMapEntries)
+		return INVALID_IDX;
+
+	CacheIdx idx = mpChunkMap[ chunk_map_idx ];
+	if (idx == INVALID_IDX)
+	{
+		CacheIdx selected_idx = 0;
+		u32 oldest_timestamp = mpChunkInfo[ 0 ].LastUseIdx;
+		for (CacheIdx i = 1; i < CACHE_SIZE; ++i)
 		{
-			u32		timestamp( mpChunkInfo[ i ].LastUseIdx );
-			if(timestamp < oldest_timestamp)
+			const u32 timestamp = mpChunkInfo[ i ].LastUseIdx;
+			if (timestamp < oldest_timestamp)
 			{
 				oldest_timestamp = timestamp;
 				selected_idx = i;
 			}
 		}
 
-		//
-		//	Purge the current chunk
-		//
 		PurgeChunk( selected_idx );
+		SChunkInfo &chunk_info = mpChunkInfo[ selected_idx ];
+		const u32 chunk_start = GetChunkStartAddress( address );
+		const u32 bytes_to_read = Min( CHUNK_SIZE, mRomSize - chunk_start );
+		const u32 storage_offset = selected_idx * CHUNK_SIZE;
+		u8 *dst = mpStorage + storage_offset;
 
-		//
-		//	And load up the new one
-		//
-		SChunkInfo &		chunk_info( mpChunkInfo[ selected_idx ] );
-		chunk_info.StartOffset = GetChunkStartAddress( address );
+		// Never publish a cache entry until the complete valid ROM range has
+		// been read. This also handles a ROM whose final chunk is partial.
+		if (bytes_to_read == 0 || !mpROMFile->ReadChunk( chunk_start, dst, bytes_to_read ))
+			return INVALID_IDX;
+		if (bytes_to_read < CHUNK_SIZE)
+			memset( dst + bytes_to_read, 0, CHUNK_SIZE - bytes_to_read );
+
+		chunk_info.StartOffset = chunk_start;
+		chunk_info.Size = bytes_to_read;
 		chunk_info.LastUseIdx = ++mMRUIdx;
-
-		#ifdef DAEDALUS_ENABLE_ASSERTS
-		DAEDALUS_ASSERT( chunk_map_idx < mChunkMapEntries, "Chunk address is out of range?" );
-		#endif
-
 		mpChunkMap[ chunk_map_idx ] = selected_idx;
-
-		u32		storage_offset( selected_idx * CHUNK_SIZE );
-		u8 *	p_dst( mpStorage + storage_offset );
-
-		//DBGConsole_Msg( 0, "[CRomCache - loading %02x, %08x-%08x", selected_idx, chunk_info.StartOffset, chunk_info.StartOffset + CHUNK_SIZE );
-		mpROMFile->ReadChunk( chunk_info.StartOffset, p_dst, CHUNK_SIZE );
-
 		idx = selected_idx;
 	}
 
@@ -259,9 +294,8 @@ bool	ROMFileCache::GetChunk( u32 rom_offset, u8 ** p_p_chunk_base, u32 * p_chunk
 	if(chunk_map_idx < mChunkMapEntries)
 	{
 		CacheIdx	idx( GetCacheIndex( rom_offset ) );
-		#ifdef DAEDALUS_ENABLE_ASSERTS
-		DAEDALUS_ASSERT( idx < CACHE_SIZE, "Invalid chunk index!" );
-		#endif
+		if (idx == INVALID_IDX || idx >= CACHE_SIZE)
+			return false;
 
 		const SChunkInfo &	chunk_info( mpChunkInfo[ idx ] );
 
@@ -274,7 +308,7 @@ bool	ROMFileCache::GetChunk( u32 rom_offset, u8 ** p_p_chunk_base, u32 * p_chunk
 
 		*p_p_chunk_base = mpStorage + storage_offset;
 		*p_chunk_offset = chunk_info.StartOffset;
-		*p_chunk_size = CHUNK_SIZE;					// XXXX if last chunk, adjust this?
+		*p_chunk_size = chunk_info.Size;
 
 		chunk_info.LastUseIdx = ++mMRUIdx;
 		return true;

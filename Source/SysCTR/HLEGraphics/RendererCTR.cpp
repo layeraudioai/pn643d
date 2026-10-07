@@ -11,6 +11,8 @@
 #include "Core/ROM.h"
 #include "Debug/Dump.h"
 #include "Graphics/GraphicsContext.h"
+#include "SysCTR/Graphics/CTRVertexBuffers.h"
+#include "SysCTR/Graphics/CTRRenderConfig.h"
 #include "Graphics/NativeTexture.h"
 #include "HLEGraphics/CachedTexture.h"
 #include "HLEGraphics/DLDebug.h"
@@ -28,6 +30,9 @@ RendererCTR  *gRendererCTR = nullptr;
 extern float 	*gVertexBuffer;
 extern uint32_t	*gColorBuffer;
 extern float 	*gTexCoordBuffer;
+extern float 	*gVertexBufferPtr;
+extern uint32_t	*gColorBufferPtr;
+extern float 	*gTexCoordBufferPtr;
 extern uint32_t  gVertexCount;
 extern volatile bool gCTRGraphicsRestorePending;
 
@@ -210,7 +215,7 @@ void RendererCTR::RestoreRenderStates()
 	pglSelectScreen(GFX_TOP, GFX_LEFT);
 	// A system applet (notably the software keyboard) can change the viewport.
 	// Explicitly restore the game's full top-screen target on the next frame.
-	glViewport(0, 0, 400, 240);
+	glViewport(CTR_GAME_VIEW_X, CTR_GAME_VIEW_Y, CTR_GAME_VIEW_WIDTH, CTR_GAME_VIEW_HEIGHT);
 	
 	// Initialise the device to our default state
 	glEnable(GL_TEXTURE_2D);
@@ -219,7 +224,7 @@ void RendererCTR::RestoreRenderStates()
 	glDisable(GL_FOG);
 	glFogi(GL_FOG_MODE, GL_LINEAR);
 
-	glScissor(0,0, 400, 240);
+	glScissor(CTR_GAME_VIEW_X, CTR_GAME_VIEW_Y, CTR_GAME_VIEW_WIDTH, CTR_GAME_VIEW_HEIGHT);
 	glEnable(GL_SCISSOR_TEST);
 	
 	glBlendEquation(GL_FUNC_ADD);
@@ -321,6 +326,21 @@ static u32 ApplyGraphicsEffectToVertexColour(u32 colour, EGraphicsEffect effect)
 
 void RendererCTR::DrawPrimitives(DaedalusVtx * p_vertices, u32 num_vertices, u32 triangle_mode, bool has_texture)
 {
+	if (num_vertices == 0 || num_vertices > CTR_VERTEX_BUFFER_CAPACITY)
+		return;
+
+	// The client arrays are read directly from linear memory by the GPU. Drain
+	// pending work before recycling the bounded staging arrays on very large
+	// frames, otherwise the GPU could observe vertices overwritten mid-frame.
+	if (gVertexCount > CTR_VERTEX_BUFFER_CAPACITY - num_vertices)
+	{
+		glFinish();
+		gVertexCount = 0;
+		gVertexBuffer = gVertexBufferPtr;
+		gColorBuffer = gColorBufferPtr;
+		gTexCoordBuffer = gTexCoordBufferPtr;
+	}
+
 	// Keep the streaming cursors in local registers while expanding vertices;
 	// these globals are persistent cursors shared with the CTR array setup.
 	float *vertex_buffer = gVertexBuffer;

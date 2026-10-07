@@ -52,6 +52,7 @@ class ROMFileCache
 		SChunkInfo *		mpChunkInfo;		// Info about which region a chunk is allocated to
 
 		u32					mChunkMapEntries;	// i.e. Number of chunks in the rom
+		u32					mRomSize;
 		CacheIdx *			mpChunkMap;			// Map allowing quick lookups from address -> chunkidx
 
 		u32					mMRUIdx;			// Most recently used index

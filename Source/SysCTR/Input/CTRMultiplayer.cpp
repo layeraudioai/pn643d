@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "SysCTR/Input/CTRMultiplayer.h"
+#include "SysCTR/Input/CTRMultiplayerConfig.h"
 #include "SysCTR/Input/CTRInput.h"
 #include "SysCTR/Input/CTRMediaFrame.h"
 #include "Core/ROM.h"
@@ -40,8 +41,14 @@ namespace
     static const size_t kMaxRooms = 8;
     static const u64 kInputTimeoutMs = 500;
     static const u32 kOnlineSocBufferSize = 0x100000;
-    static const u8 kOnlinePacketVersion = 1;
-    static const size_t kOnlineHelloSize = 14;
+    static const u8 kOnlinePacketVersion = 3;
+    static const size_t kOnlineHelloSize = 23;
+    static const u8 kRegistryVersion = 1;
+    static const size_t kRegistryHelloSize = 25;
+    static const size_t kRegistryAckSize = 22;
+    static const size_t kRegistryMatchSize = 20;
+    static const u16 kDefaultOnlinePort = 37777;
+    static const u64 kRegistryHeartbeatMs = 20000;
     static const size_t kOnlineWelcomeSize = 16;
     static const size_t kOnlineInputSize = 12;
     static const size_t kOnlineStateSize = 25;
@@ -129,9 +136,19 @@ namespace
     static bool s_onlineHaveRxSequence = false;
     static u8 s_onlineActiveMask = 0;
     static char s_onlineRoomCode[9] = "";
+    static char s_localRoomCode[7] = "";
+    static const char *kRoomAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    static const u8 kLocalAppDataSize = 19;
+    static u16 s_onlineListenPort = kDefaultOnlinePort;
+    static int s_registrySocket = -1;
+    static u64 s_lastRegistryHeartbeat = 0;
+    static int s_registrySearchSocket = -1;
+    static u8 s_registrySearchRx[kRegistryMatchSize];
+    static size_t s_registrySearchRxSize = 0;
+    static char s_onlinePublicAddress[64] = "";
 
-    // A 3DS-hosted online room is a small nonblocking TCP relay. It is only
-    // opened by HostOnline; local UDS sessions never start an Internet server.
+    // The 3DS hosts the direct gameplay socket. The optional PC service only
+    // advertises this endpoint for matchmaking; controller packets bypass it.
     struct OnlinePeer
     {
         int socket;
@@ -154,8 +171,19 @@ namespace
     static OSContPad s_serverPads[4];
     static u8 s_serverActiveMask = 0;
     static u16 s_serverSequence = 0;
-    static const char *kRoomAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     static const u64 kServerPeerTimeoutMs = 60000;
+
+    static void GenerateRoomCode(char code[7])
+    {
+        u64 seed = osGetTime() ^ ((u64)g_ROM.mRomID.CRC[0] << 17) ^
+                   ((u64)g_ROM.mRomID.CRC[1] << 3);
+        for (unsigned i = 0; i < 6; ++i)
+        {
+            seed = seed * 1103515245u + 12345u;
+            code[i] = kRoomAlphabet[(seed >> 16) % 32];
+        }
+        code[6] = '\0';
+    }
 
     static void SetStatus(const char *text)
     {
@@ -285,6 +313,31 @@ namespace
                packet.gameCountry == g_ROM.mRomID.CountryID;
     }
 
+    static void EncodeGameIdentity(u8 *dst)
+    {
+        const u32 crc1 = g_ROM.mRomID.CRC[0];
+        const u32 crc2 = g_ROM.mRomID.CRC[1];
+        dst[0] = (u8)(crc1 >> 24); dst[1] = (u8)(crc1 >> 16);
+        dst[2] = (u8)(crc1 >> 8);  dst[3] = (u8)crc1;
+        dst[4] = (u8)(crc2 >> 24); dst[5] = (u8)(crc2 >> 16);
+        dst[6] = (u8)(crc2 >> 8);  dst[7] = (u8)crc2;
+        dst[8] = g_ROM.mRomID.CountryID;
+    }
+
+    static bool LocalRoomMatchesGame(const udsNetworkStruct &network)
+    {
+        u8 identity[9];
+        EncodeGameIdentity(identity);
+        return network.appdata_size >= kLocalAppDataSize &&
+               memcmp(network.appdata, "PNL1", 4) == 0 &&
+               memcmp(network.appdata + 10, identity, sizeof(identity)) == 0;
+    }
+
+    static bool LocalRoomAvailable(const udsNetworkStruct &network)
+    {
+        return LocalRoomMatchesGame(network) && network.total_nodes < network.max_nodes;
+    }
+
     static int AllocateSlot(u16 nodeId)
     {
         if (nodeId == UDS_HOST_NETWORKNODEID)
@@ -393,6 +446,9 @@ namespace
         return (u16)(((u16)src[0] << 8) | src[1]);
     }
 
+    static bool RegisterMatchmakingRoom(const char *relayAddress);
+    static bool BeginMatchmakingSearch(const char *relayAddress);
+
     static bool SetNonBlocking(int fd)
     {
         const int flags = fcntl(fd, F_GETFL, 0);
@@ -436,13 +492,12 @@ namespace
 
     static bool RoomCodeMatches(const u8 *code)
     {
-        for (unsigned i = 0; i < 8; ++i)
+        for (unsigned i = 0; i < 6; ++i)
         {
             char c = (char)code[i];
             if (c >= 'a' && c <= 'z')
                 c = (char)(c - 'a' + 'A');
-            const char expected = s_onlineRoomCode[i] ? s_onlineRoomCode[i] : ' ';
-            if (c != expected)
+            if (c != s_onlineRoomCode[i])
                 return false;
         }
         return true;
@@ -488,6 +543,20 @@ namespace
     {
         AcceptOnlinePeers();
         const u64 now = osGetTime();
+        if (s_registrySocket >= 0 && now - s_lastRegistryHeartbeat >= kRegistryHeartbeatMs)
+        {
+            const u8 heartbeat = 0x48;
+            const ssize_t sent = send(s_registrySocket, &heartbeat, 1, 0);
+            if (sent == 1)
+                s_lastRegistryHeartbeat = now;
+            else if (sent < 0 && errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR)
+            {
+                close(s_registrySocket);
+                s_registrySocket = -1;
+                snprintf(s_status, sizeof(s_status), "Room %.6s direct; matchmaking relay lost",
+                         s_onlineRoomCode);
+            }
+        }
         const unsigned hostMask = CTRInput_GetLocalControllerPortMask();
         for (unsigned slot = 0; slot < 4; ++slot)
         {
@@ -537,8 +606,11 @@ namespace
 
             if (peer.handshaking && peer.helloSize == kOnlineHelloSize)
             {
+                u8 gameIdentity[9];
+                EncodeGameIdentity(gameIdentity);
                 if (memcmp(peer.hello, "PN64", 4) != 0 || peer.hello[4] != kOnlinePacketVersion ||
-                    peer.hello[5] != 2 || !RoomCodeMatches(peer.hello + 6))
+                    peer.hello[5] != 2 || !RoomCodeMatches(peer.hello + 6) ||
+                    memcmp(peer.hello + 14, gameIdentity, sizeof(gameIdentity)) != 0)
                 {
                     ResetServerPeer(peer);
                     continue;
@@ -670,16 +742,13 @@ namespace
         memset(s_serverPads, 0, sizeof(s_serverPads));
         s_serverActiveMask = 0;
         s_serverSequence = 0;
-        u64 roomSeed = osGetTime();
-        // This code is a room identifier, not a secret or an authentication key.
-        for (unsigned i = 0; i < 6; ++i)
-        {
-            roomSeed = roomSeed * 1103515245u + 12345u;
-            s_onlineRoomCode[i] = kRoomAlphabet[(roomSeed >> 16) % 32];
-        }
+        char generatedCode[7];
+        GenerateRoomCode(generatedCode);
+        memcpy(s_onlineRoomCode, generatedCode, 6);
         s_onlineRoomCode[6] = s_onlineRoomCode[7] = ' ';
         s_onlineRoomCode[8] = '\0';
         s_onlineSlot = CTRInput_GetLocalControllerPort();
+        s_onlineListenPort = (u16)port;
         s_onlineTxSize = s_onlineTxOffset = s_onlineRxSize = 0;
         s_state = STATE_ONLINE_HOSTING;
         snprintf(s_status, sizeof(s_status), "Room %.6s - port %ld", s_onlineRoomCode, port);
@@ -748,9 +817,156 @@ namespace
         return true;
     }
 
+    static int OpenTcpConnection(const char *serverAddress, u16 defaultPort)
+    {
+        if (!serverAddress || !serverAddress[0])
+            return -1;
+        if (!s_socInitialized)
+        {
+            if (R_FAILED(socInit(s_socBuffer, sizeof(s_socBuffer))))
+                return -1;
+            s_socInitialized = true;
+        }
+
+        char hostName[256];
+        char service[8];
+        snprintf(service, sizeof(service), "%u", (unsigned)defaultPort);
+        const char *colon = strrchr(serverAddress, ':');
+        const size_t hostLength = colon ? (size_t)(colon - serverAddress) : strlen(serverAddress);
+        if (!hostLength || hostLength >= sizeof(hostName))
+            return -1;
+        memcpy(hostName, serverAddress, hostLength);
+        hostName[hostLength] = '\0';
+        if (colon)
+        {
+            char *end = NULL;
+            const long port = strtol(colon + 1, &end, 10);
+            if (!end || *end || port < 1 || port > 65535)
+                return -1;
+            snprintf(service, sizeof(service), "%ld", port);
+        }
+
+        struct addrinfo hints;
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        struct addrinfo *addresses = NULL;
+        if (getaddrinfo(hostName, service, &hints, &addresses) != 0 || !addresses)
+            return -1;
+
+        int fd = -1;
+        for (struct addrinfo *address = addresses; address; address = address->ai_next)
+        {
+            fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+            if (fd < 0)
+                continue;
+            const int flags = fcntl(fd, F_GETFL, 0);
+            if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
+            {
+                close(fd);
+                fd = -1;
+                continue;
+            }
+            int rc = connect(fd, address->ai_addr, address->ai_addrlen);
+            if (rc < 0 && errno == EINPROGRESS && WaitSocket(fd, true, 8))
+            {
+                int socketError = 0;
+                socklen_t errorLength = sizeof(socketError);
+                if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &errorLength) == 0 && socketError == 0)
+                    rc = 0;
+            }
+            if (rc == 0)
+                break;
+            close(fd);
+            fd = -1;
+        }
+        freeaddrinfo(addresses);
+        if (fd >= 0)
+        {
+            const int flags = fcntl(fd, F_GETFL, 0);
+            if (flags >= 0)
+                fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+            int noDelay = 1;
+            setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &noDelay, sizeof(noDelay));
+        }
+        return fd;
+    }
+
+    static bool RegisterMatchmakingRoom(const char *relayAddress)
+    {
+        const int fd = OpenTcpConnection(relayAddress, 5000);
+        if (fd < 0)
+            return false;
+        u8 hello[kRegistryHelloSize];
+        memset(hello, 0, sizeof(hello));
+        memcpy(hello, "PN64", 4);
+        hello[4] = kRegistryVersion;
+        hello[5] = 1; // host registration
+        memset(hello + 6, ' ', 8);
+        memcpy(hello + 6, s_onlineRoomCode, 8);
+        Put16(hello + 14, s_onlineListenPort);
+        EncodeGameIdentity(hello + 16);
+        u8 ack[kRegistryAckSize];
+        if (!SendBlocking(fd, hello, sizeof(hello)) || !ReceiveBlocking(fd, ack, sizeof(ack)) ||
+            memcmp(ack, "PN64", 4) != 0 || ack[4] != kRegistryVersion || ack[5] != 6)
+        {
+            close(fd);
+            return false;
+        }
+        if (!SetNonBlocking(fd))
+        {
+            close(fd);
+            return false;
+        }
+        if (s_registrySocket >= 0)
+            close(s_registrySocket);
+        s_registrySocket = fd;
+        struct in_addr publicAddress;
+        memcpy(&publicAddress.s_addr, ack + 16, 4);
+        snprintf(s_onlinePublicAddress, sizeof(s_onlinePublicAddress), "%s:%u",
+                 inet_ntoa(publicAddress), (unsigned)Get16(ack + 20));
+        s_lastRegistryHeartbeat = osGetTime();
+        return true;
+    }
+
+    static bool BeginMatchmakingSearch(const char *relayAddress)
+    {
+        const int fd = OpenTcpConnection(relayAddress, 5000);
+        if (fd < 0)
+            return false;
+        u8 hello[kRegistryHelloSize];
+        memset(hello, 0, sizeof(hello));
+        memcpy(hello, "PN64", 4);
+        hello[4] = kRegistryVersion;
+        hello[5] = 3; // game-compatible matchmaking query
+        memset(hello + 6, ' ', 8);
+        EncodeGameIdentity(hello + 16);
+        if (!SendBlocking(fd, hello, sizeof(hello)) || !SetNonBlocking(fd))
+        {
+            close(fd);
+            return false;
+        }
+        if (s_registrySearchSocket >= 0)
+            close(s_registrySearchSocket);
+        s_registrySearchSocket = fd;
+        s_registrySearchRxSize = 0;
+        return true;
+    }
+
     static void CloseOnlineSocket()
     {
         CloseOnlineServer();
+        if (s_registrySocket >= 0)
+        {
+            close(s_registrySocket);
+            s_registrySocket = -1;
+        }
+        if (s_registrySearchSocket >= 0)
+        {
+            close(s_registrySearchSocket);
+            s_registrySearchSocket = -1;
+            s_registrySearchRxSize = 0;
+        }
         if (s_onlineSocket >= 0)
         {
             close(s_onlineSocket);
@@ -766,13 +982,14 @@ namespace
         s_onlineActiveMask = 0;
         s_onlineHaveRxSequence = false;
         s_onlineRoomCode[0] = '\0';
+        s_onlinePublicAddress[0] = '\0';
     }
 
     static bool ConnectOnline(const char *serverAddress, bool host, const char *roomCode)
     {
         if (!serverAddress || !serverAddress[0])
         {
-            SetStatus("Enter relay address (host:port)");
+            SetStatus("Enter host address[:port]");
             return false;
         }
         if (!s_socInitialized)
@@ -792,7 +1009,7 @@ namespace
         size_t hostLength = colon ? (size_t)(colon - serverAddress) : strlen(serverAddress);
         if (hostLength == 0 || hostLength >= sizeof(hostName))
         {
-            SetStatus("Invalid relay address");
+            SetStatus("Invalid host address");
             CloseOnlineSocket();
             return false;
         }
@@ -804,7 +1021,7 @@ namespace
             long port = strtol(colon + 1, &end, 10);
             if (!end || *end || port < 1 || port > 65535)
             {
-                SetStatus("Invalid relay port");
+                SetStatus("Invalid host port");
                 CloseOnlineSocket();
                 return false;
             }
@@ -818,7 +1035,7 @@ namespace
         struct addrinfo *addresses = NULL;
         if (getaddrinfo(hostName, service, &hints, &addresses) != 0 || !addresses)
         {
-            SetStatus("Could not resolve relay address");
+            SetStatus("Could not resolve host address");
             CloseOnlineSocket();
             return false;
         }
@@ -852,7 +1069,7 @@ namespace
         freeaddrinfo(addresses);
         if (fd < 0)
         {
-            SetStatus("Could not connect to relay");
+            SetStatus("Could not connect to host");
             CloseOnlineSocket();
             return false;
         }
@@ -880,12 +1097,14 @@ namespace
                 hello[6 + i] = (u8)(c >= 'a' && c <= 'z' ? c - 'a' + 'A' : c);
             }
         }
+        hello[13] = 0xFF;
+        EncodeGameIdentity(hello + 14);
         u8 welcome[kOnlineWelcomeSize];
         if (!SendBlocking(fd, hello, sizeof(hello)) || !ReceiveBlocking(fd, welcome, sizeof(welcome)) ||
             memcmp(welcome, "PN64", 4) != 0 || welcome[4] != kOnlinePacketVersion || welcome[5] != 3)
         {
             close(fd);
-            SetStatus("Relay rejected connection or timed out");
+            SetStatus("Host rejected code/game or timed out");
             CloseOnlineSocket();
             return false;
         }
@@ -977,6 +1196,86 @@ namespace
         outputPads[s_onlineSlot] = local;
         return true;
     }
+
+    static bool PollMatchmakingSearch()
+    {
+        if (s_registrySearchSocket < 0)
+            return false;
+        while (s_registrySearchRxSize < sizeof(s_registrySearchRx))
+        {
+            const ssize_t count = recv(s_registrySearchSocket,
+                                       s_registrySearchRx + s_registrySearchRxSize,
+                                       sizeof(s_registrySearchRx) - s_registrySearchRxSize, 0);
+            if (count > 0)
+                s_registrySearchRxSize += (size_t)count;
+            else if (count == 0)
+            {
+                close(s_registrySearchSocket);
+                s_registrySearchSocket = -1;
+                CloseOnlineSocket();
+                s_state = STATE_OFF;
+                SetStatus("Matchmaking relay disconnected");
+                return true;
+            }
+            else if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EINTR)
+                return true;
+            else
+            {
+                close(s_registrySearchSocket);
+                s_registrySearchSocket = -1;
+                CloseOnlineSocket();
+                s_state = STATE_OFF;
+                SetStatus("Matchmaking relay connection failed");
+                return true;
+            }
+        }
+
+        u8 *result = s_registrySearchRx;
+        close(s_registrySearchSocket);
+        s_registrySearchSocket = -1;
+        s_registrySearchRxSize = 0;
+        if (memcmp(result, "PN64", 4) != 0 || result[4] != kRegistryVersion)
+        {
+            CloseOnlineSocket();
+            s_state = STATE_OFF;
+            SetStatus("Invalid matchmaking response");
+            return true;
+        }
+        if (result[5] == 7)
+        {
+            CloseOnlineSocket();
+            s_state = STATE_OFF;
+            SetStatus("No compatible host found; try again");
+            return true;
+        }
+        if (result[5] != 5 || Get16(result + 18) == 0)
+        {
+            CloseOnlineSocket();
+            s_state = STATE_OFF;
+            SetStatus("No compatible host found; try again");
+            return true;
+        }
+
+        char roomCode[9];
+        memcpy(roomCode, result + 6, 8);
+        roomCode[8] = '\0';
+        for (int i = 7; i >= 0 && roomCode[i] == ' '; --i)
+            roomCode[i] = '\0';
+        struct in_addr addr;
+        memcpy(&addr.s_addr, result + 14, 4);
+        char hostAddress[64];
+        snprintf(hostAddress, sizeof(hostAddress), "%s:%u", inet_ntoa(addr),
+                 (unsigned)Get16(result + 18));
+        if (!ConnectOnline(hostAddress, false, roomCode))
+        {
+            s_state = STATE_OFF;
+            SetStatus("Match found, but direct host connection failed");
+            return true;
+        }
+        s_state = STATE_ONLINE_JOINED;
+        snprintf(s_status, sizeof(s_status), "Matched: connected to room %.6s", roomCode);
+        return true;
+    }
 }
 
 bool Host()
@@ -987,6 +1286,11 @@ bool Host()
 
     udsNetworkStruct network;
     udsGenerateDefaultNetworkStruct(&network, kWlanCommId, kNetworkId, 4);
+    GenerateRoomCode(s_localRoomCode);
+    memcpy(network.appdata, "PNL1", 4);
+    memcpy(network.appdata + 4, s_localRoomCode, 6);
+    EncodeGameIdentity(network.appdata + 10);
+    network.appdata_size = kLocalAppDataSize;
     memset(&s_bindContext, 0, sizeof(s_bindContext));
     ClearInputs();
     Result rc = udsCreateNetwork(&network, NULL, 0, &s_bindContext,
@@ -1004,8 +1308,14 @@ bool Host()
     }
     s_nodeSlots[UDS_HOST_NETWORKNODEID] = (u8)CTRInput_GetLocalControllerPort();
     s_state = STATE_HOSTING;
-    SetStatus("Hosting nearby room - waiting for players");
+    snprintf(s_status, sizeof(s_status), "Room %.6s - local matchmaking ready", s_localRoomCode);
+    udsSetApplicationData(network.appdata, network.appdata_size);
     return true;
+}
+
+const char *GetLocalRoomCode()
+{
+    return s_localRoomCode;
 }
 
 bool Scan()
@@ -1036,6 +1346,50 @@ bool Scan()
     return true;
 }
 
+static bool RoomCodeEquals(const char *input, const u8 *advertised)
+{
+    if (!input || strlen(input) != 6)
+        return false;
+    for (unsigned i = 0; i < 6; ++i)
+    {
+        char c = input[i];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+        if ((u8)c != advertised[i])
+            return false;
+    }
+    return true;
+}
+
+bool JoinLocalByCode(const char *roomCode)
+{
+    if (!Scan())
+        return false;
+    for (size_t i = 0; i < s_roomCount; ++i)
+    {
+        const udsNetworkStruct &network = s_rooms[i].network;
+        if (LocalRoomAvailable(network) && RoomCodeEquals(roomCode, network.appdata + 4))
+            return Join(i);
+    }
+    SetStatus("No nearby compatible room has that code");
+    return false;
+}
+
+bool JoinLocalMatchmaking()
+{
+    if (!Scan())
+        return false;
+    for (size_t i = 0; i < s_roomCount; ++i)
+    {
+        if (LocalRoomAvailable(s_rooms[i].network) && Join(i))
+        {
+            SetStatus("Match found - joined nearby room");
+            return true;
+        }
+    }
+    SetStatus("No compatible nearby rooms found - try again");
+    return false;
+}
+
 size_t GetRoomCount()
 {
     return s_roomCount;
@@ -1055,8 +1409,13 @@ void GetRoomLabel(size_t roomIndex, char *buffer, size_t bufferSize)
     if (R_FAILED(udsGetNodeInfoUsername(&s_rooms[roomIndex].nodes[0], username)))
         snprintf(username, sizeof(username), "Host");
     username[sizeof(username) - 1] = '\0';
-    snprintf(buffer, bufferSize, "%s (%u players)", username,
-             (unsigned)s_rooms[roomIndex].network.total_nodes);
+    if (LocalRoomMatchesGame(s_rooms[roomIndex].network))
+        snprintf(buffer, bufferSize, "%.6s %s (%u)",
+                 (const char *)(s_rooms[roomIndex].network.appdata + 4), username,
+                 (unsigned)s_rooms[roomIndex].network.total_nodes);
+    else
+        snprintf(buffer, bufferSize, "%s (%u players)", username,
+                 (unsigned)s_rooms[roomIndex].network.total_nodes);
 }
 
 bool Join(size_t roomIndex)
@@ -1098,7 +1457,21 @@ bool HostOnline(const char *listenPort)
         return false;
     }
     ClearInputs();
-    return StartOnlineHost(listenPort);
+    if (!StartOnlineHost(listenPort))
+        return false;
+
+    const char *relay = GetMatchmakingRelayAddress();
+    if (relay && relay[0] && strcmp(relay, "CHANGE_ME:5000") != 0 &&
+        RegisterMatchmakingRoom(relay))
+        snprintf(s_status, sizeof(s_status), "Room %.6s @ %.35s - matchmaking ready",
+                 s_onlineRoomCode, s_onlinePublicAddress);
+    else
+    {
+        s_onlinePublicAddress[0] = '\0';
+        snprintf(s_status, sizeof(s_status), "Room %.6s - direct only; share host address",
+                 s_onlineRoomCode);
+    }
+    return true;
 }
 
 bool JoinOnline(const char *serverAddress, const char *roomCode)
@@ -1112,8 +1485,42 @@ bool JoinOnline(const char *serverAddress, const char *roomCode)
     if (!ConnectOnline(serverAddress, false, roomCode))
         return false;
     s_state = STATE_ONLINE_JOINED;
-    snprintf(s_status, sizeof(s_status), "Joined room %s", s_onlineRoomCode);
+    snprintf(s_status, sizeof(s_status), "Joined room %s directly", s_onlineRoomCode);
     return true;
+}
+
+bool JoinOnlineMatchmaking(const char *relayAddress)
+{
+    if (s_state != STATE_OFF)
+    {
+        SetStatus("Stop the active session first");
+        return false;
+    }
+    ClearInputs();
+    if (!BeginMatchmakingSearch(relayAddress))
+    {
+        CloseOnlineSocket();
+        SetStatus("Could not connect to matchmaking relay");
+        return false;
+    }
+    s_state = STATE_ONLINE_MATCHMAKING;
+    SetStatus("Searching relay; direct host connection follows");
+    return true;
+}
+
+const char *GetMatchmakingRelayAddress()
+{
+    return CTR_MULTIPLAYER_MATCHMAKING_RELAY;
+}
+
+const char *GetOnlinePublicAddress()
+{
+    return s_onlinePublicAddress;
+}
+
+unsigned short GetOnlineListenPort()
+{
+    return s_onlineListenPort;
 }
 
 const char *GetOnlineRoomCode()
@@ -1123,7 +1530,8 @@ const char *GetOnlineRoomCode()
 
 bool IsOnline()
 {
-    return s_state == STATE_ONLINE_HOSTING || s_state == STATE_ONLINE_JOINED;
+    return s_state == STATE_ONLINE_HOSTING || s_state == STATE_ONLINE_JOINED ||
+           s_state == STATE_ONLINE_MATCHMAKING;
 }
 
 bool SendMediaFrame(unsigned char type, const void *payload, size_t size)
@@ -1173,6 +1581,7 @@ void Stop()
     if (IsOnline())
         CloseOnlineSocket();
     s_state = STATE_OFF;
+    s_localRoomCode[0] = '\0';
     ResetRoomList();
     ClearInputs();
     SetStatus("Multiplayer is off");
@@ -1194,6 +1603,15 @@ void Update(const OSContPad localPad[4], OSContPad outputPads[4])
     if (s_state == STATE_OFF)
         return;
 
+    if (s_state == STATE_ONLINE_MATCHMAKING)
+    {
+        if (!PollMatchmakingSearch())
+        {
+            s_state = STATE_OFF;
+            SetStatus("Matchmaking search stopped");
+        }
+        return;
+    }
     if (s_state == STATE_ONLINE_HOSTING)
     {
         PollOnlineServer(localPad, outputPads);

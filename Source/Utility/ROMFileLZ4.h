@@ -22,5 +22,6 @@ private:
     u32 mRomSize;
     std::vector<Block> mBlocks;
     u8 *mScratch;
+    u32 mCachedBlockIndex;
 };
 #endif

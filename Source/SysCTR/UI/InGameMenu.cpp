@@ -28,11 +28,13 @@ extern RomInfo g_ROM;
 
 static uint64_t timer;
 static uint8_t currentPage = 0;
+static bool s_localMatchmakingActive = false;
+static u64 s_lastLocalMatchmakingScan = 0;
 static uint8_t optionsSubpage = 0;
 #if !defined(DAEDALUS_MINIMAL_EMULATOR) && !defined(DAEDALUS_DOWNLOADPLAY)
-static const uint8_t kOptionsPageCount = 6;
+static const uint8_t kOptionsPageCount = 7;
 #else
-static const uint8_t kOptionsPageCount = 5;
+static const uint8_t kOptionsPageCount = 6;
 #endif
 static bool PromptNumericText(const char *hint, const char *initialValue,
 	char *buffer, size_t bufferSize, bool allowDecimal);
@@ -663,8 +665,6 @@ static void DrawOptionsPage()
 
 		if (UI::DrawToggle(10, 59, 145, 32, "Battery warning", gGlobalPreferences.BatteryWarning))
 			gGlobalPreferences.BatteryWarning = !gGlobalPreferences.BatteryWarning;
-		if (UI::DrawToggle(165, 59, 145, 32, "Large ROM buffer", gGlobalPreferences.LargeROMBuffer))
-			gGlobalPreferences.LargeROMBuffer = !gGlobalPreferences.LargeROMBuffer;
 
 		if (UI::DrawToggle(10, 96, 145, 32, "Rumble pak", gGlobalPreferences.RumblePak))
 			gGlobalPreferences.RumblePak = !gGlobalPreferences.RumblePak;
@@ -680,8 +680,27 @@ static void DrawOptionsPage()
 			gGlobalPreferences.HighlightInexactBlendModes = !gGlobalPreferences.HighlightInexactBlendModes;
 #endif
 	}
-#if !defined(DAEDALUS_MINIMAL_EMULATOR) && !defined(DAEDALUS_DOWNLOADPLAY)
 	else if (optionsSubpage == 5)
+	{
+		char cacheLabel[48];
+		snprintf(cacheLabel, sizeof(cacheLabel), "ROM streaming cache: %u MiB",
+			(unsigned int)gGlobalPreferences.ROMStreamingCacheMB);
+		if (UI::DrawButton(10, 22, 300, 32, cacheLabel))
+		{
+			if (gGlobalPreferences.ROMStreamingCacheMB == 1)
+				gGlobalPreferences.ROMStreamingCacheMB = 2;
+			else if (gGlobalPreferences.ROMStreamingCacheMB == 2)
+				gGlobalPreferences.ROMStreamingCacheMB = 4;
+			else
+				gGlobalPreferences.ROMStreamingCacheMB = 1;
+		}
+		UI::DrawText(12, 64, "Larger cache may reduce ROM loading stutter.");
+		UI::DrawText(12, 82, "Uses more RAM; applies on the next ROM boot.");
+		UI::DrawText(12, 100, "If RAM is tight, smaller cache sizes are tried.");
+		UI::DrawText(12, 134, "Frame/audio sync and FPS controls are on page 1.");
+	}
+#if !defined(DAEDALUS_MINIMAL_EMULATOR) && !defined(DAEDALUS_DOWNLOADPLAY)
+	else if (optionsSubpage == 6)
 	{
 		if (CTRHeadTracking::IsAvailable())
 		{
@@ -738,9 +757,15 @@ static void DrawGraphicsPage()
 
 	UI::DrawHeader("Graphics effects");
 	char label[48];
+#ifdef DAEDALUS_NINTENSTATION643D
+	snprintf(label, sizeof(label), "Effect: Pixelize (locked)");
+	preferences.GraphicsEffect = GFXE_PIXELIZE;
+	UI::DrawButton(10, 22, 300, 38, label);
+#else
 	snprintf(label, sizeof(label), "Effect: %s", effectNames[preferences.GraphicsEffect]);
 	if (UI::DrawButton(10, 22, 300, 38, label))
 		preferences.GraphicsEffect = static_cast<EGraphicsEffect>((preferences.GraphicsEffect + 1) % NUM_GRAPHICS_EFFECTS);
+#endif
 
 	UI::DrawText(12, 72, "Pixelize forces nearest texture filtering.");
 	UI::DrawText(12, 92, "Cel/Painting posterize vertex colors.");
@@ -835,11 +860,11 @@ static void DrawMultiplayerPage()
 	if(UI::DrawButton(10, 22, 145, 48, "Host Local"))
 		currentPage = 6;
 	if(UI::DrawButton(165, 22, 145, 48, "Join Local"))
-		currentPage = 7;
+		currentPage = 15;
 	if(UI::DrawButton(10, 76, 145, 48, "Host Online"))
 		currentPage = 8;
 	if(UI::DrawButton(165, 76, 145, 48, "Join Online"))
-		currentPage = 9;
+		currentPage = 13;
 #if defined(DAEDALUS_DOWNLOADPLAY_HOST)
 	if(UI::DrawButton(10, 130, 300, 42, "Download Play demo"))
 		currentPage = 11;
@@ -863,7 +888,10 @@ static void DrawHostPage()
 	}
 	else
 	{
-		UI::DrawText(14, 82, "Press Back to resume emulation.");
+		char roomCodeText[32];
+		snprintf(roomCodeText, sizeof(roomCodeText), "Room code: %.6s", CTRMultiplayer::GetLocalRoomCode());
+		UI::DrawText(14, 72, roomCodeText);
+		UI::DrawText(14, 92, "Room is automatically available for matchmaking.");
 		if (UI::DrawButton(10, 112, 300, 48, "Stop session"))
 			CTRMultiplayer::Stop();
 	}
@@ -872,35 +900,80 @@ static void DrawHostPage()
 		currentPage = 5;
 }
 
+static bool PromptOnlineText(const char *hint, char *buffer, size_t bufferSize);
+
 static void DrawJoinPage()
 {
-	UI::DrawHeader("Join nearby room");
-	UI::DrawText(14, 38, CTRMultiplayer::GetStatus());
-
-	if (CTRMultiplayer::GetState() != CTRMultiplayer::STATE_OFF)
+	UI::DrawHeader("Join local by code");
+	UI::DrawText(14, 40, CTRMultiplayer::GetStatus());
+	if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
 	{
-		UI::DrawText(14, 68, "Stop the active session before scanning.");
-		if (UI::DrawButton(10, 112, 300, 48, "Stop session"))
-			CTRMultiplayer::Stop();
-	}
-	else
-	{
-		UI::DrawText(14, 38, "Load the same ROM on each 3DS first.");
-		if (UI::DrawButton(10, 52, 300, 40, "Scan nearby rooms"))
-			CTRMultiplayer::Scan();
-
-		const size_t count = CTRMultiplayer::GetRoomCount();
-		for (size_t i = 0; i < count && i < 3; ++i)
+		UI::DrawText(14, 72, "Enter the 6-character code shown by the host.");
+		UI::DrawText(14, 92, "Both systems must have the same ROM/region.");
+		if (UI::DrawButton(10, 118, 300, 44, "Enter room code"))
 		{
-			char roomLabel[32];
-			CTRMultiplayer::GetRoomLabel(i, roomLabel, sizeof(roomLabel));
-			if (UI::DrawButton(10, 100 + (int)i * 27, 300, 24, roomLabel))
-				CTRMultiplayer::Join(i);
+			char code[16];
+			if (PromptOnlineText("Enter local room code", code, sizeof(code)))
+				CTRMultiplayer::JoinLocalByCode(code);
 		}
 	}
+	else if (UI::DrawButton(10, 118, 300, 44, "Stop session"))
+		CTRMultiplayer::Stop();
 
 	if (UI::DrawButton(10, 184, 300, 44, "Back"))
+		currentPage = 15;
+}
+
+static void DrawJoinLocalPage()
+{
+	UI::DrawHeader("Join local");
+	UI::DrawText(14, 48, "Choose how to find a nearby host.");
+	if (UI::DrawButton(10, 78, 145, 48, "Room Code"))
+		currentPage = 7;
+	if (UI::DrawButton(165, 78, 145, 48, "Matchmaking"))
+	{
+		s_localMatchmakingActive = true;
+		s_lastLocalMatchmakingScan = 0;
+		currentPage = 16;
+	}
+	if (UI::DrawButton(10, 184, 300, 44, "Back"))
 		currentPage = 5;
+}
+
+static void DrawLocalMatchmakingPage()
+{
+	UI::DrawHeader("Local matchmaking");
+	if (s_localMatchmakingActive && CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
+	{
+		const u64 now = osGetTime();
+		if (s_lastLocalMatchmakingScan == 0 || now - s_lastLocalMatchmakingScan >= 1500)
+		{
+			s_lastLocalMatchmakingScan = now;
+			CTRMultiplayer::JoinLocalMatchmaking();
+		}
+	}
+	UI::DrawText(14, 42, CTRMultiplayer::GetStatus());
+	if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
+	{
+		UI::DrawText(14, 70, s_localMatchmakingActive ?
+			"Searching nearby for a compatible hosted room." : "Search stopped.");
+		if (UI::DrawButton(10, 106, 300, 44,
+			s_localMatchmakingActive ? "Cancel search" : "Search again"))
+		{
+			s_localMatchmakingActive = !s_localMatchmakingActive;
+			s_lastLocalMatchmakingScan = 0;
+		}
+	}
+	else if (UI::DrawButton(10, 106, 300, 44, "Stop session"))
+	{
+		CTRMultiplayer::Stop();
+		s_localMatchmakingActive = false;
+	}
+	if (UI::DrawButton(10, 184, 300, 44, "Back"))
+	{
+		s_localMatchmakingActive = false;
+		currentPage = 15;
+	}
 }
 
 #if defined(DAEDALUS_DOWNLOADPLAY_HOST)
@@ -962,20 +1035,8 @@ static void DrawDownloadPlayHostPage()
 }
 #endif
 
-#ifdef DAEDALUS_MINIMAL_EMULATOR
-static bool PromptNumericText(const char *hint, const char *initialValue,
-	char *buffer, size_t bufferSize, bool allowDecimal)
-{
-	(void)hint; (void)initialValue; (void)buffer; (void)bufferSize; (void)allowDecimal;
-	return false;
-}
-
-static bool PromptOnlineText(const char *hint, char *buffer, size_t bufferSize)
-{
-	(void)hint; (void)buffer; (void)bufferSize;
-	return false;
-}
-#else
+// Keep the in-process input panel in minimal builds: room-code/address entry
+// is required for the multiplayer menu even when other touchscreen UI is trimmed.
 // Draw a touch key for the online text-entry panel. Keeping text input in the
 // application avoids launching the system software-keyboard applet, which
 // takes ownership of the 3DS graphics context and can leave PicaGL in a stale
@@ -1205,7 +1266,41 @@ static bool PromptOnlineText(const char *hint, char *buffer, size_t bufferSize)
 	UI::RestoreRenderState();
 	return accepted && buffer[0] != '\0';
 }
-#endif // !DAEDALUS_MINIMAL_EMULATOR
+
+static void DrawJoinOnlinePage()
+{
+	UI::DrawHeader("Join online");
+	UI::DrawText(14, 48, "Choose how you want to find a game.");
+
+	if (UI::DrawButton(10, 78, 145, 48, "Room Code"))
+		currentPage = 9;
+	if (UI::DrawButton(165, 78, 145, 48, "Matchmaking"))
+		currentPage = 14;
+
+	if (UI::DrawButton(10, 184, 300, 44, "Back"))
+		currentPage = 5;
+}
+
+static void DrawMatchmakingPage()
+{
+	UI::DrawHeader("Online matchmaking");
+	UI::DrawText(14, 42, CTRMultiplayer::GetStatus());
+	if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
+	{
+		UI::DrawText(14, 68, "Relay finds a host; gameplay connects directly.");
+		if (UI::DrawButton(10, 104, 300, 44, "Find match"))
+			CTRMultiplayer::JoinOnlineMatchmaking(CTRMultiplayer::GetMatchmakingRelayAddress());
+	}
+	else if (UI::DrawButton(10, 104, 300, 44, "Stop session"))
+		CTRMultiplayer::Stop();
+
+	if (UI::DrawButton(10, 184, 300, 44, "Back"))
+	{
+		if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_ONLINE_MATCHMAKING)
+			CTRMultiplayer::Stop();
+		currentPage = 13;
+	}
+}
 
 static void DrawOnlineInfoPage(bool host)
 {
@@ -1216,35 +1311,48 @@ static void DrawOnlineInfoPage(bool host)
 	{
 		if (host)
 		{
-			UI::DrawText(14, 66, "Share code, public address and TCP port.");
-			UI::DrawText(14, 86, "Forward the port to this 3DS on your router.");
+			UI::DrawText(14, 66, "Share the room code and public host address.");
+			UI::DrawText(14, 86, "Host TCP port must be reachable by guests.");
 		}
 		else
-			UI::DrawText(14, 66, "Online input relay is connected.");
-		if (UI::DrawButton(10, 112, 300, 48, "Stop session"))
+			UI::DrawText(14, 66, "Connected directly to the host 3DS.");
+		if (host)
+		{
+			char endpointText[72];
+			const char *endpoint = CTRMultiplayer::GetOnlinePublicAddress();
+			if (endpoint && endpoint[0])
+				snprintf(endpointText, sizeof(endpointText), "Host endpoint: %.48s", endpoint);
+			else
+				snprintf(endpointText, sizeof(endpointText), "Host port: %u; share public IP manually",
+					(unsigned)CTRMultiplayer::GetOnlineListenPort());
+			UI::DrawText(14, 106, endpointText);
+			if (UI::DrawButton(10, 132, 300, 40, "Stop session"))
+				CTRMultiplayer::Stop();
+		}
+		else if (UI::DrawButton(10, 112, 300, 48, "Stop session"))
 			CTRMultiplayer::Stop();
 	}
 	else
 	{
 		if (host)
 		{
-			UI::DrawText(14, 68, "This 3DS runs the online relay.");
-			UI::DrawText(14, 88, "Forward its TCP port on your router.");
-			if (UI::DrawButton(10, 112, 300, 48, "Start 3DS online host"))
+			UI::DrawText(14, 68, "Direct TCP; port defaults to 37777.");
+			UI::DrawText(14, 88, "Relay only adds matchmaking discovery.");
+			if (UI::DrawButton(10, 112, 300, 48, "Host direct room"))
 			{
-				char listenPort[16];
-				if (PromptOnlineText("TCP listen port (enter 37777)", listenPort, sizeof(listenPort)))
+				char listenPort[16] = "37777";
+				if (PromptOnlineText("TCP listen port (default 37777)", listenPort, sizeof(listenPort)))
 					CTRMultiplayer::HostOnline(listenPort);
 			}
 		}
 		else
 		{
-			UI::DrawText(14, 68, "Enter the 3DS host address:port.");
-			UI::DrawText(14, 88, "The host's router must forward TCP.");
-			if (UI::DrawButton(10, 112, 300, 48, "Enter host and room code"))
+			UI::DrawText(14, 68, "Connect directly using host address + code.");
+			UI::DrawText(14, 88, "Relay is not needed for code joining.");
+			if (UI::DrawButton(10, 112, 300, 48, "Enter host address and code"))
 			{
 				char serverAddress[64];
-				if (PromptOnlineText("Host hostname or IPv4:port", serverAddress, sizeof(serverAddress)))
+				if (PromptOnlineText("Host address[:port] (default 37777)", serverAddress, sizeof(serverAddress)))
 				{
 					char roomCode[16];
 					if (PromptOnlineText("Enter the 6-character room code", roomCode, sizeof(roomCode)))
@@ -1255,7 +1363,7 @@ static void DrawOnlineInfoPage(bool host)
 	}
 
 	if (UI::DrawButton(10, 184, 300, 44, "Back"))
-		currentPage = 5;
+		currentPage = host ? 5 : 13;
 }
 
 static void DrawMainPage()
@@ -1331,6 +1439,10 @@ void UI::DrawInGameMenu()
 		case 9: DrawOnlineInfoPage(false); break;
 		case 10: DrawControllerPage(); break;
 		case 12: DrawGraphicsPage(); break;
+		case 13: DrawJoinOnlinePage(); break;
+		case 14: DrawMatchmakingPage(); break;
+		case 15: DrawJoinLocalPage(); break;
+		case 16: DrawLocalMatchmakingPage(); break;
 #if defined(DAEDALUS_DOWNLOADPLAY_HOST)
 		case 11: DrawDownloadPlayHostPage(); break;
 #endif

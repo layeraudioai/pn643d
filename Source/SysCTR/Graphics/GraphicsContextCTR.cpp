@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "Graphics/GraphicsContext.h"
 #include "SysCTR/Utility/CTRHeadTracking.h"
+#include "SysCTR/Graphics/CTRVertexBuffers.h"
+#include "SysCTR/Graphics/CTRRenderConfig.h"
 
 #include <3ds.h>
 #include <GL/picaGL.h>
@@ -20,10 +22,8 @@
 
 extern void HandleEndOfFrame();
 
-#define SCR_WIDTH 400
-#define SCR_HEIGHT 240
-
-#define MAX_INDEXES 0xFFFF
+#define SCR_WIDTH CTR_GAME_VIEW_WIDTH
+#define SCR_HEIGHT CTR_GAME_VIEW_HEIGHT
 
 #define RATIO_4_3 0
 #define RATIO_5_3 1
@@ -87,7 +87,13 @@ template<> bool CSingleton< CGraphicsContext >::Create()
 	DAEDALUS_ASSERT_Q(mpInstance == nullptr);
 #endif
 	mpInstance = new IGraphicsContext();
-	return mpInstance->Initialise();
+	if (!mpInstance->Initialise())
+	{
+		delete mpInstance;
+		mpInstance = nullptr;
+		return false;
+	}
+	return true;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -98,9 +104,9 @@ IGraphicsContext::IGraphicsContext()
 	:	mInitialised(false)
 	,	mDumpNextScreen(false)
 {	
-	gVertexBufferPtr = (float*)linearAlloc(0x600000);
-	gColorBufferPtr = (uint32_t*)linearAlloc(0x200000);
-	gTexCoordBufferPtr = (float*)linearAlloc(0x600000);
+	gVertexBufferPtr = (float*)linearAlloc(CTR_VERTEX_BUFFER_CAPACITY * 3 * sizeof(float));
+	gColorBufferPtr = (uint32_t*)linearAlloc(CTR_VERTEX_BUFFER_CAPACITY * sizeof(uint32_t));
+	gTexCoordBufferPtr = (float*)linearAlloc(CTR_VERTEX_BUFFER_CAPACITY * 2 * sizeof(float));
 
 	gVertexBuffer = gVertexBufferPtr;
 	gColorBuffer = gColorBufferPtr;
@@ -109,13 +115,22 @@ IGraphicsContext::IGraphicsContext()
 
 IGraphicsContext::~IGraphicsContext()
 {
-	linearFree(gVertexBufferPtr);
-	linearFree(gColorBufferPtr);
-	linearFree(gTexCoordBufferPtr);
+	if (gVertexBufferPtr) linearFree(gVertexBufferPtr);
+	if (gColorBufferPtr) linearFree(gColorBufferPtr);
+	if (gTexCoordBufferPtr) linearFree(gTexCoordBufferPtr);
+	gVertexBufferPtr = nullptr;
+	gColorBufferPtr = nullptr;
+	gTexCoordBufferPtr = nullptr;
+	gVertexBuffer = nullptr;
+	gColorBuffer = nullptr;
+	gTexCoordBuffer = nullptr;
 }
 
 bool IGraphicsContext::Initialise()
 {
+	if (!gVertexBufferPtr || !gColorBufferPtr || !gTexCoordBufferPtr)
+		return false;
+
 	mInitialised = true;
 
 	pglSelectScreen(GFX_TOP, GFX_LEFT);

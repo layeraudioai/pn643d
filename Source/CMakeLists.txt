@@ -19,6 +19,10 @@ option(DAEDALUS_ENABLE_DEBUG_CONSOLE "Enable the CTR debug console" OFF)
 option(DAEDALUS_ENABLE_BATCH_TESTS "Compile emulator batch-test support" OFF)
 option(DAEDALUS_DOWNLOADPLAY "Build a ROM-specific Download Play child CIA" OFF)
 option(DAEDALUS_MINIMAL_EMULATOR "Trim touchscreen UI support; keep only the analog-mapped virtual stick" OFF)
+option(DAEDALUS_NINTENSTATION643D "Build the minimal Nintenstation643D profile" OFF)
+if(DAEDALUS_NINTENSTATION643D)
+	set(DAEDALUS_MINIMAL_EMULATOR ON)
+endif()
 # CMAKE_C_FLAGS in the devkitARM toolchain requests -O3, but the target-level
 # -O2 used to override it. Expose the release choice so ARM11 builds can be
 # compared reproducibly; O3 is the default while O2/Os remain easy fallbacks.
@@ -144,6 +148,9 @@ if (CTR_RELEASE)
 	if(DAEDALUS_MINIMAL_EMULATOR)
 		target_compile_definitions(daedalus PRIVATE DAEDALUS_MINIMAL_EMULATOR)
 	endif()
+	if(DAEDALUS_NINTENSTATION643D)
+		target_compile_definitions(daedalus PRIVATE DAEDALUS_NINTENSTATION643D)
+	endif()
 
 	# A CartID is optional: zero keeps the standard multi-ROM build. For a
 	# dedicated profile, the build script can detect the ID from an N64 ROM.
@@ -182,11 +189,51 @@ if (CTR_RELEASE)
 		png
 	)
 
+	# The secret Nintenstation643D profile uses a dedicated PICA vertex shader
+	# that emits clip-space w=1, making texture coordinates affine in screen
+	# space. Compile and embed it only in that build profile; normal releases
+	# continue to use picaGL's standard perspective-correct shader.
+	set(DAEDALUS_PROFILE_SHADER_SOURCE "")
+	if(DAEDALUS_NINTENSTATION643D)
+		# Prefer a project-local assembler so the build can use Tools/picasso.exe
+		# (or tools/picasso.exe) without installing it into devkitPro.
+		find_program(DAEDALUS_PICASSO
+			NAMES picasso picasso.exe
+			HINTS
+				"${PROJECT_SOURCE_DIR}/Tools"
+				"${PROJECT_SOURCE_DIR}/tools"
+				"${DEVKITPRO}/tools/bin"
+		)
+		if(NOT DAEDALUS_PICASSO)
+			message(FATAL_ERROR "picasso is required to build the Nintenstation643D profile")
+		endif()
+		set(DAEDALUS_PROFILE_SHADER_BIN "${CMAKE_CURRENT_BINARY_DIR}/nintenstation_affine.shbin")
+		set(DAEDALUS_PROFILE_SHADER_C "${CMAKE_CURRENT_BINARY_DIR}/nintenstation_affine_shader.c")
+		add_custom_command(
+			OUTPUT "${DAEDALUS_PROFILE_SHADER_C}" "${DAEDALUS_PROFILE_SHADER_BIN}"
+			COMMAND "${DAEDALUS_PICASSO}" -o "${DAEDALUS_PROFILE_SHADER_BIN}"
+				"${PROJECT_SOURCE_DIR}/../deps/picaGL/source/shaders/vshader_affine.v.pica"
+			COMMAND "${CMAKE_COMMAND}"
+				"-DINPUT=${DAEDALUS_PROFILE_SHADER_BIN}"
+				"-DOUTPUT=${DAEDALUS_PROFILE_SHADER_C}"
+				-P "${PROJECT_SOURCE_DIR}/../Tools/EmbedShaderBinary.cmake"
+			DEPENDS
+				"${PROJECT_SOURCE_DIR}/../deps/picaGL/source/shaders/vshader_affine.v.pica"
+				"${PROJECT_SOURCE_DIR}/../Tools/EmbedShaderBinary.cmake"
+			VERBATIM
+		)
+		set(DAEDALUS_PROFILE_SHADER_SOURCE "${DAEDALUS_PROFILE_SHADER_C}")
+	endif()
+
 	# Build and Link Executable
 	add_executable(${PROJECT_NAME}.elf
 		${CTR_MAIN_FILES}
 		${CTR_INPUTMANAGER_FILES}
+		${DAEDALUS_PROFILE_SHADER_SOURCE}
 	)
+	if(DAEDALUS_NINTENSTATION643D)
+		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_NINTENSTATION643D)
+	endif()
 	target_compile_options(${PROJECT_NAME}.elf PRIVATE ${DAEDALUS_CTR_OPT_FLAG} -ffunction-sections -fdata-sections)
 	if(DAEDALUS_ENABLE_FUNCTION_PROFILING)
 		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_ENABLE_PROFILING)
@@ -202,6 +249,9 @@ if (CTR_RELEASE)
 	endif()
 	if(DAEDALUS_MINIMAL_EMULATOR)
 		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_MINIMAL_EMULATOR)
+	endif()
+	if(DAEDALUS_NINTENSTATION643D)
+		target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_NINTENSTATION643D)
 	endif()
 	target_compile_definitions(${PROJECT_NAME}.elf PRIVATE DAEDALUS_TARGET_GAME_ID=${DAEDALUS_GAME_ID_VALUE})
 	if(DAEDALUS_DOWNLOADPLAY)

@@ -143,9 +143,10 @@ void CAudioBuffer::AddSamples( const Sample * samples, u32 num_samples, u32 freq
 			//    as the program winds up waiting for the buffer to empty.
 			// ToDo: Adjust Audio Frequency/ Look at Turok in this regard.
 			// We might want to put a Sleep in when executing on the SC?
-			//Give time to other threads when using SYNC mode.
-		//ThreadYield();
-
+			// The producer can run ahead of NDSP when emulation is fast or the
+			// resampled block is unusually large. Yield rather than spin at full
+			// speed while the DSP callback frees ring space.
+			ThreadYield();
 			read_ptr = mReadPtr;
 		}
 

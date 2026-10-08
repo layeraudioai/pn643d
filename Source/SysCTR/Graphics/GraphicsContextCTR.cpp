@@ -232,8 +232,17 @@ void IGraphicsContext::SetDebugScreenTarget(ETargetSurface buffer)
 
 void IGraphicsContext::ViewportType(u32 *d_width, u32 *d_height) const
 {
-	*d_width = CTRGetRenderWidth();
-	*d_height = CTRGetRenderHeight();
+	switch(aspectRatio)
+	{
+		case RATIO_5_3:
+			*d_width = SCR_WIDTH;
+			*d_height = SCR_HEIGHT;
+			break;
+		default:
+			*d_width = 320;
+			*d_height = 240;
+			break;
+	}
 }
 
 void IGraphicsContext::SaveScreenshot(const char* filename, s32 x, s32 y, u32 width, u32 height)
@@ -250,6 +259,6 @@ void IGraphicsContext::StoreSaveScreenData()
 
 void IGraphicsContext::GetScreenSize(u32 * p_width, u32 * p_height) const
 {
-	*p_width = CTRGetRenderWidth();
-	*p_height = CTRGetRenderHeight();
+	*p_width = SCR_WIDTH;
+	*p_height = SCR_HEIGHT;
 }

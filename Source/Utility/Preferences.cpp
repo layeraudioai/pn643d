@@ -679,7 +679,7 @@ void SRomPreferences::Apply() const
 	gFrameskipValue             = Frameskip;
 	gZoomX                      = ZoomX;
 	gMaxFPS                     = MaxFPS;
-#ifdef DAEDALUS_NINTENSTATION643D
+	#ifdef DAEDALUS_NINTENSTATION643D
 	gGraphicsEffect             = GFXE_PIXELIZE;
 #else
 	gGraphicsEffect             = GraphicsEffect;
@@ -705,7 +705,6 @@ void SRomPreferences::Apply() const
 #else
 	gAudioPluginEnabled         = AudioEnabled;
 #endif
-//	gAdaptFrequency             = AudioAdaptFrequency;
 	gControllerIndex            = ControllerIndex;							//Used during ROM initialization
 #ifdef DAEDALUS_PSP
 	CInputManager::Get()->SetConfiguration( ControllerIndex );  //Used after initialization

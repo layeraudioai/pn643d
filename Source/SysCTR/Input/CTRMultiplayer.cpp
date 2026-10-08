@@ -492,12 +492,13 @@ namespace
 
     static bool RoomCodeMatches(const u8 *code)
     {
-        for (unsigned i = 0; i < 6; ++i)
+        for (unsigned i = 0; i < 8; ++i)
         {
             char c = (char)code[i];
             if (c >= 'a' && c <= 'z')
                 c = (char)(c - 'a' + 'A');
-            if (c != s_onlineRoomCode[i])
+            const char expected = s_onlineRoomCode[i] ? s_onlineRoomCode[i] : ' ';
+            if (c != expected)
                 return false;
         }
         return true;
@@ -742,9 +743,13 @@ namespace
         memset(s_serverPads, 0, sizeof(s_serverPads));
         s_serverActiveMask = 0;
         s_serverSequence = 0;
-        char generatedCode[7];
-        GenerateRoomCode(generatedCode);
-        memcpy(s_onlineRoomCode, generatedCode, 6);
+        u64 roomSeed = osGetTime();
+        // This code is a room identifier, not a secret or an authentication key.
+        for (unsigned i = 0; i < 6; ++i)
+        {
+            roomSeed = roomSeed * 1103515245u + 12345u;
+            s_onlineRoomCode[i] = kRoomAlphabet[(roomSeed >> 16) % 32];
+        }
         s_onlineRoomCode[6] = s_onlineRoomCode[7] = ' ';
         s_onlineRoomCode[8] = '\0';
         s_onlineSlot = CTRInput_GetLocalControllerPort();
@@ -989,7 +994,7 @@ namespace
     {
         if (!serverAddress || !serverAddress[0])
         {
-            SetStatus("Enter host address[:port]");
+            SetStatus("Enter relay address (host:port)");
             return false;
         }
         if (!s_socInitialized)
@@ -1009,7 +1014,7 @@ namespace
         size_t hostLength = colon ? (size_t)(colon - serverAddress) : strlen(serverAddress);
         if (hostLength == 0 || hostLength >= sizeof(hostName))
         {
-            SetStatus("Invalid host address");
+            SetStatus("Invalid relay address");
             CloseOnlineSocket();
             return false;
         }
@@ -1021,7 +1026,7 @@ namespace
             long port = strtol(colon + 1, &end, 10);
             if (!end || *end || port < 1 || port > 65535)
             {
-                SetStatus("Invalid host port");
+                SetStatus("Invalid relay port");
                 CloseOnlineSocket();
                 return false;
             }
@@ -1035,7 +1040,7 @@ namespace
         struct addrinfo *addresses = NULL;
         if (getaddrinfo(hostName, service, &hints, &addresses) != 0 || !addresses)
         {
-            SetStatus("Could not resolve host address");
+            SetStatus("Could not resolve relay address");
             CloseOnlineSocket();
             return false;
         }
@@ -1069,7 +1074,7 @@ namespace
         freeaddrinfo(addresses);
         if (fd < 0)
         {
-            SetStatus("Could not connect to host");
+            SetStatus("Could not connect to relay");
             CloseOnlineSocket();
             return false;
         }
@@ -1104,7 +1109,7 @@ namespace
             memcmp(welcome, "PN64", 4) != 0 || welcome[4] != kOnlinePacketVersion || welcome[5] != 3)
         {
             close(fd);
-            SetStatus("Host rejected code/game or timed out");
+            SetStatus("Relay rejected connection or timed out");
             CloseOnlineSocket();
             return false;
         }
@@ -1414,8 +1419,8 @@ void GetRoomLabel(size_t roomIndex, char *buffer, size_t bufferSize)
                  (const char *)(s_rooms[roomIndex].network.appdata + 4), username,
                  (unsigned)s_rooms[roomIndex].network.total_nodes);
     else
-        snprintf(buffer, bufferSize, "%s (%u players)", username,
-                 (unsigned)s_rooms[roomIndex].network.total_nodes);
+    snprintf(buffer, bufferSize, "%s (%u players)", username,
+             (unsigned)s_rooms[roomIndex].network.total_nodes);
 }
 
 bool Join(size_t roomIndex)
@@ -1485,7 +1490,7 @@ bool JoinOnline(const char *serverAddress, const char *roomCode)
     if (!ConnectOnline(serverAddress, false, roomCode))
         return false;
     s_state = STATE_ONLINE_JOINED;
-    snprintf(s_status, sizeof(s_status), "Joined room %s directly", s_onlineRoomCode);
+    snprintf(s_status, sizeof(s_status), "Joined room %s", s_onlineRoomCode);
     return true;
 }
 
@@ -1603,7 +1608,7 @@ void Update(const OSContPad localPad[4], OSContPad outputPads[4])
     if (s_state == STATE_OFF)
         return;
 
-    if (s_state == STATE_ONLINE_MATCHMAKING)
+            if (s_state == STATE_ONLINE_MATCHMAKING)
     {
         if (!PollMatchmakingSearch())
         {

@@ -416,7 +416,7 @@ static void DrawOptionsPage()
 	if (optionsSubpage == 0)
 	{
 		char label[48];
-#ifdef DAEDALUS_NINTENSTATION643D
+		#ifdef DAEDALUS_NINTENSTATION643D
 		preferences.AudioEnabled = APM_ENABLED_ASYNC;
 		snprintf(label, sizeof(label), "Audio: Async (locked)");
 		UI::DrawButton(10, 22, 145, 32, label);
@@ -671,6 +671,8 @@ static void DrawOptionsPage()
 
 		if (UI::DrawToggle(10, 59, 145, 32, "Battery warning", gGlobalPreferences.BatteryWarning))
 			gGlobalPreferences.BatteryWarning = !gGlobalPreferences.BatteryWarning;
+		if (UI::DrawToggle(165, 59, 145, 32, "Large ROM buffer", gGlobalPreferences.LargeROMBuffer))
+			gGlobalPreferences.LargeROMBuffer = !gGlobalPreferences.LargeROMBuffer;
 
 		if (UI::DrawToggle(10, 96, 145, 32, "Rumble pak", gGlobalPreferences.RumblePak))
 			gGlobalPreferences.RumblePak = !gGlobalPreferences.RumblePak;
@@ -688,7 +690,7 @@ static void DrawOptionsPage()
 	}
 	else if (optionsSubpage == 5)
 	{
-		char cacheLabel[48];
+char cacheLabel[48];
 		snprintf(cacheLabel, sizeof(cacheLabel), "ROM streaming cache: %u MiB",
 			(unsigned int)gGlobalPreferences.ROMStreamingCacheMB);
 		if (UI::DrawButton(10, 22, 300, 32, cacheLabel))
@@ -785,11 +787,11 @@ static void DrawGraphicsPage()
 {
 	SRomPreferences preferences;
 	CPreferences::Get()->GetRomPreferences(g_ROM.mRomID, &preferences);
-#ifndef DAEDALUS_NINTENSTATION643D
+	#ifndef DAEDALUS_NINTENSTATION643D
 	static const char *const effectNames[NUM_GRAPHICS_EFFECTS] = {
 		"Original", "Pixelize", "Cel shading", "Painting"
 	};
-#endif
+	#endif
 	if (preferences.GraphicsEffect < GFXE_NONE || preferences.GraphicsEffect >= NUM_GRAPHICS_EFFECTS)
 		preferences.GraphicsEffect = GFXE_NONE;
 
@@ -944,7 +946,7 @@ static void DrawJoinPage()
 {
 	UI::DrawHeader("Join local by code");
 	UI::DrawText(14, 40, CTRMultiplayer::GetStatus());
-	if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
+if (CTRMultiplayer::GetState() == CTRMultiplayer::STATE_OFF)
 	{
 		UI::DrawText(14, 72, "Enter the 6-character code shown by the host.");
 		UI::DrawText(14, 92, "Both systems must have the same ROM/region.");
@@ -1073,8 +1075,20 @@ static void DrawDownloadPlayHostPage()
 }
 #endif
 
-// Keep the in-process input panel in minimal builds: room-code/address entry
-// is required for the multiplayer menu even when other touchscreen UI is trimmed.
+#ifdef DAEDALUS_MINIMAL_EMULATOR
+static bool PromptNumericText(const char *hint, const char *initialValue,
+	char *buffer, size_t bufferSize, bool allowDecimal)
+{
+	(void)hint; (void)initialValue; (void)buffer; (void)bufferSize; (void)allowDecimal;
+	return false;
+}
+
+static bool PromptOnlineText(const char *hint, char *buffer, size_t bufferSize)
+{
+	(void)hint; (void)buffer; (void)bufferSize;
+	return false;
+}
+#else
 // Draw a touch key for the online text-entry panel. Keeping text input in the
 // application avoids launching the system software-keyboard applet, which
 // takes ownership of the 3DS graphics context and can leave PicaGL in a stale
@@ -1304,6 +1318,7 @@ static bool PromptOnlineText(const char *hint, char *buffer, size_t bufferSize)
 	UI::RestoreRenderState();
 	return accepted && buffer[0] != '\0';
 }
+#endif // !DAEDALUS_MINIMAL_EMULATOR
 
 static void DrawJoinOnlinePage()
 {
@@ -1349,8 +1364,8 @@ static void DrawOnlineInfoPage(bool host)
 	{
 		if (host)
 		{
-			UI::DrawText(14, 66, "Share the room code and public host address.");
-			UI::DrawText(14, 86, "Host TCP port must be reachable by guests.");
+			UI::DrawText(14, 66, "Share code, public address and TCP port.");
+			UI::DrawText(14, 86, "Forward the port to this 3DS on your router.");
 		}
 		else
 			UI::DrawText(14, 66, "Connected directly to the host 3DS.");
@@ -1374,23 +1389,23 @@ static void DrawOnlineInfoPage(bool host)
 	{
 		if (host)
 		{
-			UI::DrawText(14, 68, "Direct TCP; port defaults to 37777.");
-			UI::DrawText(14, 88, "Relay only adds matchmaking discovery.");
-			if (UI::DrawButton(10, 112, 300, 48, "Host direct room"))
+			UI::DrawText(14, 68, "This 3DS runs the online relay.");
+			UI::DrawText(14, 88, "Forward its TCP port on your router.");
+			if (UI::DrawButton(10, 112, 300, 48, "Start 3DS online host"))
 			{
-				char listenPort[16] = "37777";
-				if (PromptOnlineText("TCP listen port (default 37777)", listenPort, sizeof(listenPort)))
+				char listenPort[16];
+				if (PromptOnlineText("TCP listen port (enter 37777)", listenPort, sizeof(listenPort)))
 					CTRMultiplayer::HostOnline(listenPort);
 			}
 		}
 		else
 		{
-			UI::DrawText(14, 68, "Connect directly using host address + code.");
-			UI::DrawText(14, 88, "Relay is not needed for code joining.");
-			if (UI::DrawButton(10, 112, 300, 48, "Enter host address and code"))
+			UI::DrawText(14, 68, "Enter the 3DS host address:port.");
+			UI::DrawText(14, 88, "The host's router must forward TCP.");
+			if (UI::DrawButton(10, 112, 300, 48, "Enter host and room code"))
 			{
 				char serverAddress[64];
-				if (PromptOnlineText("Host address[:port] (default 37777)", serverAddress, sizeof(serverAddress)))
+				if (PromptOnlineText("Host hostname or IPv4:port", serverAddress, sizeof(serverAddress)))
 				{
 					char roomCode[16];
 					if (PromptOnlineText("Enter the 6-character room code", roomCode, sizeof(roomCode)))
@@ -1462,7 +1477,9 @@ static void DrawMainPage()
 	if(UI::DrawButton(165, 76, 145, 48, "Options")) currentPage = 4;
 	if(UI::DrawButton(10,  130, 145, 48, "Controller")) currentPage = 10;
 	if(UI::DrawButton(165, 130, 145, 48, "Close ROM")) currentPage = 3;
+#ifndef DAEDALUS_NINTENSTATION643D
 	if(UI::DrawButton(10, 184, 300, 40, "Graphics effects")) currentPage = 12;
+#endif
 #endif
 }
 
@@ -1489,7 +1506,7 @@ void UI::DrawInGameMenu()
 		case 14: DrawMatchmakingPage(); break;
 		case 15: DrawJoinLocalPage(); break;
 		case 16: DrawLocalMatchmakingPage(); break;
-#if defined(DAEDALUS_DOWNLOADPLAY_HOST)
+	#if defined(DAEDALUS_DOWNLOADPLAY_HOST)
 		case 11: DrawDownloadPlayHostPage(); break;
 #endif
 	}

@@ -30,8 +30,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 static u32				gTicksBetweenVbls = 0;			// User-selected frame-cap interval
-static u32				gTicksBetweenBackendVbls = 0;		// Emulated VI interval (same as user target)
+static u32				gTicksBetweenBackendVbls = 0;		// Adaptive backend VI interval
 static u32				gBackendMaxFPS = 60;
+static u32				gBackendCeilingFPS = 120;
 static u32				gUserTargetFPS = 60;
 static u64				gClockFrequency = 0;
 static u32				gTicksPerSecond = 0;			// How many ticks there are per second
@@ -108,12 +109,20 @@ bool FramerateLimiter_Reset()
 		#endif
 
 		u32 target_fps = GetRequestedTargetFPS(tv_type);
-		// Use one emulated VI cadence for game logic, audio and display pacing.
+		// Keep the user-selected limit as a hard wall-clock cap. The backend
+		// VI rate is separate and may rise to improve games that update more
+		// often when they receive additional VI interrupts.
 		gClockFrequency = frequency;
 		gUserTargetFPS = target_fps;
 		gTicksBetweenVbls = (u32)(frequency / (u64)target_fps);
 		gBackendMaxFPS = target_fps;
-		gTicksBetweenBackendVbls = (u32)(frequency / (u64)target_fps);
+#ifdef DAEDALUS_CTR
+		gBackendCeilingFPS = CTRPerfLearning::GetRecommendedBackendCeilingFPS(target_fps);
+		if (gBackendCeilingFPS < target_fps) gBackendCeilingFPS = target_fps;
+#else
+		gBackendCeilingFPS = target_fps < 120u ? target_fps * 2u : 240u;
+#endif
+		gTicksBetweenBackendVbls = (u32)(frequency / (u64)gBackendMaxFPS);
 		gTicksPerSecond = (u32)((frequency * ((f32)target_fps / 60.0f)) * 3);
 	}
 	else
@@ -122,6 +131,7 @@ bool FramerateLimiter_Reset()
 		gTicksBetweenVbls = 0;
 		gTicksBetweenBackendVbls = 0;
 		gBackendMaxFPS = 0;
+		gBackendCeilingFPS = 0;
 		gUserTargetFPS = 0;
 		gTicksPerSecond = 0;
 	}
@@ -145,7 +155,8 @@ void FramerateLimiter_Limit()
 #ifdef DAEDALUS_CTR
 	CTR_PERF_SCOPE(CTRPerfLearning::PROFILE_FRAME_LIMITER);
 #endif
-	// MaxFPS can be changed live without resetting the pacing timer.
+	// MaxFPS can be changed from the in-game menu. Apply it live without
+	// resetting the timer (or the adaptive backend) on every menu draw.
 	u32 tv_type = g_ROM.TvType;
 	if (tv_type >= sizeof(gTvFrequencies) / sizeof(u32)) tv_type = 0;
 	u32 target_fps = GetRequestedTargetFPS(tv_type);
@@ -155,6 +166,12 @@ void FramerateLimiter_Limit()
 		gTicksBetweenVbls = (u32)(gClockFrequency / target_fps);
 		gTicksPerSecond = (u32)((gClockFrequency * ((f32)target_fps / 60.0f)) * 3);
 		gBackendMaxFPS = target_fps;
+#ifdef DAEDALUS_CTR
+		gBackendCeilingFPS = CTRPerfLearning::GetRecommendedBackendCeilingFPS(target_fps);
+		if (gBackendCeilingFPS < target_fps) gBackendCeilingFPS = target_fps;
+#else
+		gBackendCeilingFPS = target_fps > 120u ? 240u : target_fps * 2u;
+#endif
 		gTicksBetweenBackendVbls = (u32)(gClockFrequency / gBackendMaxFPS);
 	}
 
@@ -180,11 +197,15 @@ void FramerateLimiter_Limit()
 	gCurrentAverageTicksPerVbl = FramerateLimiter_UpdateAverageTicksPerVbl(work_per_vbl);
 #ifdef DAEDALUS_CTR
 	CTRPerfLearning::RecordFrame(work_per_vbl, gTicksBetweenVbls);
+	gBackendCeilingFPS = CTRPerfLearning::GetRecommendedBackendCeilingFPS(gUserTargetFPS);
+	if (gBackendCeilingFPS < gUserTargetFPS) gBackendCeilingFPS = gUserTargetFPS;
 #endif
 
 	if( !gAuxSyncFn && gTicksBetweenVbls != 0 )
 	{
-		// Pace completed display flips to the same user-selected cadence as VI.
+		// The backend may generate more VI interrupts than the user's requested
+		// output rate. Pace each flip at the slower of the backend cadence and
+		// the explicit user cap, so menus can never run past MaxFPS.
 		u64 required_ticks = (u64)gTicksBetweenBackendVbls * gVblsSinceFlip;
 		if (required_ticks < gTicksBetweenVbls)
 			required_ticks = gTicksBetweenVbls;
@@ -203,9 +224,27 @@ void FramerateLimiter_Limit()
 	gLastVITime = now;
 	gVblsSinceFlip = 0;
 
-	// Keep backend VI timing at the requested rate. Performance adaptation must
-	// affect frameskip/presentation policy, not the emulated clock: changing VI
-	// frequency independently desynchronizes game logic, video and audio.
+	// Adapt the internal VI cadence only when the previous frame had headroom.
+	// The backend has a bounded ceiling (at most 240 VI/s, or the user target
+	// when that is higher); it backs off promptly if emulation cannot keep up.
+	if (gClockFrequency != 0 && gBackendMaxFPS != 0)
+	{
+		const u64 measured_work_per_vbl = work_per_vbl;
+		const u64 backend_period = gTicksBetweenBackendVbls;
+		if (measured_work_per_vbl * 10 < backend_period * 8 &&
+			gBackendMaxFPS < gBackendCeilingFPS)
+		{
+			gBackendMaxFPS += gBackendCeilingFPS - gBackendMaxFPS < 5u ?
+				gBackendCeilingFPS - gBackendMaxFPS : 5u;
+		}
+		else if (measured_work_per_vbl * 10 > backend_period * 12 &&
+			gBackendMaxFPS > (u32)gMaxFPS)
+		{
+			gBackendMaxFPS = gBackendMaxFPS - (u32)gMaxFPS < 5u ?
+				(u32)gMaxFPS : gBackendMaxFPS - 5u;
+		}
+		gTicksBetweenBackendVbls = (u32)(gClockFrequency / gBackendMaxFPS);
+	}
 }
 
 f32	FramerateLimiter_GetSync()

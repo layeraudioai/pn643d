@@ -143,10 +143,8 @@ void CAudioBuffer::AddSamples( const Sample * samples, u32 num_samples, u32 freq
 			//    as the program winds up waiting for the buffer to empty.
 			// ToDo: Adjust Audio Frequency/ Look at Turok in this regard.
 			// We might want to put a Sleep in when executing on the SC?
-			// Give the DSP callback/consumer time to drain the ring. Without a
-			// yield, a full ring can leave the emulator spinning here and starve
-			// the work needed to make audio audible again.
-			ThreadYield();
+			//Give time to other threads when using SYNC mode.
+		//ThreadYield();
 
 			read_ptr = mReadPtr;
 		}

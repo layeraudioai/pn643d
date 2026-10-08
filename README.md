@@ -6,6 +6,10 @@ EXPERIMENTAL: there is a boot.firm in the repo/source if you are feeling ballzin
 --
 2: double click the romconvert.exe after putting the roms in the Roms dir (Roms/ will sit next to Tools/ ... in the project root)
 --
+--
+Updating from previous release: what I'd recommened is on everyone's 1st time run the 1st time bat be patient and go through it. after that if you are updating to a new release just run the gui bat and setup
+--
+--
 Credits
 --
 -cmf028: Major contributer of the ARM DynaRec code 

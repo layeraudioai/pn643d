@@ -206,9 +206,9 @@ bool IPreferences::OpenPreferencesFile( const char * filename )
 #if defined(DAEDALUS_CTR) && !defined(DAEDALUS_MINIMAL_EMULATOR)
 		INT_SETTING( gGlobalPreferences, CTRRenderWidth, defaults );
 		INT_SETTING( gGlobalPreferences, CTRRenderHeight, defaults );
-		if (gGlobalPreferences.CTRRenderWidth < 64 || gGlobalPreferences.CTRRenderWidth > 800)
+		if (gGlobalPreferences.CTRRenderWidth < 64 || gGlobalPreferences.CTRRenderWidth > 2048)
 			gGlobalPreferences.CTRRenderWidth = defaults.CTRRenderWidth;
-		if (gGlobalPreferences.CTRRenderHeight < 64 || gGlobalPreferences.CTRRenderHeight > 480)
+		if (gGlobalPreferences.CTRRenderHeight < 64 || gGlobalPreferences.CTRRenderHeight > 2048)
 			gGlobalPreferences.CTRRenderHeight = defaults.CTRRenderHeight;
 #endif
 		if( section->FindProperty( "TVType", &property ) )

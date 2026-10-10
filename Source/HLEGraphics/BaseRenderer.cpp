@@ -48,11 +48,46 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #ifdef DAEDALUS_CTR
 // BaseRenderer works in the profile's logical canvas dimensions. Scale its
-// raster coordinates into the actual 400x240 PICA framebuffer so sub-native
-// profiles fill the top screen instead of leaving a centered border.
-static inline s32 ScaleCTRToOutput(s32 value, s32 logical_extent, s32 output_extent)
+// raster coordinates into the actual PICA framebuffer with centering,
+// full-screen fill (allowing 5% black bars / cropping), and integer scaling.
+static inline void GetCTRScaleAndOffset(s32 logical_w, s32 logical_h, s32 output_w, s32 output_h, f32 &out_scale, f32 &out_offset_x, f32 &out_offset_y)
 {
-	return static_cast<s32>(roundf(static_cast<f32>(value) * output_extent / logical_extent));
+	f32 sw = static_cast<f32>(output_w) / logical_w;
+	f32 sh = static_cast<f32>(output_h) / logical_h;
+	f32 scale = fmaxf(sw, sh);
+	f32 rendered_w = logical_w * scale;
+	f32 rendered_h = logical_h * scale;
+	out_scale = scale;
+	out_offset_x = (output_w - rendered_w) * 0.5f;
+	out_offset_y = (output_h - rendered_h) * 0.5f;
+}
+
+static inline s32 ScaleCTRCoordinateX(s32 value, s32 logical_w, s32 logical_h, s32 output_w, s32 output_h)
+{
+	f32 scale, offset_x, offset_y;
+	GetCTRScaleAndOffset(logical_w, logical_h, output_w, output_h, scale, offset_x, offset_y);
+	return static_cast<s32>(roundf(value * scale + offset_x));
+}
+
+static inline s32 ScaleCTRCoordinateY(s32 value, s32 logical_w, s32 logical_h, s32 output_w, s32 output_h)
+{
+	f32 scale, offset_x, offset_y;
+	GetCTRScaleAndOffset(logical_w, logical_h, output_w, output_h, scale, offset_x, offset_y);
+	return static_cast<s32>(roundf(value * scale + offset_y));
+}
+
+static inline s32 ScaleCTRExtentX(s32 value, s32 logical_w, s32 logical_h, s32 output_w, s32 output_h)
+{
+	f32 scale, offset_x, offset_y;
+	GetCTRScaleAndOffset(logical_w, logical_h, output_w, output_h, scale, offset_x, offset_y);
+	return static_cast<s32>(roundf(value * scale));
+}
+
+static inline s32 ScaleCTRExtentY(s32 value, s32 logical_w, s32 logical_h, s32 output_w, s32 output_h)
+{
+	f32 scale, offset_x, offset_y;
+	GetCTRScaleAndOffset(logical_w, logical_h, output_w, output_h, scale, offset_x, offset_y);
+	return static_cast<s32>(roundf(value * scale));
 }
 #endif
 
@@ -450,10 +485,10 @@ void BaseRenderer::UpdateViewport()
 	sceGuViewport(vx + vp_x, vy + vp_y, vp_w, vp_h);
 #elif defined(DAEDALUS_CTR)
 	glViewport(
-		ScaleCTRToOutput(static_cast<s32>(mN64ToScreenTranslate.x + vp_x), CTRGetRenderWidth(), pglGetRenderWidth()),
-		ScaleCTRToOutput(static_cast<s32>(mScreenHeight - (vp_h + vp_y)), CTRGetRenderHeight(), pglGetRenderHeight()),
-		ScaleCTRToOutput(vp_w, CTRGetRenderWidth(), pglGetRenderWidth()),
-		ScaleCTRToOutput(vp_h, CTRGetRenderHeight(), pglGetRenderHeight()));
+		ScaleCTRCoordinateX(static_cast<s32>(mN64ToScreenTranslate.x + vp_x), CTRGetRenderWidth(), CTRGetRenderHeight(), pglGetRenderWidth(), pglGetRenderHeight()),
+		ScaleCTRCoordinateY(static_cast<s32>(mScreenHeight - (vp_h + vp_y)), CTRGetRenderWidth(), CTRGetRenderHeight(), pglGetRenderWidth(), pglGetRenderHeight()),
+		ScaleCTRExtentX(vp_w, CTRGetRenderWidth(), CTRGetRenderHeight(), pglGetRenderWidth(), pglGetRenderHeight()),
+		ScaleCTRExtentY(vp_h, CTRGetRenderWidth(), CTRGetRenderHeight(), pglGetRenderWidth(), pglGetRenderHeight()));
 #elif defined(DAEDALUS_GL)
 	glViewport(mN64ToScreenTranslate.x + vp_x, (s32)mScreenHeight - (vp_h + vp_y), vp_w, vp_h);
 #else
@@ -2110,10 +2145,10 @@ void BaseRenderer::SetScissor( u32 x0, u32 y0, u32 x1, u32 y1 )
 	s32 w {Max<s32>( r - l, 0 )};
 	s32 h {Max<s32>( b - t, 0 )};
 	glScissor(
-		ScaleCTRToOutput(static_cast<s32>(mN64ToScreenTranslate.x + l), CTRGetRenderWidth(), pglGetRenderWidth()),
-		ScaleCTRToOutput(static_cast<s32>(mScreenHeight - (t + h)), CTRGetRenderHeight(), pglGetRenderHeight()),
-		ScaleCTRToOutput(w, CTRGetRenderWidth(), pglGetRenderWidth()),
-		ScaleCTRToOutput(h, CTRGetRenderHeight(), pglGetRenderHeight()));
+		ScaleCTRCoordinateX(static_cast<s32>(mN64ToScreenTranslate.x + l), CTRGetRenderWidth(), CTRGetRenderHeight(), pglGetRenderWidth(), pglGetRenderHeight()),
+		ScaleCTRCoordinateY(static_cast<s32>(mScreenHeight - (t + h)), CTRGetRenderWidth(), CTRGetRenderHeight(), pglGetRenderWidth(), pglGetRenderHeight()),
+		ScaleCTRExtentX(w, CTRGetRenderWidth(), CTRGetRenderHeight(), pglGetRenderWidth(), pglGetRenderHeight()),
+		ScaleCTRExtentY(h, CTRGetRenderWidth(), CTRGetRenderHeight(), pglGetRenderWidth(), pglGetRenderHeight()));
 #elif defined(DAEDALUS_GL)
 	// NB: OpenGL is x,y,w,h. Errors if width or height is negative, so clamp this.
 	s32 w {Max<s32>( r - l, 0 )};

@@ -712,11 +712,11 @@ char cacheLabel[48];
 		{
 			char valueText[16];
 			snprintf(valueText, sizeof(valueText), "%u", (unsigned int)gGlobalPreferences.CTRRenderWidth);
-			if (PromptNumericText("Render width (64-800 pixels)", valueText, valueText, sizeof(valueText), false))
+			if (PromptNumericText("Render width (64-2048 pixels)", valueText, valueText, sizeof(valueText), false))
 			{
 				char *end = NULL;
 				unsigned long value = strtoul(valueText, &end, 10);
-				if (end != valueText && *end == '\0' && value >= 64 && value <= 800)
+				if (end != valueText && *end == '\0' && value >= 64 && value <= 2048)
 					gGlobalPreferences.CTRRenderWidth = (u32)value;
 			}
 		}
@@ -725,16 +725,16 @@ char cacheLabel[48];
 		{
 			char valueText[16];
 			snprintf(valueText, sizeof(valueText), "%u", (unsigned int)gGlobalPreferences.CTRRenderHeight);
-			if (PromptNumericText("Render height (64-480 pixels)", valueText, valueText, sizeof(valueText), false))
+			if (PromptNumericText("Render height (64-2048 pixels)", valueText, valueText, sizeof(valueText), false))
 			{
 				char *end = NULL;
 				unsigned long value = strtoul(valueText, &end, 10);
-				if (end != valueText && *end == '\0' && value >= 64 && value <= 480)
+				if (end != valueText && *end == '\0' && value >= 64 && value <= 2048)
 					gGlobalPreferences.CTRRenderHeight = (u32)value;
 			}
 		}
-		UI::DrawText(12, 174, "Output stays 400x240; >400x240 enables 2x SSAA.");
-		UI::DrawText(12, 190, "Uses 800x480 off-screen buffers; restart ROM.");
+		UI::DrawText(12, 174, "Centered full-screen scaling with 5% tolerance.");
+		UI::DrawText(12, 190, "Supports sub-native, native, and high-res.");
 #endif
 	}
 #if !defined(DAEDALUS_MINIMAL_EMULATOR) && !defined(DAEDALUS_DOWNLOADPLAY)

@@ -509,6 +509,18 @@ bool ROM_LoadFile(const RomID & rom_id, const RomSettings & settings, const SRom
 	CTRPerfLearning::BeginGame(rom_id.CRC[0], rom_id.CRC[1], rom_id.CountryID, 0);
 #endif
 	g_ROM.TvType   = ROM_GetTvTypeFromID( g_ROM.rh.CountryID );
+#ifdef DAEDALUS_CTR
+	// 576i is the default for Euro ROMs ONLY (PAL), while 480p (864x480) is default for NTSC/others.
+	if (g_ROM.TvType == OS_TV_PAL)
+	{
+		if (gGlobalPreferences.CTRRenderWidth == 864 && gGlobalPreferences.CTRRenderHeight == 480)
+		{
+			gGlobalPreferences.CTRRenderWidth = 1040;
+			gGlobalPreferences.CTRRenderHeight = 576;
+			gGlobalPreferences.TVLaced = true;
+		}
+	}
+#endif
 
 	// Runtime per-ROM fixes remain enabled for all builds. A dedicated build
 	// may layer a verified compile-time profile on top of these defaults.

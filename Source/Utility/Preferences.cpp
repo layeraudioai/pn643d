@@ -560,8 +560,8 @@ SGlobalPreferences::SGlobalPreferences()
 ,	TVLaced( false )
 ,	TVType( TT_4_3 )
 #if defined(DAEDALUS_CTR) && !defined(DAEDALUS_MINIMAL_EMULATOR)
-,	CTRRenderWidth( 400 )
-,	CTRRenderHeight( 240 )
+,	CTRRenderWidth( 864 )
+,	CTRRenderHeight( 480 )
 #endif
 {
 }
